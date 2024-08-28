@@ -1,0 +1,37 @@
+[workspace]
+members = ["sqly-macros"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LMOORS30/sqly"
+authors = ["Lander Moors <lander.moors@decathlon.com>"]
+keywords = ["database", "async", "postgres"]
+categories = ["database", "asynchronous"]
+
+[package]
+name = "sqly"
+description = "A lightweight macro system on top of sqlx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+postgres = ["sqlx/postgres", "sqly-macros/postgres"]
+sqlite = ["sqlx/sqlite", "sqly-macros/sqlite"]
+mysql = ["sqlx/mysql","sqly-macros/mysql"]
+unchecked = ["sqly-macros/unchecked"]
+
+[workspace.dependencies]
+sqly-macros = { version = "=0.1.0", path = "sqly-macros" }
+
+[dependencies]
+sqlx = { version = "=0.8.0", default-features = false }
+sqly-macros = { workspace = true }
+
+[package.metadata.docs.rs]
+features = ["postgres"]
+targets = ["x86_64-unknown-linux-gnu"]
