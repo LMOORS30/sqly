@@ -4,8 +4,7 @@ use super::*;
 
 parse! {
     pub InsertTable {
-        ((table)! (= Path)!),
-        ((table_name)! (= String)!),
+        ((table)! (= syn::Path)!),
         ((rename)? (= Rename)!),
 
         ((print)?),

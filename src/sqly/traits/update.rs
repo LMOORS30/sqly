@@ -16,7 +16,7 @@ pub trait Update {
     /// 
     /// When generated with [`#[sqly(update)]`](derive@Table#update) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
-    /// As this type implements the [`Table`] trait the [`Table::update`](`Table::update`) alias is made available, this type serves no other purpose.
+    /// As this type implements the [`Table`](Table) trait the [`Table::update`](`Table::update`) alias is made available, this type serves no other purpose.
     type Table: Table;
 
     /// The query type for the operation to be executed.

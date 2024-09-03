@@ -1,7 +1,4 @@
-use syn::Visibility;
 use syn::Result;
-use syn::Ident;
-use syn::Path;
 
 mod delete;
 mod insert;
@@ -56,22 +53,22 @@ parse! {
         ((table)! (= String)!),
         ((rename)? (= Rename)!),
 
-        ((delete)? (= Ident)?),
-        ((insert)? (= Ident)?),
-        ((select)? (= Ident)?),
-        ((update)? (= Ident)?),
+        ((delete)? (= syn::Ident)?),
+        ((insert)? (= syn::Ident)?),
+        ((select)? (= syn::Ident)?),
+        ((update)? (= syn::Ident)?),
 
-        ((query_derive)* (= Path)+),
-        ((delete_derive)* (= Path)+),
-        ((insert_derive)* (= Path)+),
-        ((select_derive)* (= Path)+),
-        ((update_derive)* (= Path)+),
+        ((query_derive)* (= syn::Path)+),
+        ((delete_derive)* (= syn::Path)+),
+        ((insert_derive)* (= syn::Path)+),
+        ((select_derive)* (= syn::Path)+),
+        ((update_derive)* (= syn::Path)+),
 
-        ((query_visibility)? (= Visibility)!),
-        ((delete_visibility)? (= Visibility)!),
-        ((insert_visibility)? (= Visibility)!),
-        ((select_visibility)? (= Visibility)!),
-        ((update_visibility)? (= Visibility)!),
+        ((query_visibility)? (= syn::Visibility)!),
+        ((delete_visibility)? (= syn::Visibility)!),
+        ((insert_visibility)? (= syn::Visibility)!),
+        ((select_visibility)? (= syn::Visibility)!),
+        ((update_visibility)? (= syn::Visibility)!),
 
         ((print)?),
         ((debug)?),

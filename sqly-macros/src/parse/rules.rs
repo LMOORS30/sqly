@@ -1,37 +1,53 @@
 use proc_macro2::Span;
 
-#[derive(Clone, Debug)]
-pub struct Empty;
+pub struct Void;
 
-#[derive(Clone, Debug)]
-pub struct Info<T>{
+pub struct Info<T> {
     pub span: Span,
     pub data: T,
 }
 
-#[derive(Clone, Debug)]
-pub struct Name<T>{
+pub struct Name<T> {
     pub name: &'static str,
     pub span: Span,
     pub data: T,
 }
 
+pub mod safe {
+    pub use super::Void;
+
+    pub struct Info<T> {
+        pub data: T,
+    }
+
+    pub struct Name<T> {
+        pub name: &'static str,
+        pub data: T,
+    }
+
+    pub use super::Safe;
+}
+
+pub trait Safe: Sized {
+    type Error;
+    type Safe: Send + Sync + 'static;
+    fn send(self: &Self) -> Result<Self::Safe, Self::Error>;
+    fn sync(safe: &Self::Safe) -> Result<Self, Self::Error>;
+}
+
 impl<T> Info<T> {
     pub fn new(data: T, span: Span) -> Self {
-        Self {
-            data,
-            span,
-        }
+        Self { data, span }
     }
 }
 
 impl<T> Name<T> {
-    pub fn new(info: Info<T>, name: &'static str) -> Self {
-        Self {
-            data: info.data,
-            span: info.span,
-            name,
-        }
+    pub fn new(data: T, span: Span, name: &'static str) -> Self {
+        Self { data, span, name }
+    }
+
+    pub fn with(info: Info<T>, name: &'static str) -> Self {
+        Self::new(info.data, info.span, name)
     }
 }
 
@@ -47,7 +63,7 @@ impl<T: quote::ToTokens> quote::ToTokens for Info<T> {
     }
 }
 
-impl quote::ToTokens for Name<Info<Empty>> {
+impl quote::ToTokens for Name<Info<Void>> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         name.set_span(self.span);
@@ -95,23 +111,70 @@ impl<T: quote::ToTokens> quote::ToTokens for Name<Vec<T>> {
 
 
 
+impl<T> Info<T> {
+    pub fn send<S>(&self, data: S) -> syn::Result<safe::Info<S>> {
+        Ok(safe::Info { data })
+    }
+}
+
+impl<S> safe::Info<S> {
+    pub fn sync<T>(&self, data: T) -> syn::Result<Info<T>> {
+        let span = proc_macro2::Span::call_site();
+        Ok(Info { span, data })
+    }
+}
+
+impl<T> Name<T> {
+    pub fn send<S>(&self, data: S) -> syn::Result<safe::Name<S>> {
+        Ok(safe::Name { name: self.name, data })
+    }
+}
+
+impl<S> safe::Name<S> {
+    pub fn sync<T>(&self, data: T) -> syn::Result<Name<T>> {
+        let span = proc_macro2::Span::call_site();
+        Ok(Name { name: self.name, span, data })
+    }
+}
+
+impl<T: quote::ToTokens + syn::parse::Parse> Safe for T {
+    type Safe = String;
+    type Error = syn::Error;
+    fn send(self: &Self) -> Result<Self::Safe, Self::Error> {
+        Ok(self.to_token_stream().to_string())
+    }
+    fn sync(safe: &Self::Safe) -> Result<Self, Self::Error> {
+        syn::parse(safe.parse().map_err(|err| {
+            let span = proc_macro2::Span::call_site();
+            let msg = format!("{}", err);
+            syn::Error::new(span, msg)
+        })?)
+    }
+}
+
+
+
 macro_rules! parse {
 { $t:vis $table:ident { $(($($a:tt)*),)* } $f:vis $field:ident { $(($($b:tt)*),)* } } => {
 paste::paste! {
 
-    $t struct $table {
-        pub ident: syn::Ident,
-        pub fields: Vec<$field>,
-        pub vis: syn::Visibility,
-        pub attr: [<$table Attr>],
-        pub generic: syn::Generics,
+    safe! {
+        $t struct $table {
+            pub ident: syn::Ident,
+            pub fields: $field [*],
+            pub vis: syn::Visibility,
+            pub attr: [<$table Attr>],
+            pub generic: syn::Generics,
+        }
     }
 
-    $f struct $field {
-        pub ty: syn::Type,
-        pub ident: syn::Ident,
-        pub vis: syn::Visibility,
-        pub attr: [<$field Attr>],
+    safe! {
+        $f struct $field {
+            pub ty: syn::Type,
+            pub ident: syn::Ident,
+            pub vis: syn::Visibility,
+            pub attr: [<$field Attr>],
+        }
     }
 
     attr!($t [<$table Attr>] { $(($($a)*),)* });
@@ -192,22 +255,24 @@ paste::paste! {
 
     #[allow(non_camel_case_types)]
     enum [<$i Enum>] {
-        $($n(typed!(! $($t)*)),)*
+        $($n(typed!(crate::parse::rules::<! $($t)*>)),)*
     }
 
     $vis struct $i {
-        $(pub $n: typed!($r $($t)*),)*
+        $(pub $n: typed!(crate::parse::rules::<$r $($t)*>),)*
+    }
+
+    $vis struct [<Safe $i>] {
+        $(pub $n: saved!(crate::parse::rules::safe::<$r $($t)*>),)*
     }
 
     impl syn::parse::Parse for [<$i Enum>] {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
             let span = input.span();
             match &*input.parse::<syn::Ident>()?.to_string() {
-                $(stringify!($n) => token!(input, $($t)*).map(|v| {
-                    let info = crate::parse::rules::Info::new(v, span);
-                    let name = crate::parse::rules::Name::new(info, stringify!($n));
-                    [<$i Enum>]::$n(name)
-                }),)*
+                $(stringify!($n) => token!(input, $($t)*).map(|v| (
+                    [<$i Enum>]::$n(crate::parse::rules::Name::new(v, span, stringify!($n)))
+                )),)*
                 n => Err(syn::Error::new(span, format!(
                     "unknown attribute: #[sqly({})]", n
                 ))),
@@ -281,10 +346,69 @@ paste::paste! {
 
             Ok($i { $($n,)* })
         }
+    }
 
+    impl crate::parse::rules::Safe for $i {
+        type Safe = [<Safe $i>];
+        type Error = syn::Error;
+        fn send(self: &Self) -> std::result::Result<Self::Safe, Self::Error> {
+            Ok(Self::Safe { $($n: safe!({ $r }, self.$n, |name: &crate::parse::rules::Name<_>| {
+                name.send(safe!({ $($t)* }, name.data, |info: &crate::parse::rules::Info<_>| {
+                    info.send(safe!({ $($t)* }: info.data, crate::parse::rules::Safe::send))
+                })?)
+            })?,)* })
+        }
+        fn sync(safe: &Self::Safe) -> std::result::Result<Self, Self::Error> {
+            Ok(Self { $($n: safe!({ $r }, safe.$n, |name: &crate::parse::rules::safe::Name<_>| {
+                name.sync(safe!({ $($t)* }, name.data, |info: &crate::parse::rules::safe::Info<_>| {
+                    info.sync(safe!({ $($t)* }: info.data, crate::parse::rules::Safe::sync))
+                })?)
+            })?,)* })
+        }
     }
 
 } } }
+
+macro_rules! safe {
+{ $vis:vis struct $i:ident { $($v:vis $n:ident: $t:ty $([$r:tt])?,)* } } => {
+paste::paste! {
+    $vis struct $i {
+        $($v $n: safe!($t, $t $([$r])?),)*
+    }
+
+    $vis struct [<Safe $i>] {
+        $($v $n: safe!($t, <$t as crate::parse::rules::Safe>::Safe $([$r])?),)*
+    }
+
+    impl crate::parse::rules::Safe for $i {
+        type Safe = [<Safe $i>];
+        type Error = syn::Error;
+        fn send(self: &Self) -> std::result::Result<Self::Safe, Self::Error> {
+            Ok(Self::Safe { $($n: safe!({ $($r)? }, self.$n, crate::parse::rules::Safe::send)?,)* })
+        }
+        fn sync(safe: &Self::Safe) -> std::result::Result<Self, Self::Error> {
+            Ok(Self { $($n: safe!({ $($r)? }, safe.$n, crate::parse::rules::Safe::sync)?,)* })
+        }
+    }
+} };
+({ (= syn::$t:ty)$_:tt }: $info:expr, $safe:path) => ( $safe(&$info)? );
+({ (= $t:ty)$_:tt }: $info:expr, $safe:path) => ( Clone::clone(&$info) );
+({ }: $info:expr, $safe:path) => ( crate::parse::rules::safe::Void );
+({ $($t:tt)* }, $val:expr, $fun:expr) => {
+    r#match!({ $($t)* } {
+        ! => $fun(&$val),
+        ? => $val.as_ref().map($fun).map_or(Ok(None), |ok| ok.map(Some)),
+        + => $val.iter().map($fun).collect::<Result<Vec<_>>>(),
+        * => ~ +,
+    })
+};
+($_:ty, $t:ty) => ( $t );
+($_:ty, $t:ty [!]) => ( $t );
+($_:ty, $t:ty [?]) => ( Option<$t> );
+($_:ty, $t:ty [+]) => ( Vec<$t> );
+($_:ty, $t:ty [*]) => ( Vec<$t> );
+($t:ty, $_:ty [=]) => ( $t );
+}
 
 
 
@@ -302,7 +426,7 @@ macro_rules! vari {
 };
 { impl $vis:vis $e:ident $($a:ident)? { $(($v:ident, $n:expr, $s:expr),)* } $lit:tt } => {
 
-    #[derive(Clone,Copy,PartialEq,Eq)]
+    #[derive(Debug,Clone,Copy,PartialEq,Eq)]
     $vis enum $e {
         $($v,)*
     }
@@ -420,30 +544,38 @@ macro_rules! token {
     (, $i:expr, String) => ( $i.parse().map(|s: syn::LitStr| s.value()) );
     (, $i:expr, bool) => ( $i.parse().map(|s: syn::LitBool| s.value()) );
     (, $i:expr, $t:ty) => ( $i.parse::<$t>() );
-    (, $i:expr,) => ( Ok(crate::parse::rules::Empty) );
+    (, $i:expr,) => ( Ok(crate::parse::rules::Void) );
+}
+
+macro_rules! saved {
+    ($($p:ident::)*<$a:tt (= syn::$t:ident)$b:tt>) => {
+        typed!($($p::)*<$a(= <syn::$t as $($p::)*Safe>::Safe)$b>)
+    };
+    ($($p:ident::)*<$a:tt (= $t:ty)$b:tt>) => ( typed!($($p::)*<$a(= $t)$b>) );
+    ($($p:ident::)*<$a:tt>) => ( typed!($($p::)*<$a>) );
 }
 
 macro_rules! typed {
-    (?) => ( Option<crate::parse::rules::Name<crate::parse::rules::Info<crate::parse::rules::Empty>>> );
-    (*) => ( Vec<crate::parse::rules::Name<crate::parse::rules::Info<crate::parse::rules::Empty>>> );
-    (+) => ( Vec<crate::parse::rules::Name<crate::parse::rules::Info<crate::parse::rules::Empty>>> );
-    (!) => ( crate::parse::rules::Name<crate::parse::rules::Info<crate::parse::rules::Empty>> );
-    (? (= $t:ty)?) => ( Option<crate::parse::rules::Name<Option<crate::parse::rules::Info<$t>>>> );
-    (? (= $t:ty)*) => ( Option<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (? (= $t:ty)+) => ( Option<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (? (= $t:ty)!) => ( Option<crate::parse::rules::Name<crate::parse::rules::Info<$t>>> );
-    (* (= $t:ty)?) => ( Vec<crate::parse::rules::Name<Option<crate::parse::rules::Info<$t>>>> );
-    (* (= $t:ty)*) => ( Vec<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (* (= $t:ty)+) => ( Vec<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (* (= $t:ty)!) => ( Vec<crate::parse::rules::Name<crate::parse::rules::Info<$t>>> );
-    (+ (= $t:ty)?) => ( Vec<crate::parse::rules::Name<Option<crate::parse::rules::Info<$t>>>> );
-    (+ (= $t:ty)*) => ( Vec<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (+ (= $t:ty)+) => ( Vec<crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>>> );
-    (+ (= $t:ty)!) => ( Vec<crate::parse::rules::Name<crate::parse::rules::Info<$t>>> );
-    (! (= $t:ty)?) => ( crate::parse::rules::Name<Option<crate::parse::rules::Info<$t>>> );
-    (! (= $t:ty)*) => ( crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>> );
-    (! (= $t:ty)+) => ( crate::parse::rules::Name<Vec<crate::parse::rules::Info<$t>>> );
-    (! (= $t:ty)!) => ( crate::parse::rules::Name<crate::parse::rules::Info<$t>> );
+    ($($p:ident::)*<?>) => ( Option<$($p::)*Name<$($p::)*Info<$($p::)*Void>>> );
+    ($($p:ident::)*<*>) => ( Vec<$($p::)*Name<$($p::)*Info<$($p::)*Void>>> );
+    ($($p:ident::)*<+>) => ( Vec<$($p::)*Name<$($p::)*Info<$($p::)*Void>>> );
+    ($($p:ident::)*<!>) => ( $($p::)*Name<$($p::)*Info<$($p::)*Void>> );
+    ($($p:ident::)*<? (= $t:ty)?>) => ( Option<$($p::)*Name<Option<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<? (= $t:ty)*>) => ( Option<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<? (= $t:ty)+>) => ( Option<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<? (= $t:ty)!>) => ( Option<$($p::)*Name<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<* (= $t:ty)?>) => ( Vec<$($p::)*Name<Option<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<* (= $t:ty)*>) => ( Vec<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<* (= $t:ty)+>) => ( Vec<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<* (= $t:ty)!>) => ( Vec<$($p::)*Name<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<+ (= $t:ty)?>) => ( Vec<$($p::)*Name<Option<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<+ (= $t:ty)*>) => ( Vec<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<+ (= $t:ty)+>) => ( Vec<$($p::)*Name<Vec<$($p::)*Info<$t>>>> );
+    ($($p:ident::)*<+ (= $t:ty)!>) => ( Vec<$($p::)*Name<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<! (= $t:ty)?>) => ( $($p::)*Name<Option<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<! (= $t:ty)*>) => ( $($p::)*Name<Vec<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<! (= $t:ty)+>) => ( $($p::)*Name<Vec<$($p::)*Info<$t>>> );
+    ($($p:ident::)*<! (= $t:ty)!>) => ( $($p::)*Name<$($p::)*Info<$t>> );
 }
 
 macro_rules! r#match {

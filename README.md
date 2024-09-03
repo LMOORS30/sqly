@@ -23,6 +23,12 @@ features = ["postgres"]
 version = "0.8.0"
 default-features = false
 features = ["macros", "postgres"]
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
+[profile.dev.package.sqly-macros]
+opt-level = 3
 ```
 
 ##### Features
@@ -44,7 +50,7 @@ Currently only postgres is supported.
 - [x] Basic `DELETE` queries
 - [x] Basic `INSERT` queries
 - [x] Basic `UPDATE` queries
-- [ ] Storing information across separate `#[derive]` invocations
+- [X] Storing information across separate `#[derive]` invocations
 - [ ] Basic `SELECT` queries
 - [ ] `sqly::query!` macros to extend generated queries
 - [ ] `#[sqly(alias)]` attribute and optional override in macros

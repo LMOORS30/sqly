@@ -9,10 +9,8 @@ impl QueryTable {
 
     pub fn attrs(&self, _: Types) -> Result<Vec<TokenStream>> {
         let ident = &self.ident;
-        let table = &self.attr.table.data.data;
         let attrs = vectok![
             quote::quote! { table = #ident },
-            quote::quote! { table_name = #table },
             self.attr.rename,
             self.attr.print,
             self.attr.debug,

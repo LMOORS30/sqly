@@ -7,6 +7,9 @@ mod select;
 mod update;
 
 use crate::parse::*;
+use crate::cache::*;
+
+use std::fmt::Write;
 
 
 
@@ -14,8 +17,24 @@ impl TryFrom<QueryTable> for TokenStream {
     type Error = syn::Error;
 
     fn try_from(table: QueryTable) -> Result<TokenStream> {
-        table.debug(table.derived()?)
+        cache::store().table(table)
     }
+}
+
+impl Cache for QueryTable {
+
+    fn id(&self) -> Result<Id> {
+        Id::try_from(&self.ident)
+    }
+
+    fn dep(&self) -> Result<Dep> {
+        Ok(Dep::new())
+    }
+
+    fn call(self) -> Result<TokenStream> {
+        self.debug(self.derived()?)
+    }
+
 }
 
 

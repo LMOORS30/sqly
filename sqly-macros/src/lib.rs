@@ -1,5 +1,6 @@
 #![cfg(feature = "postgres")]
 
+mod cache;
 mod parse;
 mod quote;
 mod derive;

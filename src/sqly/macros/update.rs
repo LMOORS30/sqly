@@ -7,7 +7,7 @@ use super::*;
 /// 
 /// <br>
 /// 
-/// # Examples
+/// # Example
 /// ```
 /// use sqly::*;
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -20,7 +20,6 @@ use super::*;
 /// 
 /// #[derive(Update)]
 /// #[sqly(table = Book)]
-/// #[sqly(table_name = "books")] // currently required, soon obsolete
 /// struct UpdateBook {
 ///     #[sqly(key)]
 ///     id: i32,
@@ -37,7 +36,7 @@ use super::*;
 ///     Ok(())
 /// }
 /// ```
-///  
+/// 
 /// <br>
 /// <br>
 /// 
@@ -45,7 +44,6 @@ use super::*;
 /// 
 /// ##### Struct Attributes:
 /// `$[sqly((`[`table`](derive@Table#table)`)! (= `[`Path`](derive@Table#table)`)!) // required`<br>
-/// `$[sqly((`[`table_name`](derive@Table#table)`)! (= `[`String`](derive@Table#table)`)!) // currently required, soon obsolete`<br>
 /// `$[sqly((`[`rename`](derive@Table#rename)`)? (= `[`String`](derive@Table#rename)`)!)`<br>
 /// 
 /// `$[sqly((`[`print`](derive@Table#dev-attributes)`)?)`<br>

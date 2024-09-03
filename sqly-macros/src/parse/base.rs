@@ -116,6 +116,14 @@ base!($table, $field);
 
 impl $table {
 
+    pub fn table(&self) -> Result<String> {
+        let guard = crate::cache::fetch();
+        let table = &self.attr.table.data.data;
+        let table = guard.table(&table.try_into()?)?;
+        let table = table.attr.table.data.data.clone();
+        Ok(table)
+    }
+
     pub fn fields(&self) -> Result<impl Iterator<Item = &$field>> {
         let fields = self.fields.iter().filter(|field| {
             field.attr.skip.is_none()

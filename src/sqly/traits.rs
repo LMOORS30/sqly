@@ -19,13 +19,13 @@ pub use update::*;
 /// see [`#[derive(Table)]`](derive@Table) instead.
 /// 
 /// This trait serves as an alias to the implementation of other traits
-/// ([`Delete`], [`Insert`], [`Select`], [`Update`]) where `<Table = Self>`.
+/// ([`Delete`](Delete), [`Insert`](Insert), [`Select`](Select), [`Update`](Update)) where `<Table = Self>`.
 pub trait Table {
 
     /// Returns a query which deletes rows from the table according to the definition of the given type.
     /// 
     /// This function is not meant to be implemented
-    /// and instead delegates to [`Delete::delete`].
+    /// and instead delegates to [`Delete::delete`](Delete::delete).
     fn delete<R>(row: &R) -> R::Query<'_>
     where R: Delete<Table = Self> {
         row.delete()
@@ -34,7 +34,7 @@ pub trait Table {
     /// Returns a query which inserts rows into the table according to the definition of the given type.
     /// 
     /// This function is not meant to be implemented
-    /// and instead delegates to [`Insert::insert`].
+    /// and instead delegates to [`Insert::insert`](Insert::insert).
     fn insert<R>(row: &R) -> R::Query<'_>
     where R: Insert<Table = Self> {
         row.insert()
@@ -43,7 +43,7 @@ pub trait Table {
     /// Returns a query which selects rows from the table according to the definition of the given type.
     /// 
     /// This function is not meant to be implemented
-    /// and instead delegates to [`Select::select`].
+    /// and instead delegates to [`Select::select`](Select::select).
     fn select<R>(row: &R) -> R::Query<'_>
     where R: Select<Table = Self> {
         row.select()
@@ -52,7 +52,7 @@ pub trait Table {
     /// Returns a query which updates rows in the table according to the definition of the given type.
     /// 
     /// This function is not meant to be implemented
-    /// and instead delegates to [`Update::update`].
+    /// and instead delegates to [`Update::update`](Update::update).
     fn update<R>(row: &R) -> R::Query<'_>
     where R: Update<Table = Self> {
         row.update()

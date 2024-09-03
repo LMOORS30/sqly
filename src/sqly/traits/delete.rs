@@ -16,7 +16,7 @@ pub trait Delete {
     /// 
     /// When generated with [`#[sqly(delete)]`](derive@Table#delete) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
-    /// As this type implements the [`Table`] trait the [`Table::delete`](`Table::delete`) alias is made available, this type serves no other purpose.
+    /// As this type implements the [`Table`](Table) trait the [`Table::delete`](`Table::delete`) alias is made available, this type serves no other purpose.
     type Table: Table;
 
     /// The query type for the operation to be executed.

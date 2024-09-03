@@ -16,7 +16,7 @@ pub trait Insert {
     /// 
     /// When generated with [`#[sqly(insert)]`](derive@Table#insert) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
-    /// As this type implements the [`Table`] trait the [`Table::insert`](`Table::insert`) alias is made available, this type serves no other purpose.
+    /// As this type implements the [`Table`](Table) trait the [`Table::insert`](`Table::insert`) alias is made available, this type serves no other purpose.
     type Table: Table;
 
     /// The query type for the operation to be executed.

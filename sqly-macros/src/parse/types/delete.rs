@@ -4,8 +4,7 @@ use super::*;
 
 parse! {
     pub DeleteTable {
-        ((table)! (= Path)!),
-        ((table_name)! (= String)!),
+        ((table)! (= syn::Path)!),
         ((rename)? (= Rename)!),
 
         ((print)?),

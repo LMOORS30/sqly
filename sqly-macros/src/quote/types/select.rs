@@ -6,8 +6,27 @@ impl TryFrom<SelectTable> for TokenStream {
     type Error = syn::Error;
 
     fn try_from(table: SelectTable) -> Result<TokenStream> {
-        table.debug(table.derived()?)
+        cache::store().select(table)
     }
+}
+
+impl Cache for SelectTable {
+
+    fn id(&self) -> Result<Id> {
+        Id::try_from(&self.ident)
+    }
+
+    fn dep(&self) -> Result<Dep> {
+        let mut dep = Dep::new();
+        let table = &self.attr.table.data.data;
+        dep.end(Key::Table(table.try_into()?));
+        Ok(dep)
+    }
+
+    fn call(self) -> Result<TokenStream> {
+        self.debug(self.derived()?)
+    }
+
 }
 
 

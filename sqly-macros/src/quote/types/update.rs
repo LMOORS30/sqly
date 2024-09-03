@@ -6,8 +6,27 @@ impl TryFrom<UpdateTable> for TokenStream {
     type Error = syn::Error;
 
     fn try_from(table: UpdateTable) -> Result<TokenStream> {
-        table.debug(table.derived()?)
+        cache::store().update(table)
     }
+}
+
+impl Cache for UpdateTable {
+
+    fn id(&self) -> Result<Id> {
+        Id::try_from(&self.ident)
+    }
+
+    fn dep(&self) -> Result<Dep> {
+        let mut dep = Dep::new();
+        let table = &self.attr.table.data.data;
+        dep.art(Key::Table(table.try_into()?));
+        Ok(dep)
+    }
+
+    fn call(self) -> Result<TokenStream> {
+        self.debug(self.derived()?)
+    }
+
 }
 
 
@@ -40,22 +59,22 @@ impl UpdateTable {
 
     #[cfg(feature = "postgres")]
     pub fn query(&self) -> Result<TokenStream> {
-        let table = &self.attr.table_name.data.data;
         let mut query = String::new();
         let mut args = Vec::new();
+        let table = self.table()?;
 
-        query.push_str(&format!(
+        write!(&mut query,
             "UPDATE \"{table}\" SET\n",
-        ));
+        ).unwrap();
 
         let mut i = 1;
         for field in self.fields()? {
             if field.attr.key.is_none() {
                 let column = self.column(field)?;
                 let value = self.value(field)?;
-                query.push_str(&format!(
+                write!(&mut query,
                     "\t\"{column}\" = ${i},\n"
-                ));
+                ).unwrap();
                 args.push(value);
                 i += 1;
             }
@@ -69,9 +88,9 @@ impl UpdateTable {
             if field.attr.key.is_some() {
                 let column = self.column(field)?;
                 let value = self.value(field)?;
-                query.push_str(&format!(
+                write!(&mut query,
                     "\t\"{column}\" = ${j} AND\n"
-                ));
+                ).unwrap();
                 args.push(value);
                 j += 1;
             }

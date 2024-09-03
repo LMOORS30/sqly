@@ -15,7 +15,7 @@ pub use update::*;
 
 /// Applied to types which are defined to represent a database table.
 /// 
-/// This macro can also be used to generate definitions for [`Delete`], [`Insert`], [`Select`] and [`Update`] structs, along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
+/// This macro can also be used to generate definitions for [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) structs, along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
 /// 
 /// Also see:<br>
 /// [`#[derive(Delete)]`](derive@Delete)<br>
@@ -25,7 +25,7 @@ pub use update::*;
 /// 
 /// <br>
 /// 
-/// # Examples
+/// # Example
 /// ```
 /// use sqly::*;
 /// 
@@ -38,8 +38,6 @@ pub use update::*;
 /// <br>
 /// 
 /// ### Attribute Definition&ensp;<sub>(see [Attribute Notation](#attribute-notation) and [Attribute Documentation](#attribute-documentation))</sub>
-/// 
-/// This page also contains documentation for attributes used in the other derives which might not apply here. The definition below represents all attributes applicable to [`#[derive(Table)]`](`derive@Table`).
 /// 
 /// ##### Struct Attributes:
 /// `#[sqly((`[`table`](#table)`)! (= `[`String`](#table)`)!)] // required`<br>
@@ -79,8 +77,8 @@ pub use update::*;
 /// 
 /// Both the name and value are surrounded by parentheses and followed by a repetition operator, these are not matched literally but instead represent how many times the item must occur.
 /// 
-/// ` ! `&ensp;—&ensp;exactly once (optional)<br>
-/// ` ? `&ensp;—&ensp;at most once (required)<br>
+/// ` ! `&ensp;—&ensp;exactly once (required)<br>
+/// ` ? `&ensp;—&ensp;at most once (optional)<br>
 /// ` + `&ensp;—&ensp;at least once (required variadic)<br>
 /// ` * `&ensp;—&ensp;zero or more (optional variadic)
 /// 
@@ -128,26 +126,11 @@ pub use update::*;
 /// # }
 /// # #[derive(sqly::Delete)]
 /// #[sqly(table = path::Type)]
-/// # #[sqly(table_name = "")]
 /// # struct D { d: i32 }
 /// ```
 /// The path to a type representing the table which will be operated on.
 /// 
 /// This type is required to have [`#[derive(Table)]`](derive@Table).
-/// 
-/// ----
-/// ```no_run
-/// # #[derive(sqly::Table)]
-/// # #[sqly(table = "")]
-/// # struct T;
-/// # #[derive(sqly::Delete)]
-/// # #[sqly(table = T)]
-/// #[sqly(table_name = "string")]
-/// # struct D { d: i32 }
-/// ```
-/// Temporary attribute to include the table name when using `#[sqly(table = Path)]`.
-/// 
-/// This is required as storing information across separate `#[derive]` invocations is not yet implemented.
 /// 
 /// <br>
 /// 
@@ -159,7 +142,7 @@ pub use update::*;
 /// #[sqly(delete)]
 /// # struct T { #[sqly(key)] t: i32 };
 /// ```
-/// Generate a delete struct with [`#[derive(Delete)]`](derive@Delete).
+/// Generate a delete struct with [`#[derive(Delete)]`](derive@Delete) applied.
 /// 
 /// Only fields which are marked as [`#[sqly(key)]`](#key) will be included in the generated struct.
 /// 
@@ -184,7 +167,7 @@ pub use update::*;
 /// #[sqly(insert)]
 /// # struct T { t: i32 };
 /// ```
-/// Generate an insert struct with [`#[derive(Insert)]`](derive@Insert).
+/// Generate an insert struct with [`#[derive(Insert)]`](derive@Insert) applied.
 /// 
 /// All fields which are not marked as [`#[sqly(skip)]`](#skip) will be included in the generated struct.
 /// 
@@ -209,7 +192,7 @@ pub use update::*;
 /// #[sqly(select)]
 /// # struct T { #[sqly(key)] t: i32 };
 /// ```
-/// Generate a select struct with [`#[derive(Select)]`](derive@Select).
+/// Generate a select struct with [`#[derive(Select)]`](derive@Select) applied.
 /// 
 /// Only fields which are marked as [`#[sqly(key)]`](#key) will be included in the generated struct.
 /// 
@@ -238,7 +221,7 @@ pub use update::*;
 /// #[sqly(update)]
 /// # struct T { #[sqly(key)] t: i32, d: i32 };
 /// ```
-/// Generate an update struct with [`#[derive(Update)]`](derive@Update).
+/// Generate an update struct with [`#[derive(Update)]`](derive@Update) applied.
 /// 
 /// All fields which are not marked as [`#[sqly(skip)]`](#skip) will be included in the generated struct.
 /// 

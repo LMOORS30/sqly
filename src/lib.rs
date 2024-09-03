@@ -21,6 +21,12 @@
 //! version = "0.8.0"
 //! default-features = false
 //! features = ["postgres", "macros"]
+//! 
+//! [profile.dev.package.sqlx-macros]
+//! opt-level = 3
+//! 
+//! [profile.dev.package.sqly-macros]
+//! opt-level = 3
 //! ```
 //! 
 //! ##### Features
@@ -60,7 +66,6 @@
 //! 
 //! #[derive(Update)]
 //! #[sqly(table = Page)]
-//! #[sqly(table_name = "pages")] // currently required, soon obsolete
 //! struct MarkAsRead {
 //!     #[sqly(key)]
 //!     book_id: i32,
@@ -105,6 +110,8 @@
 //! }
 //! ```
 //! Currently only simple `DELETE`, `INSERT` and`UPDATE` queries are supported, `SELECT` is documented but not yet implemented. Any usage of [`#[derive(Select)]`](derive@Select) or [`#[sql(select)]`](derive@Table#select) will yield a compile error.
+//! 
+//! See [`#[derive(Table)]`](derive@Table) to get started.
 //! 
 //! <br>
 

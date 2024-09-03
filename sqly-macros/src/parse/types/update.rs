@@ -4,8 +4,7 @@ use super::*;
 
 parse! {
     pub UpdateTable {
-        ((table)! (= Path)!),
-        ((table_name)! (= String)!),
+        ((table)! (= syn::Path)!),
         ((rename)? (= Rename)!),
 
         ((print)?),
@@ -29,9 +28,8 @@ impl UpdateTable {
             field.attr.skip.is_some() &&
             field.attr.key.is_some()
         }) {
-            let skip = &field.attr.skip;
+            let span = field.attr.skip.as_ref().unwrap().span;
             let msg = "conflicting attributes: #[sqly(skip, key)]";
-            let span = skip.as_ref().unwrap().span;
             return Err(syn::Error::new(span, msg));
         }
 
