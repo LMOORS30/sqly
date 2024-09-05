@@ -51,13 +51,14 @@ Currently only postgres is supported.
 - [x] Basic `INSERT` queries
 - [x] Basic `UPDATE` queries
 - [X] Storing information across separate `#[derive]` invocations
-- [ ] Basic `SELECT` queries
+- [X] Basic `SELECT` queries
 - [ ] `sqly::query!` macros to extend generated queries
 - [ ] `#[sqly(alias)]` attribute and optional override in macros
 - [ ] `#[sqly(default, from, try_from, flatten)]` attributes for select
 - [ ] `#[sqly(optional)]` attribute for optional update and insert fields
 - [ ] `#[sqly(returning)]` attribute for generating SQL `RETURNING` clauses
 - [ ] `#[sqly(foreign)]` attributes for nested objects through SQL `JOIN` clauses
+- [ ] Support for decoding database rows unchecked or by index
 - [ ] Implementation of bulk operations for `&[T]`
 - [ ] Support for SQL `DISTINCT` clause in select
 - [ ] Support for including constants in the SQL

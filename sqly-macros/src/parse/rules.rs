@@ -351,14 +351,14 @@ paste::paste! {
     impl crate::parse::rules::Safe for $i {
         type Safe = [<Safe $i>];
         type Error = syn::Error;
-        fn send(self: &Self) -> std::result::Result<Self::Safe, Self::Error> {
+        fn send(self: &Self) -> core::result::Result<Self::Safe, Self::Error> {
             Ok(Self::Safe { $($n: safe!({ $r }, self.$n, |name: &crate::parse::rules::Name<_>| {
                 name.send(safe!({ $($t)* }, name.data, |info: &crate::parse::rules::Info<_>| {
                     info.send(safe!({ $($t)* }: info.data, crate::parse::rules::Safe::send))
                 })?)
             })?,)* })
         }
-        fn sync(safe: &Self::Safe) -> std::result::Result<Self, Self::Error> {
+        fn sync(safe: &Self::Safe) -> core::result::Result<Self, Self::Error> {
             Ok(Self { $($n: safe!({ $r }, safe.$n, |name: &crate::parse::rules::safe::Name<_>| {
                 name.sync(safe!({ $($t)* }, name.data, |info: &crate::parse::rules::safe::Info<_>| {
                     info.sync(safe!({ $($t)* }: info.data, crate::parse::rules::Safe::sync))
@@ -380,13 +380,25 @@ paste::paste! {
         $($v $n: safe!($t, <$t as crate::parse::rules::Safe>::Safe $([$r])?),)*
     }
 
+    impl $i {
+        pub fn send(&self) -> syn::Result<[<Safe $i>]> {
+            <$i as Safe>::send(self)
+        }
+    }
+
+    impl [<Safe $i>] {
+        pub fn sync(&self) -> syn::Result<$i> {
+            <$i as Safe>::sync(self)
+        }
+    }
+
     impl crate::parse::rules::Safe for $i {
         type Safe = [<Safe $i>];
         type Error = syn::Error;
-        fn send(self: &Self) -> std::result::Result<Self::Safe, Self::Error> {
+        fn send(self: &Self) -> core::result::Result<Self::Safe, Self::Error> {
             Ok(Self::Safe { $($n: safe!({ $($r)? }, self.$n, crate::parse::rules::Safe::send)?,)* })
         }
-        fn sync(safe: &Self::Safe) -> std::result::Result<Self, Self::Error> {
+        fn sync(safe: &Self::Safe) -> core::result::Result<Self, Self::Error> {
             Ok(Self { $($n: safe!({ $($r)? }, safe.$n, crate::parse::rules::Safe::sync)?,)* })
         }
     }
@@ -442,7 +454,7 @@ macro_rules! vari {
         impl TryFrom<$($a)?> for $e {
             type Error = $($a)?;
             #[allow(unreachable_patterns)]
-            fn try_from(a: $($a)?) -> std::result::Result<Self, $($a)?> {
+            fn try_from(a: $($a)?) -> core::result::Result<Self, $($a)?> {
                 match a {
                     $(Self::Error::$v => Ok(Self::$v),)*
                     _ => Err(a),

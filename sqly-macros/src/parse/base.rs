@@ -66,9 +66,9 @@ impl QueryTable {
 
     pub fn fields(&self, r#type: Types) -> Result<impl Iterator<Item = &QueryField>> {
         let fields = self.fields.iter().filter(move |field| {
-            !field.skipped(r#type) && match r#type {
-                crate::parse::Types::Delete => field.keyed(r#type),
-                crate::parse::Types::Select => field.keyed(r#type),
+            !self.skipped(field, r#type.into()) && match r#type {
+                crate::parse::Types::Delete => self.keyed(field, r#type),
+                crate::parse::Types::Select => self.keyed(field, r#type),
                 crate::parse::Types::Insert => true,
                 crate::parse::Types::Update => true,
             }
@@ -76,26 +76,20 @@ impl QueryTable {
         Ok(fields)
     }
 
-}
-
-
-
-impl QueryField {
-
-    pub fn skipped(&self, r#type: Types) -> bool {
-        match &self.attr.skip {
+    pub fn skipped(&self, field: &QueryField, r#type: Skips) -> bool {
+        match &field.attr.skip {
             None => false,
             Some(arr) => {
                 arr.data.is_empty() ||
                 arr.data.iter().any(|info| {
-                    r#type == info.data.into()
+                    r#type == info.data
                 })
             },
         }
     }
 
-    pub fn keyed(&self, r#type: Types) -> bool {
-        match &self.attr.key {
+    pub fn keyed(&self, field: &QueryField, r#type: Types) -> bool {
+        match &field.attr.key {
             None => false,
             Some(arr) => {
                 arr.data.is_empty() ||
@@ -110,9 +104,22 @@ impl QueryField {
 
 
 
-macro_rules! both {
+impl QueryTable {
+
+    pub fn columns(&self) -> Result<impl Iterator<Item = &QueryField>> {
+        let columns = self.fields.iter().filter(|field| {
+            !self.skipped(field, Skips::Query)
+        });
+        Ok(columns)
+    }
+
+}
+
+
+
+macro_rules! base {
 ($table:ty, $field:ty) => {
-base!($table, $field);
+both!($table, $field);
 
 impl $table {
 
@@ -137,33 +144,19 @@ impl $table {
 
 
 
-macro_rules! base {
+macro_rules! both {
 ($table:ty, $field:ty) => {
 
 impl $table {
-
-    pub fn column(&self, field: &$field) -> Result<String> {
-        let name = match &field.attr.column {
-            Some(column) => column.data.data.clone(),
-            None => field.ident.to_string(),
-        };
-        let all = &self.attr.rename;
-        let rename = &field.attr.rename;
-        let name = match rename.as_ref().or(all.as_ref()) {
-            Some(re) => re.data.data.rename(&name),
-            None => name,
-        };
-        Ok(name)
-    }
-
+    
 }
 
 } }
 
 
 
-base!(QueryTable, QueryField);
-both!(DeleteTable, DeleteField);
-both!(InsertTable, InsertField);
-both!(SelectTable, SelectField);
-both!(UpdateTable, UpdateField);
+both!(QueryTable, QueryField);
+base!(DeleteTable, DeleteField);
+base!(InsertTable, InsertField);
+base!(SelectTable, SelectField);
+base!(UpdateTable, UpdateField);

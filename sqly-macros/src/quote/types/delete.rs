@@ -29,8 +29,6 @@ impl Cache for DeleteTable {
 
 }
 
-
-
 impl DeleteTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
@@ -69,8 +67,8 @@ impl DeleteTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let column = self.column(field)?;
-            let value = self.value(field)?;
+            let column = self.column(field, Target::Query)?;
+            let value = self.value(field, Target::Query)?;
             write!(&mut query,
                 "\t\"{column}\" = ${i} AND\n"
             ).unwrap();
@@ -81,7 +79,6 @@ impl DeleteTable {
         query.truncate(query.len() - trunc);
 
         self.print(&query, &args)?;
-
         Ok(fun!(query, args))
     }
 

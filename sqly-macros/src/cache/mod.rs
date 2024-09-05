@@ -173,7 +173,7 @@ impl Guard<RwLockReadGuard<'static, Store>> {
     fn call(&self, key: &Key) -> Result<TokenStream> {
         match key {
             $(Key::$upper(id) => match self.0.$lower.get(id) {
-                Some(tree) => <$table as Safe>::sync(&tree.val)?.call(),
+                Some(tree) => tree.val.sync()?.call(),
                 None => {
                     let key = Key::$upper(id.clone());
                     let msg = format!("missing definition: {}", key);

@@ -29,8 +29,6 @@ impl Cache for InsertTable {
 
 }
 
-
-
 impl InsertTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
@@ -69,7 +67,7 @@ impl InsertTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let column = self.column(field)?;
+            let column = self.column(field, Target::Query)?;
             write!(&mut query,
                 "\t\"{column}\",\n"
             ).unwrap();
@@ -81,7 +79,7 @@ impl InsertTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let value = self.value(field)?;
+            let value = self.value(field, Target::Query)?;
             write!(&mut query,
                 "${i}, "
             ).unwrap();
@@ -93,7 +91,6 @@ impl InsertTable {
         query.push(')');
 
         self.print(&query, &args)?;
-
         Ok(fun!(query, args))
     }
 

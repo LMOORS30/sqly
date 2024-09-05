@@ -29,8 +29,6 @@ impl Cache for UpdateTable {
 
 }
 
-
-
 impl UpdateTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
@@ -70,8 +68,8 @@ impl UpdateTable {
         let mut i = 1;
         for field in self.fields()? {
             if field.attr.key.is_none() {
-                let column = self.column(field)?;
-                let value = self.value(field)?;
+                let column = self.column(field, Target::Query)?;
+                let value = self.value(field, Target::Query)?;
                 write!(&mut query,
                     "\t\"{column}\" = ${i},\n"
                 ).unwrap();
@@ -86,8 +84,8 @@ impl UpdateTable {
         let mut j = i;
         for field in &self.fields {
             if field.attr.key.is_some() {
-                let column = self.column(field)?;
-                let value = self.value(field)?;
+                let column = self.column(field, Target::Query)?;
+                let value = self.value(field, Target::Query)?;
                 write!(&mut query,
                     "\t\"{column}\" = ${j} AND\n"
                 ).unwrap();
@@ -99,7 +97,6 @@ impl UpdateTable {
         query.truncate(query.len() - trunc);
 
         self.print(&query, &args)?;
-
         Ok(fun!(query, args))
     }
 

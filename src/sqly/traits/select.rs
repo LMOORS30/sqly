@@ -21,7 +21,7 @@ pub trait Select {
 
     /// The query type for the operation to be executed.
     /// 
-    /// This will be equal to [`sqlx::query::Query`], with the `DB` type defined by the features enabled for this crate (see [Features](crate#features)).
+    /// This will be equal to [`sqlx::query::Map`], with the `DB` type defined by the features enabled for this crate (see [Features](crate#features)).
     type Query<'q>
         where Self: 'q;
 

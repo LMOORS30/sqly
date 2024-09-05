@@ -17,7 +17,7 @@ pub use update::*;
 /// 
 /// This macro can also be used to generate definitions for [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) structs, along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
 /// 
-/// Also see:<br>
+/// See:<br>
 /// [`#[derive(Delete)]`](derive@Delete)<br>
 /// [`#[derive(Insert)]`](derive@Insert)<br>
 /// [`#[derive(Select)]`](derive@Select)<br>
@@ -67,7 +67,7 @@ pub use update::*;
 /// `#[sqly((`[`column`](#column)`)? (= `[`String`](#column)`)!)]`<br>
 /// `#[sqly((`[`rename`](#rename)`)? (= `[`String`](#rename)`)!)]`<br>
 /// 
-/// `#[sqly((`[`skip`](#skip)`)? (= `[`delete`](#skip)` | `[`insert`](#skip)` | `[`select`](#skip)` | `[`update`](#skip)`)*)]`<br>
+/// `#[sqly((`[`skip`](#skip)`)? (= `[`delete`](#skip)` | `[`insert`](#skip)` | `[`select`](#skip)` | `[`update`](#skip)` | `[`query`](#skip)`)*)]`<br>
 /// `#[sqly((`[`key`](#key)`)? (= `[`delete`](#key)` | `[`select`](#key)` | `[`update`](#key)`)*)]`<br><br>
 /// 
 /// ### Attribute Notation
@@ -82,7 +82,7 @@ pub use update::*;
 /// ` + `&ensp;—&ensp;at least once (required variadic)<br>
 /// ` * `&ensp;—&ensp;zero or more (optional variadic)
 /// 
-/// If no value is specified in the definition there cannot be any values.
+/// If no value is specified in the definition there cannot be any value.
 /// 
 /// The value must occur the specified amount of times for each occurence of the name.
 /// 
@@ -108,7 +108,7 @@ pub use update::*;
 /// 
 /// #### table
 /// ----
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// #[sqly(table = "string")]
 /// # struct T;
@@ -118,7 +118,7 @@ pub use update::*;
 /// All uses of the table name will be enclosed in quotes.
 /// 
 /// ----
-/// ```no_run
+/// ```
 /// # mod path {
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
@@ -136,7 +136,7 @@ pub use update::*;
 /// 
 /// #### delete
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(delete)]
@@ -149,7 +149,7 @@ pub use update::*;
 /// The struct will be named by `format_ident!("Delete{}", name)`.
 /// 
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(delete = Ident)]
@@ -161,7 +161,7 @@ pub use update::*;
 /// 
 /// #### insert
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(insert)]
@@ -174,7 +174,7 @@ pub use update::*;
 /// The struct will be named by `format_ident!("Insert{}", name)`.
 /// 
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(insert = Ident)]
@@ -186,7 +186,7 @@ pub use update::*;
 /// 
 /// #### select
 /// ---
-/// ```compile_fail
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(select)]
@@ -198,10 +198,8 @@ pub use update::*;
 /// 
 /// The struct will be named by `format_ident!("Select{}", name)`.
 /// 
-/// This functionality is still under development.
-/// 
 /// ---
-/// ```compile_fail
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(select = Ident)]
@@ -209,13 +207,11 @@ pub use update::*;
 /// ```
 /// Same as above, except the struct name is set to the given `Ident`.
 /// 
-/// This functionality is still under development.
-/// 
 /// <br>
 /// 
 /// #### update
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(update)]
@@ -228,7 +224,7 @@ pub use update::*;
 /// The struct will be named by `format_ident!("Update{}", name)`.
 /// 
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(update = Ident)]
@@ -240,7 +236,7 @@ pub use update::*;
 /// 
 /// #### derive
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(query_derive = Clone)]
@@ -252,7 +248,7 @@ pub use update::*;
 /// Multiple instances of this attribute will be joined into a single list.
 /// 
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "", delete, insert)]
 /// # #[sqly(query_derive = Clone)]
@@ -270,7 +266,7 @@ pub use update::*;
 /// 
 /// #### visibility
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(query_visibility = pub(crate))]
@@ -281,7 +277,7 @@ pub use update::*;
 /// If not specified this defaults to the visibility of the current struct.
 /// 
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "", delete, insert)]
 /// #[sqly(insert_visibility = pub)]
@@ -298,7 +294,7 @@ pub use update::*;
 /// 
 /// #### dev-attributes
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// #[sqly(print)]
@@ -334,7 +330,7 @@ pub use update::*;
 /// 
 /// #### column
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// # struct T {
@@ -352,7 +348,7 @@ pub use update::*;
 /// 
 /// #### rename
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// # struct T {
@@ -381,7 +377,7 @@ pub use update::*;
 /// 
 /// #### skip
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// # struct T {
@@ -391,24 +387,29 @@ pub use update::*;
 /// ```
 /// Do not include the field when generating queries or structs.
 /// 
+/// When used in [`#[derive(Table)]`](derive@Table) the type for this field has to implement `Default`.
+/// 
 /// ---
-/// ```compile_fail
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "", delete, insert, select, update)]
 /// # struct T {
-/// #[sqly(skip = delete, insert, select, update)]
-/// # t: i32
+/// #[sqly(skip = delete, insert, select, update, query)]
+/// # t: i32,
+/// #[sqly(key)]
+/// # k: i32,
+/// # v: i32,
 /// # }
 /// ```
 /// Same as above, except only for the operations specified.
 /// 
-/// Compilation fails because select is not yet implemented.
+/// The `query` option refers to the columns queried from the database. When this is skipped no column will be fetched for the given field and it will instead be initialized through the `Default` trait.
 /// 
 /// <br>
 /// 
 /// #### key
 /// ---
-/// ```no_run
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "")]
 /// # struct T {
@@ -439,15 +440,14 @@ pub use update::*;
 /// When generating [`#[sqly(insert)]`](#insert) structs this attribute is ignored.
 /// 
 /// ---
-/// ```compile_fail
+/// ```
 /// # #[derive(sqly::Table)]
 /// # #[sqly(table = "", delete, select, update)]
 /// # struct T {
 /// #[sqly(key = delete, select, update)]
-/// # t: i32
+/// # t: i32,
+/// # v: i32,
 /// # }
 /// ```
 /// Same as above, except only for the operations specified.
-/// 
-/// Compilation fails because select is not yet implemented.
 pub use sqly_macros::Table;

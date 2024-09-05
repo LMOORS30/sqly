@@ -15,16 +15,14 @@ use super::rules::*;
 
 
 vars! {
-    pub Types {
+    pub Skips {
+        (Query = query),
         (Delete = delete),
         (Insert = insert),
         (Select = select),
         (Update = update),
     }
-}
-
-vars! {
-    pub Skips: Types {
+    pub Types: Skips {
         (Delete = delete),
         (Insert = insert),
         (Select = select),
@@ -118,11 +116,12 @@ impl QueryTable {
                     return Err(syn::Error::new(span, msg));
                 }
                 for skip in &skips.data {
-                    let typed = Types::from(skip.data);
-                    if keys.data.iter().any(|key| typed == key.data.into()) {
-                        let span = skip.span;
-                        let msg = "conflicting attributes: #[sqly(skip, key)]";
-                        return Err(syn::Error::new(span, msg));
+                    if let Ok(r#type) = Types::try_from(skip.data) {
+                        if keys.data.iter().any(|key| r#type == key.data.into()) {
+                            let span = skip.span;
+                            let msg = "conflicting attributes: #[sqly(skip, key)]";
+                            return Err(syn::Error::new(span, msg));
+                        }
                     }
                 }
             }
@@ -132,18 +131,18 @@ impl QueryTable {
     }
 
     fn list<T>(&self, list: &Option<Name<Vec<Info<T>>>>) -> Result<()>
-    where T: TryFrom<Types> + ToString + PartialEq + Copy {
-        let types = self.types()?.flat_map(|types| {
-            T::try_from(types).ok()
-        }).collect::<Vec<_>>();
+    where T: TryInto<Types> + ToString + PartialEq + Copy {
+        let types = self.types()?.collect::<Vec<_>>();
 
         if let Some(list) = list {
             for item in &list.data {
-                if !types.contains(&item.data) {
-                    let span = item.span;
-                    let name = item.data.to_string();
-                    let msg = format!("unused value: requires #[sqly({})] on struct", name);
-                    return Err(syn::Error::new(span, msg));
+                if let Ok(r#type) = item.data.try_into() {
+                    if !types.contains(&r#type) {
+                        let span = item.span;
+                        let name = item.data.to_string();
+                        let msg = format!("unused value: requires #[sqly({})] on struct", name);
+                        return Err(syn::Error::new(span, msg));
+                    }
                 }
             }
             for (i, item) in list.data.iter().enumerate() {

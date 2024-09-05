@@ -5,6 +5,14 @@ use crate::parse::*;
 
 
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Target {
+    Query,
+    Check,
+}
+
+
+
 impl QueryTable {
 
     pub fn attrs(&self, _: Types) -> Result<Vec<TokenStream>> {
@@ -52,60 +60,63 @@ impl QueryTable {
 
 
 
-impl QueryField {
+impl QueryTable {
 
-    pub fn stream(&self, r#type: Types) -> Result<TokenStream> {
-        let ty = &self.ty;
-        let vis = &self.vis;
-        let ident = &self.ident;
-
+    pub fn fttr(&self, field: &QueryField, r#type: Types) -> Result<TokenStream> {
         let mut attrs = vectok![
-            self.attr.column,
-            self.attr.rename,
+            field.attr.column,
+            field.attr.rename,
         ];
 
          match r#type {
-             Types::Delete => {},
-             Types::Insert => {},
-             Types::Select => {},
-             Types::Update => {
-                 if self.keyed(r#type) {
-                    let span = self.attr.key.as_ref().map(|key| {
+            Types::Delete => {},
+            Types::Insert => {},
+            Types::Select => {},
+            Types::Update => {
+                if self.keyed(field, r#type) {
+                    let span = field.attr.key.as_ref().map(|key| {
                         key.data.iter().find(|val| {
                             r#type == val.data.into()
                         }).map_or(key.span, |val| val.span)
                     }).unwrap_or_else(proc_macro2::Span::call_site);
                     attrs.push(quote::quote_spanned! { span => key });
-                 }
-             },
+                }
+            },
         }
 
-        let attr = match attrs.len() {
-            0 => TokenStream::new(),
-            _ => quote::quote! {
+        match attrs.len() {
+            0 => Ok(TokenStream::new()),
+            _ => Ok(quote::quote! {
                 #[sqly(#(#attrs),*)]
-            },
-        };
+            })
+        }
+    }
 
-        Ok(quote::quote! { #attr #vis #ident: #ty })
+    pub fn field(&self, field: &QueryField, target: Target) -> Result<TokenStream> {
+        let ty = &field.ty;
+        let vis = &field.vis;
+        match target {
+            Target::Query => {
+                let ident = &field.ident;
+                Ok(quote::quote! { #vis #ident: #ty })
+            },
+            Target::Check => {
+                let column = self.column(field, Target::Query)?;
+                let ident = quote::format_ident!("{column}");
+                Ok(quote::quote! { #vis #ident: #ty })
+            }
+        }
     }
 
 }
 
 
 
-macro_rules! both {
+macro_rules! base {
 ($table:ty, $field:ty) => {
-base!($table, $field);
+both!($table, $field);
 
 impl $table {
-
-    pub fn value(&self, field: &$field) -> Result<TokenStream> {
-        let ident = &field.ident;
-        let span = syn::spanned::Spanned::span(&field.ty);
-        let value = quote::quote_spanned!(span => self.#ident);
-        Ok(value)
-    }
 
 }
 
@@ -113,8 +124,53 @@ impl $table {
 
 
 
-macro_rules! base {
+macro_rules! both {
 ($table:ty, $field:ty) => {
+
+impl $table {
+
+    pub fn column(&self, field: &$field, target: Target) -> Result<String> {
+        let name = match &field.attr.column {
+            Some(column) => column.data.data.clone(),
+            None => field.ident.to_string(),
+        };
+
+        const SEP: &'static [char] = &['!', '?', ':'];
+        let (name, info) = match name.find(SEP) {
+            Some(i) => name.split_at(i),
+            None => (name.as_str(), ""),
+        };
+
+        let all = &self.attr.rename;
+        let rename = &field.attr.rename;
+        let name = match rename.as_ref().or(all.as_ref()) {
+            Some(re) => re.data.data.rename(name),
+            None => name.to_owned(),
+        };
+
+        match target {
+            Target::Query => Ok(name),
+            Target::Check => {
+                let mut name = name;
+                name.push_str(info);
+                Ok(name)
+            }
+        }
+    }
+
+    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
+        let span = syn::spanned::Spanned::span(&field.ty);
+        let ident = &field.ident;
+        let value = match target {
+            Target::Query => quote::quote_spanned!(span => self.#ident),
+            Target::Check => quote::quote_spanned!(span => item.#ident),
+        };
+        Ok(value)
+    }
+
+}
+
+
 
 impl $table {
 
@@ -159,8 +215,8 @@ impl $table {
 
 
 
-base!(QueryTable, QueryField);
-both!(DeleteTable, DeleteField);
-both!(InsertTable, InsertField);
-both!(SelectTable, SelectField);
-both!(UpdateTable, UpdateField);
+both!(QueryTable, QueryField);
+base!(DeleteTable, DeleteField);
+base!(InsertTable, InsertField);
+base!(SelectTable, SelectField);
+base!(UpdateTable, UpdateField);

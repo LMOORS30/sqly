@@ -52,16 +52,23 @@
 //! }
 //! 
 //! #[derive(Table)]
-//! #[sqly(insert, update, delete = DeleteAllPages)]
+//! #[sqly(insert, update, select)]
+//! #[sqly(delete = DeleteAllPages)]
 //! #[sqly(table = "pages")]
 //! struct Page {
 //!     #[sqly(key)]
 //!     book_id: i32,
-//!     #[sqly(key = update)]
+//!     #[sqly(key, skip = delete)]
 //!     page_number: i32,
 //!     content: String,
 //!     #[sqly(skip = update)]
 //!     read: bool,
+//! }
+//! 
+//! #[derive(Select)]
+//! #[sqly(table = Page)]
+//! struct GetBookPages {
+//!     book_id: i32,
 //! }
 //! 
 //! #[derive(Update)]
@@ -100,16 +107,31 @@
 //!     .execute(db)
 //!     .await?;
 //! 
+//!     let page = Page::select(&SelectPage {
+//!         book_id: book.id,
+//!         page_number: 1,
+//!     })
+//!     .fetch_one(db)
+//!     .await?;
+//!     assert_eq!(page.read, true);
+//! 
 //!     Page::delete(&DeleteAllPages {
 //!         book_id: book.id,
 //!     })
 //!     .execute(db)
 //!     .await?;
+//!
+//!     let pages = Page::select(&GetBookPages {
+//!         book_id: book.id,
+//!     })
+//!     .fetch_all(db)
+//!     .await?;
+//!     assert!(pages.is_empty());
 //! 
 //!     Ok(())
 //! }
 //! ```
-//! Currently only simple `DELETE`, `INSERT` and`UPDATE` queries are supported, `SELECT` is documented but not yet implemented. Any usage of [`#[derive(Select)]`](derive@Select) or [`#[sql(select)]`](derive@Table#select) will yield a compile error.
+//! Currently only simple `DELETE`, `INSERT`, `SELECT` and `UPDATE` queries are supported.
 //! 
 //! See [`#[derive(Table)]`](derive@Table) to get started.
 //! 

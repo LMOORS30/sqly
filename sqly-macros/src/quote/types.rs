@@ -6,6 +6,7 @@ mod insert;
 mod select;
 mod update;
 
+use super::base::*;
 use crate::parse::*;
 use crate::cache::*;
 
@@ -37,20 +38,26 @@ impl Cache for QueryTable {
 
 }
 
-
-
 impl QueryTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let table = self.table()?;
         let types = self.types()?;
+        let query = self.query()?;
+        let ident = &self.ident;
+        let db = db![];
 
-        let query = types.map(|t| self.query(t));
-        let query = query.collect::<Result<Vec<_>>>()?;
+        let typed = types.map(|t| self.typed(t));
+        let typed = typed.collect::<Result<Vec<_>>>()?;
 
         Ok(quote::quote! {
-            #table
-            #(#query)*
+            #[automatically_derived]
+            impl ::sqly::Table for #ident {
+                type DB = #db;
+                fn from_row(row: <Self::DB as ::sqlx::Database>::Row) -> ::sqlx::Result<Self> {
+                    #query
+                }
+            }
+            #(#typed)*
         })
     }
 
@@ -60,21 +67,26 @@ impl QueryTable {
 
 impl QueryTable {
 
-    pub fn query(&self, r#type: Types) -> Result<TokenStream> {
+    pub fn typed(&self, r#type: Types) -> Result<TokenStream> {
         let derive = self.derive(r#type)?;
         let attr = self.attr(r#type)?;
         let vis = self.vis(r#type)?;
         let name = self.name(r#type)?;
         let fields = self.fields(r#type)?;
 
-        let fields = fields.map(|f| f.stream(r#type));
-        let fields = fields.collect::<Result<Vec<_>>>()?;
+        let typed = fields.map(|field| {
+            let fttr = self.fttr(field, r#type)?;
+            let field = self.field(field, Target::Query)?;
+            Ok(quote::quote!{ #fttr #field })
+        });
+
+        let typed = typed.collect::<Result<Vec<_>>>()?;
 
         Ok(quote::quote! {
             #[automatically_derived]
             #derive #attr
             #vis struct #name {
-                #(#fields,)*
+                #(#typed,)*
             }
         })
     }
@@ -85,12 +97,32 @@ impl QueryTable {
 
 impl QueryTable {
 
-    pub fn table(&self) -> Result<TokenStream> {
-        let ident = &self.ident;
+    pub fn query(&self) -> Result<TokenStream> {
+        let fields = self.fields.iter();
+
+        let fields = fields.map(|field| {
+            let ident = &field.ident;
+
+            match self.skipped(field, Skips::Query) {
+                true => {
+                    Ok(quote::quote! {
+                        #ident: ::core::default::Default::default()
+                    })
+                }
+                false => {
+                    let column = self.column(field, Target::Query)?;
+                    Ok(quote::quote! {
+                        #ident: row.try_get(#column)?
+                    })
+                }
+            }
+        });
+
+        let fields = fields.collect::<Result<Vec<_>>>()?;
 
         Ok(quote::quote! {
-            #[automatically_derived]
-            impl ::sqly::Table for #ident {}
+            use ::sqlx::Row;
+            Ok(Self { #(#fields,)* })
         })
     }
 

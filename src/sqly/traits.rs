@@ -21,6 +21,17 @@ pub use update::*;
 /// This trait serves as an alias to the implementation of other traits
 /// ([`Delete`](Delete), [`Insert`](Insert), [`Select`](Select), [`Update`](Update)) where `<Table = Self>`.
 pub trait Table {
+    /// The sqlx database type for which queries are built.
+    /// 
+    /// This will be equal to the type defined by the features enabled for this crate (see [Features](crate#features)).
+    type DB: sqlx::Database;
+
+    /// Returns a table record built from a row returned by the database.
+    /// 
+    /// This function is not meant to be manualy implemented,
+    /// see [`#[derive(Table)]`](derive@Table) instead.
+    fn from_row(row: <Self::DB as sqlx::Database>::Row) -> sqlx::Result<Self>
+    where Self: Sized;
 
     /// Returns a query which deletes rows from the table according to the definition of the given type.
     /// 

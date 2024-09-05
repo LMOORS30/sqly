@@ -8,7 +8,7 @@ use super::*;
 /// <br>
 /// 
 /// # Example
-/// ```compile_fail
+/// ```
 /// use sqly::*;
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// 
@@ -33,7 +33,6 @@ use super::*;
 ///     Ok(res)
 /// }
 /// ```
-/// Compilation fails because select is not yet implemented.
 /// 
 /// <br>
 /// <br>
