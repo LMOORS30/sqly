@@ -14,7 +14,7 @@
 //! ##### Cargo.toml
 //! ```toml
 //! [dependencies.sqly]
-//! version = "0.1.0"
+//! version = "0.2.0"
 //! features = ["postgres"]
 //! 
 //! [dependencies.sqlx]
