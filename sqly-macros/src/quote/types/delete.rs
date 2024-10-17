@@ -43,6 +43,7 @@ impl DeleteTable {
                 type Table = #table;
                 type Query<'q> = #res;
                 fn delete(&self) -> Self::Query<'_> {
+                    let obj = self;
                     #query
                 }
             }
@@ -55,7 +56,6 @@ impl DeleteTable {
 
 impl DeleteTable {
 
-    #[cfg(feature = "postgres")]
     pub fn query(&self) -> Result<TokenStream> {
         let mut query = String::new();
         let mut args = Vec::new();
@@ -67,19 +67,20 @@ impl DeleteTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let column = self.column(field, Target::Query)?;
-            let value = self.value(field, Target::Query)?;
+            let column = self.column(field)?;
             write!(&mut query,
                 "\t\"{column}\" = ${i} AND\n"
             ).unwrap();
-            args.push(value);
+            args.push(field);
             i += 1;
         }
         let trunc = if i > 1 { 5 } else { 7 };
         query.truncate(query.len() - trunc);
 
         self.print(&query, &args)?;
-        Ok(fun!(query, args))
+        let run = fun!(self, query, args);
+        let check = self.check(&query, &args)?;
+        Ok(quote::quote! { #check #run })
     }
 
 }

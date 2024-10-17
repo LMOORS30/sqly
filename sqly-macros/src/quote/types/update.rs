@@ -43,6 +43,7 @@ impl UpdateTable {
                 type Table = #table;
                 type Query<'q> = #res;
                 fn update(&self) -> Self::Query<'_> {
+                    let obj = self;
                     #query
                 }
             }
@@ -55,7 +56,6 @@ impl UpdateTable {
 
 impl UpdateTable {
 
-    #[cfg(feature = "postgres")]
     pub fn query(&self) -> Result<TokenStream> {
         let mut query = String::new();
         let mut args = Vec::new();
@@ -68,12 +68,11 @@ impl UpdateTable {
         let mut i = 1;
         for field in self.fields()? {
             if field.attr.key.is_none() {
-                let column = self.column(field, Target::Query)?;
-                let value = self.value(field, Target::Query)?;
+                let column = self.column(field)?;
                 write!(&mut query,
                     "\t\"{column}\" = ${i},\n"
                 ).unwrap();
-                args.push(value);
+                args.push(field);
                 i += 1;
             }
         }
@@ -84,12 +83,11 @@ impl UpdateTable {
         let mut j = i;
         for field in &self.fields {
             if field.attr.key.is_some() {
-                let column = self.column(field, Target::Query)?;
-                let value = self.value(field, Target::Query)?;
+                let column = self.column(field)?;
                 write!(&mut query,
                     "\t\"{column}\" = ${j} AND\n"
                 ).unwrap();
-                args.push(value);
+                args.push(field);
                 j += 1;
             }
         }
@@ -97,7 +95,9 @@ impl UpdateTable {
         query.truncate(query.len() - trunc);
 
         self.print(&query, &args)?;
-        Ok(fun!(query, args))
+        let run = fun!(self, query, args);
+        let check = self.check(&query, &args)?;
+        Ok(quote::quote! { #check #run })
     }
 
 }

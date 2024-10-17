@@ -21,6 +21,7 @@ repository.workspace = true
 
 [features]
 postgres = ["sqlx/postgres", "sqly-macros/postgres"]
+mariadb = ["sqlx/mysql", "sqly-macros/mariadb"]
 sqlite = ["sqlx/sqlite", "sqly-macros/sqlite"]
 mysql = ["sqlx/mysql","sqly-macros/mysql"]
 unchecked = ["sqly-macros/unchecked"]
@@ -29,7 +30,7 @@ unchecked = ["sqly-macros/unchecked"]
 sqly-macros = { version = "=0.2.0", path = "sqly-macros" }
 
 [dependencies]
-sqlx = { version = "=0.8.0", default-features = false }
+sqlx = { version = "0.8.0", default-features = false }
 sqly-macros = { workspace = true }
 
 [package.metadata.docs.rs]

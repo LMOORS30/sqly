@@ -43,6 +43,7 @@ impl InsertTable {
                 type Table = #table;
                 type Query<'q> = #res;
                 fn insert(&self) -> Self::Query<'_> {
+                    let obj = self;
                     #query
                 }
             }
@@ -55,7 +56,6 @@ impl InsertTable {
 
 impl InsertTable {
 
-    #[cfg(feature = "postgres")]
     pub fn query(&self) -> Result<TokenStream> {
         let mut query = String::new();
         let mut args = Vec::new();
@@ -67,7 +67,7 @@ impl InsertTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let column = self.column(field, Target::Query)?;
+            let column = self.column(field)?;
             write!(&mut query,
                 "\t\"{column}\",\n"
             ).unwrap();
@@ -79,11 +79,10 @@ impl InsertTable {
 
         let mut i = 1;
         for field in self.fields()? {
-            let value = self.value(field, Target::Query)?;
             write!(&mut query,
                 "${i}, "
             ).unwrap();
-            args.push(value);
+            args.push(field);
             i += 1;
         }
         let trunc = if i > 1 { 2 } else { 0 };
@@ -91,7 +90,9 @@ impl InsertTable {
         query.push(')');
 
         self.print(&query, &args)?;
-        Ok(fun!(query, args))
+        let run = fun!(self, query, args);
+        let check = self.check(&query, &args)?;
+        Ok(quote::quote! { #check #run })
     }
 
 }

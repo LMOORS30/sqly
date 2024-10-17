@@ -43,6 +43,7 @@ impl SelectTable {
                 type Table = #table;
                 type Query<'q> = #res;
                 fn select(&self) -> Self::Query<'_> {
+                    let obj = self;
                     #query
                 }
             }
@@ -53,119 +54,130 @@ impl SelectTable {
 
 
 
-impl SelectTable {
+impl<'c> Construct<'c> {
 
-    #[cfg(feature = "postgres")]
-    pub fn query(&self) -> Result<TokenStream> {
-        let res = &self.attr.table.data.data;
-        let table = cache::fetch().table(&res.try_into()?)?.sync()?;
-
-        let mut query = table.select(Target::Query)?;
-        let args = self.filter(&mut query, Target::Query)?;
-
-        self.print(&query, &args)?;
-        let run = fun!(query, args);
-        let check = self.check(&table)?;
-
-        Ok(quote::quote! {
-            #check
-            #run.try_map(<#res as ::sqly::Table>::from_row)
-        })
-    }
-
-    #[cfg(not(feature = "unchecked"))]
-    pub fn check(&self, table: &QueryTable) -> Result<TokenStream> {
-        let mut query = table.select(Target::Check)?;
-        let args = self.filter(&mut query, Target::Check)?;
-
-        let item = &self.ident;
-        let ident = &table.ident;
-        let columns = table.columns()?;
-
-        let typed = columns.map(|field| {
-            table.field(field, Target::Check)
-        });
-
-        let typed = typed.collect::<Result<Vec<_>>>()?;
-
-        Ok(quote::quote! {
-            fn __(item: &#item) {
-                #[allow(non_snake_case)]
-                struct #ident { #(#typed,)* }
-                ::sqlx::query_as!(#ident, #query #(, #args)*);
-            }
-        })
-    }
-
-    #[cfg(feature = "unchecked")]
-    pub fn check(&self, _: &QueryTable) -> Result<TokenStream> {
-        Ok(TokenStream::new())
-    }
-
-}
-
-
-
-impl QueryTable {
-
-    pub fn select(&self, target: Target) -> Result<String> {
-        let table = &self.attr.table.data.data;
+    pub fn query(&self, target: Target) -> Result<String> {
+        let table = &self.table.attr.table.data.data;
         let mut query = String::new();
+        let mut joins = String::new();
+        let unique = self.unique()?;
 
         write!(&mut query,
             "SELECT\n"
         ).unwrap();
 
         let mut i = 1;
-        for field in self.columns()? {
-            let column = self.column(field, Target::Query)?;
-            write!(&mut query,
-                "\t\"{column}\""
-            ).unwrap();
-            if let Target::Check = target {
-                let column = self.column(field, Target::Check)?;
-                write!(&mut query,
-                    " AS \"{column}\""
-                ).unwrap();
+        for flattened in self.flattened()? {
+            let flattened = flattened?;
+            match &flattened.column.code {
+                Code::Skip => {},
+                Code::Query => {
+                    let alias = flattened.column.alias()?;
+                    let alias = match target {
+                        Target::Function => alias,
+                        Target::Macro => &format!("{alias}!: _"),
+                    };
+                    let column = flattened.column.column()?;
+                    let table = flattened.construct.unique()?;
+                    write!(&mut query,
+                        "\t\"{table}\".\"{column}\" AS \"{alias}\",\n"
+                    ).unwrap();
+                    i += 1;
+                },
+                Code::Foreign(construct) => {
+                    let column = flattened.column;
+                    let list = column.table.foreigns(column.field)?;
+                    if !list.is_empty() {
+                        let params = flattened.foreigns(construct)?;
+                        let foreign = list.into_iter().map(|foreign| {
+                            params.replace(&foreign.data, foreign.span)
+                        }).collect::<Result<String>>()?;
+                        joins.push_str(&foreign);
+                    }
+                    else {
+                        let unique = construct.unique()?;
+                        let table = flattened.construct.unique()?;
+                        let other = &construct.table.attr.table.data.data;
+                        let resolved = construct.correlate(flattened.column)?;
+                        let column = flattened.column.column()?;
+                        let optional = construct.optional()?;
+                        let foreign = resolved.column()?;
+                        let join = match optional.or(flattened.optional) {
+                            Some(_) => "LEFT JOIN",
+                            None => "INNER JOIN",
+                        };
+                        write!(&mut joins,
+                            "\n{} \"{}\" AS \"{}\" ON \"{}\".\"{}\" = \"{}\".\"{}\"",
+                            join, other, unique, unique, foreign, table, column,
+                        ).unwrap();
+                    }
+                }
             }
-            query.push_str(",\n");
-            i += 1;
         }
         let trunc = if i > 1 { 2 } else { 1 };
         query.truncate(query.len() - trunc);
 
         write!(&mut query,
-            "\nFROM \"{table}\""
+            "\nFROM \"{table}\" AS \"{unique}\""
         ).unwrap();
+
+        query.push_str(&joins);
 
         Ok(query)
     }
 
 }
 
+
+
 impl SelectTable {
 
-    pub fn filter(&self, query: &mut String, target: Target) -> Result<Vec<TokenStream>> {
+    pub fn query(&self) -> Result<TokenStream> {
+        let res = &self.attr.table.data.data;
+        let table = cache::fetch().table(&res.try_into()?)?.sync()?;
+
+        let mut local = Local::default();
+        let local = table.colocate(&mut local)?;
+        let construct = table.construct(local)?;
+        let table = construct.unique()?;
+
+        let mut query = construct.query(Target::Function)?;
+        let mut select = String::new();
         let mut args = Vec::new();
 
-        write!(query,
+        write!(&mut select,
             "\nWHERE\n"
         ).unwrap();
 
         let mut i = 1;
         for field in self.fields()? {
-            let column = self.column(field, Target::Query)?;
-            let value = self.value(field, target)?;
-            write!(query,
-                "\t\"{column}\" = ${i} AND\n"
+            let column = self.column(field)?;
+            write!(&mut select,
+                "\t\"{table}\".\"{column}\" = ${i} AND\n"
             ).unwrap();
-            args.push(value);
+            args.push(field);
             i += 1;
         }
         let trunc = if i > 1 { 5 } else { 7 };
-        query.truncate(query.len() - trunc);
+        select.truncate(select.len() - trunc);
 
-        Ok(args)
+        query.push_str(&select);
+        self.print(&query, &args)?;
+        let run = fun!(self, query, args);
+
+        let check = self.checked(&args, |args| {
+            let mut query = construct.query(Target::Macro)?;
+            query.push_str(&select);
+            Ok(quote::quote! {
+                type Flat = <#res as ::sqly::Table>::Flat;
+                ::sqlx::query_as!(Flat, #query #(, #args)*);
+            })
+        })?;
+
+        Ok(quote::quote! {
+            #check
+            #run.try_map(<#res as ::sqly::Table>::from_row)
+        })
     }
 
 }

@@ -22,7 +22,7 @@ features = ["postgres"]
 [dependencies.sqlx]
 version = "0.8.0"
 default-features = false
-features = ["macros", "postgres"]
+features = ["postgres", "macros"]
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
@@ -34,6 +34,7 @@ opt-level = 3
 ##### Features
 `unchecked`&ensp;—&ensp;disable compile-time checking<br>
 ` postgres`&ensp;—&ensp;generate queries for PostgreSQL<br>
+`  mariadb`&ensp;—&ensp;generate queries for MariaDB (not supported)<br>
 `   sqlite`&ensp;—&ensp;generate queries for SQLite (not supported)<br>
 `    mysql`&ensp;—&ensp;generate queries for MySQL (not supported)
 
@@ -42,29 +43,43 @@ Currently only postgres is supported.
 <br>
 
 ### Usage
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-sqly-5e8a76?labelColor=343942&style=for-the-badge&logo=docs.rs" height="20">](https://docs.rs/sqly)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-sqly-5e8a76?labelColor=343942&style=for-the-badge&logo=docs.rs" height="30">](https://docs.rs/sqly)
 
 <br>
 
 ### Roadmap
+**Major**
 - [x] Basic `DELETE` queries
 - [x] Basic `INSERT` queries
 - [x] Basic `UPDATE` queries
-- [X] Storing information across separate `#[derive]` invocations
 - [X] Basic `SELECT` queries
+    - [X] Storing information across separate `#[derive]` invocations
+    - [ ] Optional outer macro pattern for better compiler support
+- [X] `#[sqly(foreign)]`
+    - [X] SQL `INNER JOIN`
+    - [X] SQL `LEFT JOIN`
+    - [X] Custom SQL joins
+    - [X] Unique table aliases
 - [ ] `sqly::query!` macros to extend generated queries
-- [ ] `#[sqly(alias)]` attribute and optional override in macros
-- [ ] `#[sqly(default, from, try_from, flatten)]` attributes for select
-- [ ] `#[sqly(optional)]` attribute for optional update and insert fields
-- [ ] `#[sqly(returning)]` attribute for generating SQL `RETURNING` clauses
-- [ ] `#[sqly(foreign)]` attributes for nested objects through SQL `JOIN` clauses
-- [ ] Support for decoding database rows unchecked or by index
+
+**Minor**
+- [X] `Table::Flat` type for convenience
+    - [ ] `#[derive(Flat)]` and `#[sqly(flat)]` for flexibility
+- [X] `#[sqly(infer)]` for custom sqlx types
+- [X] `#[sqly(value)]` for custom parameter binding
+- [ ] `#[sqly(select)]` for custom SQL select expressions
+- [ ] `#[sqly(filter)]` for custom SQL filter expressions
+- [ ] `#[sqly(optional)]` for optional update and insert fields
+- [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
+- [ ] `#[sqly(distinct)]` for SQL `DISTINCT` clause
+- [ ] `#[sqly(from, try_from, default)]` for table
 - [ ] Implementation of bulk operations for `&[T]`
-- [ ] Support for SQL `DISTINCT` clause in select
-- [ ] Support for including constants in the SQL
-- [ ] Support for filtering on nullable columns
-- [ ] Support for foreign macro attributes
-- [ ] Support for generics
+
+**Draft**
+- [ ] `#[sqly(group)]` for SQL `GROUP BY` clause
+- [ ] Decoding database rows unchecked or by index
+- [ ] Custom macro attributes in generated structs
+- [ ] Support for generic structs
 - [ ] ... ?
 
 <br>

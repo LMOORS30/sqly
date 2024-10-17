@@ -28,16 +28,18 @@ macro_rules! result {
 
 
 macro_rules! fun {
-($query:ident, $args:ident) => ({
+($table:ident, $query:ident, $args:ident) => ({
     let db = db![];
-    let args = $args;
-    let len = args.len();
+    let len = $args.len();
     let bind = (0..len).map(|i| {
         quote::format_ident!("arg{i}")
     }).collect::<Vec<_>>();
+    let expr = $args.iter().map(|field| {
+        $table.value(field, Target::Function)
+    }).collect::<Result<Vec<_>>>()?;
     quote::quote!{
-        use ::sqlx::Arguments;
-        #(let #bind = &#args;)*
+        #(let #bind = &(#expr);)*
+        use ::sqlx::Arguments as _;
         let mut args = <#db as ::sqlx::Database>::Arguments::<'_>::default();
         args.reserve(#len, 0 #(+ ::sqlx::Encode::<#db>::size_hint(#bind))*);
         let args = ::core::result::Result::<_, ::sqlx::error::BoxDynError>::Ok(args)

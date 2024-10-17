@@ -13,6 +13,10 @@ use std::sync::RwLock;
 
 use super::parse::*;
 
+pub use construct::*;
+
+mod construct;
+
 
 
 macro_rules! cache {
@@ -39,7 +43,12 @@ pub enum Key {
 impl TryFrom<&syn::Ident> for Id {
     type Error = syn::Error;
     fn try_from(ident: &syn::Ident) -> Result<Self> {
-        Ok(Self { ident: ident.to_string() })
+        let ident = ident.to_string();
+        let strip = match ident.strip_prefix("r#") {
+            Some(strip) => strip.to_string(),
+            None => ident,
+        };
+        Ok(Self { ident: strip })
     }
 }
 
@@ -47,11 +56,20 @@ impl TryFrom<&syn::Path> for Id {
     type Error = syn::Error;
     fn try_from(path: &syn::Path) -> Result<Self> {
         match path.segments.last() {
-            Some(segment) => Id::try_from(&segment.ident),
             None => {
                 let span = syn::spanned::Spanned::span(path);
-                let msg = "invalid path: no segments";
+                let msg = "invalid path: no segments\n\
+                    note: required by sqly internals";
                 Err(syn::Error::new(span, msg))
+            },
+            Some(segment) => {
+                if !segment.arguments.is_none() {
+                    let span = syn::spanned::Spanned::span(path);
+                    let msg = "invalid path: generics not supported\n\
+                        note: required by sqly internals";
+                    return Err(syn::Error::new(span, msg));
+                }
+                Id::try_from(&segment.ident)
             }
         }
     }
@@ -119,7 +137,7 @@ impl Dep {
             Res::Art => match self.set.get(&key) {
                 Some(&res) => res == Res::Art,
                 None => false,
-            },
+            }
         };
         match pop {
             false => None,
@@ -135,18 +153,26 @@ impl Dep {
 
 pub struct Guard<T>(T);
 
+pub type ReadGuard = Guard<RwLockReadGuard<'static, Store>>;
+pub type WriteGuard = Guard<RwLockWriteGuard<'static, Store>>;
+
 #[derive(Default)]
 pub struct Store {
     $($lower: Map<Id, Tree<<$table as Safe>::Safe>>,)*
 }
 
+#[derive(Default)]
+pub struct Local {
+    $($lower: Map<Id, $table>,)*
+}
+
 static STORE: OnceLock<RwLock<Store>> = OnceLock::new();
 
-pub fn fetch() -> Guard<RwLockReadGuard<'static, Store>> {
+pub fn fetch() -> ReadGuard {
     Guard(STORE.get_or_init(Default::default).read().unwrap())
 }
 
-pub fn store() -> Guard<RwLockWriteGuard<'static, Store>> {
+pub fn store() -> WriteGuard {
     Guard(STORE.get_or_init(Default::default).write().unwrap())
 }
 
@@ -156,6 +182,30 @@ pub mod cache {
 }
 
 #[allow(dead_code)]
+impl Local {
+paste::paste! {
+
+    $(pub fn [<get_ $lower>](&self, id: &Id) -> Result<&$table> {
+        match self.$lower.get(id) {
+            Some(entry) => Ok(entry),
+            None => {
+                let key = Key::$upper(id.clone());
+                let msg = format!("missing definition: {key}\n\
+                    note: this error should not occur");
+                let span = proc_macro2::Span::call_site();
+                Err(syn::Error::new(span, msg))
+            }
+        }
+    })*
+
+    $(pub fn [<put_ $lower>](&mut self, id: Id, table: $table) -> Result<()> {
+        self.$lower.insert(id, table);
+        Ok(())
+    })*
+
+} }
+
+#[allow(dead_code)]
 impl Guard<RwLockReadGuard<'static, Store>> {
 
     $(pub fn $lower(&self, id: &Id) -> Result<&<$table as Safe>::Safe> {
@@ -163,7 +213,8 @@ impl Guard<RwLockReadGuard<'static, Store>> {
             Some(tree) => Ok(&tree.val),
             None => {
                 let key = Key::$upper(id.clone());
-                let msg = format!("missing definition: {}", key);
+                let msg = format!("missing definition: {key}\n\
+                    note: this error should not occur");
                 let span = proc_macro2::Span::call_site();
                 Err(syn::Error::new(span, msg))
             }
@@ -176,7 +227,8 @@ impl Guard<RwLockReadGuard<'static, Store>> {
                 Some(tree) => tree.val.sync()?.call(),
                 None => {
                     let key = Key::$upper(id.clone());
-                    let msg = format!("missing definition: {}", key);
+                    let msg = format!("missing definition: {key}\n\
+                        note: this error should not occur");
                     let span = proc_macro2::Span::call_site();
                     Err(syn::Error::new(span, msg))
                 }
@@ -249,7 +301,9 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
         match self.0.$lower.entry(id) {
             map::Entry::Occupied(entry) => {
                 let key = Key::$upper(entry.key().clone());
-                let msg = format!("duplicate definition: {}", key);
+                let msg = format!("duplicate definition: {key}\n\
+                    note: cannot #[derive(sqly::{})] on multiple structs with the same identifier",
+                    stringify!($upper));
                 let span = proc_macro2::Span::call_site();
                 return Err(syn::Error::new(span, msg));
             },

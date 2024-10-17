@@ -1,4 +1,7 @@
+use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::{Punct, Spacing};
 use proc_macro2::Span;
+use quote::ToTokens;
 
 pub struct Void;
 
@@ -24,9 +27,9 @@ pub mod safe {
         pub name: &'static str,
         pub data: T,
     }
-
-    pub use super::Safe;
 }
+
+
 
 pub trait Safe: Sized {
     type Error;
@@ -35,46 +38,49 @@ pub trait Safe: Sized {
     fn sync(safe: &Self::Safe) -> Result<Self, Self::Error>;
 }
 
-impl<T> Info<T> {
-    pub fn new(data: T, span: Span) -> Self {
-        Self { data, span }
+pub trait Save {}
+
+impl Save for syn::Expr {}
+impl Save for syn::Type {}
+impl Save for syn::Path {}
+impl Save for syn::Ident {}
+impl Save for syn::Generics {}
+impl Save for syn::Visibility {}
+
+
+
+fn respan(stream: TokenStream, span: Span) -> impl Iterator<Item = TokenTree> {
+    fn respanned(mut token: TokenTree, span: Span) -> TokenTree {
+        if let TokenTree::Group(g) = &mut token {
+            let delimiter = g.delimiter();
+            let stream = respan(g.stream(), span).collect();
+            *g = proc_macro2::Group::new(delimiter, stream);
+        }
+        token.set_span(span);
+        token
     }
+    stream.into_iter().map(move |token| respanned(token, span))
 }
 
-impl<T> Name<T> {
-    pub fn new(data: T, span: Span, name: &'static str) -> Self {
-        Self { data, span, name }
-    }
-
-    pub fn with(info: Info<T>, name: &'static str) -> Self {
-        Self::new(info.data, info.span, name)
-    }
-}
-
-
-
-impl<T: quote::ToTokens> quote::ToTokens for Info<T> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl<T: ToTokens> ToTokens for Info<T> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let data = self.data.to_token_stream();
-        tokens.extend(data.into_iter().map(|mut tt| {
-            tt.set_span(self.span);
-            tt
-        }))
+        tokens.extend(respan(data, self.span))
     }
 }
 
-impl quote::ToTokens for Name<Info<Void>> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+impl ToTokens for Name<Info<Void>> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         name.set_span(self.span);
         name.to_tokens(tokens);
     }
 }
 
-impl<T: quote::ToTokens> quote::ToTokens for Name<Info<T>> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let equals = proc_macro2::Punct::new('=', proc_macro2::Spacing::Alone);
+impl<T: ToTokens> ToTokens for Name<Info<T>> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
+        let equals = Punct::new('=', Spacing::Alone);
         name.set_span(self.span);
         name.to_tokens(tokens);
         equals.to_tokens(tokens);
@@ -82,10 +88,10 @@ impl<T: quote::ToTokens> quote::ToTokens for Name<Info<T>> {
     }
 }
 
-impl<T: quote::ToTokens> quote::ToTokens for Name<Option<T>> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let equals = proc_macro2::Punct::new('=', proc_macro2::Spacing::Alone);
+impl<T: ToTokens> ToTokens for Name<Option<T>> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
+        let equals = Punct::new('=', Spacing::Alone);
         name.set_span(self.span);
         name.to_tokens(tokens);
         if let Some(data) = self.data.as_ref() {
@@ -95,16 +101,16 @@ impl<T: quote::ToTokens> quote::ToTokens for Name<Option<T>> {
     }
 }
 
-impl<T: quote::ToTokens> quote::ToTokens for Name<Vec<T>> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let mut char = proc_macro2::Punct::new('=', proc_macro2::Spacing::Alone);
+impl<T: ToTokens> ToTokens for Name<Vec<T>> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
+        let mut char = Punct::new('=', Spacing::Alone);
         name.set_span(self.span);
         name.to_tokens(tokens);
         for data in &self.data {
             char.to_tokens(tokens);
             data.to_tokens(tokens);
-            char = proc_macro2::Punct::new(',', proc_macro2::Spacing::Alone);
+            char = Punct::new(',', Spacing::Alone);
         }
     }
 }
@@ -112,6 +118,10 @@ impl<T: quote::ToTokens> quote::ToTokens for Name<Vec<T>> {
 
 
 impl<T> Info<T> {
+    pub fn new(data: T, span: Span) -> Self {
+        Self { data, span }
+    }
+
     pub fn send<S>(&self, data: S) -> syn::Result<safe::Info<S>> {
         Ok(safe::Info { data })
     }
@@ -125,6 +135,14 @@ impl<S> safe::Info<S> {
 }
 
 impl<T> Name<T> {
+    pub fn new(data: T, span: Span, name: &'static str) -> Self {
+        Self { data, span, name }
+    }
+
+    pub fn with(info: Info<T>, name: &'static str) -> Self {
+        Self::new(info.data, info.span, name)
+    }
+
     pub fn send<S>(&self, data: S) -> syn::Result<safe::Name<S>> {
         Ok(safe::Name { name: self.name, data })
     }
@@ -137,7 +155,7 @@ impl<S> safe::Name<S> {
     }
 }
 
-impl<T: quote::ToTokens + syn::parse::Parse> Safe for T {
+impl<T: quote::ToTokens + syn::parse::Parse + Save> Safe for T {
     type Safe = String;
     type Error = syn::Error;
     fn send(self: &Self) -> Result<Self::Safe, Self::Error> {
@@ -197,10 +215,10 @@ paste::paste! {
             let data = match data {
                 Some(data) => data,
                 None => {
-                    let span = proc_macro2::Span::call_site();
                     let msg = "not a struct with named fields";
+                    let span = proc_macro2::Span::call_site();
                     return Err(syn::Error::new(span, msg));
-                },
+                }
             };
 
             let span = proc_macro2::Span::call_site();
@@ -255,11 +273,11 @@ paste::paste! {
 
     #[allow(non_camel_case_types)]
     enum [<$i Enum>] {
-        $($n(typed!(crate::parse::rules::<! $($t)*>)),)*
+        $($n(syncd!(crate::parse::rules::<! $($t)*>)),)*
     }
 
     $vis struct $i {
-        $(pub $n: typed!(crate::parse::rules::<$r $($t)*>),)*
+        $(pub $n: syncd!(crate::parse::rules::<$r $($t)*>),)*
     }
 
     $vis struct [<Safe $i>] {
@@ -369,59 +387,6 @@ paste::paste! {
 
 } } }
 
-macro_rules! safe {
-{ $vis:vis struct $i:ident { $($v:vis $n:ident: $t:ty $([$r:tt])?,)* } } => {
-paste::paste! {
-    $vis struct $i {
-        $($v $n: safe!($t, $t $([$r])?),)*
-    }
-
-    $vis struct [<Safe $i>] {
-        $($v $n: safe!($t, <$t as crate::parse::rules::Safe>::Safe $([$r])?),)*
-    }
-
-    impl $i {
-        pub fn send(&self) -> syn::Result<[<Safe $i>]> {
-            <$i as Safe>::send(self)
-        }
-    }
-
-    impl [<Safe $i>] {
-        pub fn sync(&self) -> syn::Result<$i> {
-            <$i as Safe>::sync(self)
-        }
-    }
-
-    impl crate::parse::rules::Safe for $i {
-        type Safe = [<Safe $i>];
-        type Error = syn::Error;
-        fn send(self: &Self) -> core::result::Result<Self::Safe, Self::Error> {
-            Ok(Self::Safe { $($n: safe!({ $($r)? }, self.$n, crate::parse::rules::Safe::send)?,)* })
-        }
-        fn sync(safe: &Self::Safe) -> core::result::Result<Self, Self::Error> {
-            Ok(Self { $($n: safe!({ $($r)? }, safe.$n, crate::parse::rules::Safe::sync)?,)* })
-        }
-    }
-} };
-({ (= syn::$t:ty)$_:tt }: $info:expr, $safe:path) => ( $safe(&$info)? );
-({ (= $t:ty)$_:tt }: $info:expr, $safe:path) => ( Clone::clone(&$info) );
-({ }: $info:expr, $safe:path) => ( crate::parse::rules::safe::Void );
-({ $($t:tt)* }, $val:expr, $fun:expr) => {
-    r#match!({ $($t)* } {
-        ! => $fun(&$val),
-        ? => $val.as_ref().map($fun).map_or(Ok(None), |ok| ok.map(Some)),
-        + => $val.iter().map($fun).collect::<Result<Vec<_>>>(),
-        * => ~ +,
-    })
-};
-($_:ty, $t:ty) => ( $t );
-($_:ty, $t:ty [!]) => ( $t );
-($_:ty, $t:ty [?]) => ( Option<$t> );
-($_:ty, $t:ty [+]) => ( Vec<$t> );
-($_:ty, $t:ty [*]) => ( Vec<$t> );
-($t:ty, $_:ty [=]) => ( $t );
-}
-
 
 
 macro_rules! vars {
@@ -480,7 +445,7 @@ macro_rules! vari {
                             true => "unknown variant: \"{}\"\n must be one of: {}",
                         }), n, list
                     )))
-                },
+                }
             }
         }
     }
@@ -507,7 +472,120 @@ macro_rules! vari {
         }
     }
 
-} }
+};
+{ $vis:vis $e:ident { $(($v:ident: $($t:tt)*),)* } } => {
+paste::paste! {
+
+    #[derive(Clone)]
+    $vis enum $e {
+        $($v(syncd!($($t)*)),)*
+    }
+
+    #[derive(Clone)]
+    $vis enum [<Safe $e>] {
+        $($v(saved!($($t)*)),)*
+    }
+
+    impl syn::parse::Parse for $e {
+        fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+            let span = input.span();
+            let res = Err(syn::Error::new(span, ""));
+            $(let res = res.or_else(|_| token!(, input, $($t)*).map($e::$v));)*
+            let res = res.or_else(|_| {
+                let list = [$(stringify!($($t)*),)*];
+                let mut list = list.iter().map(|name| {
+                    match name.rfind(':') {
+                        Some(i) => &name[i+1..],
+                        None => name,
+                    }
+                }).collect::<Vec<_>>();
+                let pop = list.pop().unwrap_or("");
+                let mut list = list.join(", ");
+                if !list.is_empty() {
+                    list.push_str(" or ");
+                }
+                list.push_str(pop);
+                let msg = format!("expected {}", list);
+                Err(syn::Error::new(span, msg))
+            });
+            res
+        }
+    }
+
+    impl quote::ToTokens for $e {
+        fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+            match self {
+                $($e::$v(v) => quote::ToTokens::to_tokens(v, tokens),)*
+            }
+        }
+    }
+
+    impl crate::parse::rules::Safe for $e {
+        type Safe = [<Safe $e>];
+        type Error = syn::Error;
+        fn send(self: &Self) -> core::result::Result<Self::Safe, Self::Error> {
+            Ok(match self { $($e::$v(v) => [<Safe $e>]::$v(saved!(v, $($t)*)),)* })
+        }
+        fn sync(safe: &Self::Safe) -> core::result::Result<Self, Self::Error> {
+            Ok(match safe { $([<Safe $e>]::$v(v) => $e::$v(syncd!(v, $($t)*)),)* })
+        }
+    }
+
+} } }
+
+
+
+macro_rules! safe {
+    { $vis:vis struct $i:ident { $($v:vis $n:ident: $t:ty $([$r:tt])?,)* } } => {
+    paste::paste! {
+        $vis struct $i {
+            $($v $n: safe!($t, $t $([$r])?),)*
+        }
+    
+        $vis struct [<Safe $i>] {
+            $($v $n: safe!($t, <$t as crate::parse::rules::Safe>::Safe $([$r])?),)*
+        }
+    
+        impl $i {
+            pub fn send(&self) -> syn::Result<[<Safe $i>]> {
+                <$i as Safe>::send(self)
+            }
+        }
+    
+        impl [<Safe $i>] {
+            pub fn sync(&self) -> syn::Result<$i> {
+                <$i as Safe>::sync(self)
+            }
+        }
+    
+        impl crate::parse::rules::Safe for $i {
+            type Safe = [<Safe $i>];
+            type Error = syn::Error;
+            fn send(self: &Self) -> core::result::Result<Self::Safe, Self::Error> {
+                Ok(Self::Safe { $($n: safe!({ $($r)? }, self.$n, crate::parse::rules::Safe::send)?,)* })
+            }
+            fn sync(safe: &Self::Safe) -> core::result::Result<Self, Self::Error> {
+                Ok(Self { $($n: safe!({ $($r)? }, safe.$n, crate::parse::rules::Safe::sync)?,)* })
+            }
+        }
+    } };
+    ({ (= $($t:tt)*)$_:tt }: $data:expr, $spec:path) => ( specd!($($t)*, &$data, $spec) );
+    ({ }: $data:expr, $spec:path) => ( crate::parse::rules::safe::Void );
+    ({ $($t:tt)* }, $val:expr, $fun:expr) => {
+        r#match!({ $($t)* } {
+            ! => $fun(&$val),
+            ? => $val.as_ref().map($fun).map_or(Ok(None), |ok| ok.map(Some)),
+            + => $val.iter().map($fun).collect::<Result<Vec<_>>>(),
+            * => ~ +,
+        })
+    };
+    ($_:ty, $t:ty) => ( $t );
+    ($_:ty, $t:ty [!]) => ( $t );
+    ($_:ty, $t:ty [?]) => ( Option<$t> );
+    ($_:ty, $t:ty [+]) => ( Vec<$t> );
+    ($_:ty, $t:ty [*]) => ( Vec<$t> );
+    ($t:ty, $_:ty [=]) => ( $t );
+}
 
 
 
@@ -555,16 +633,36 @@ macro_rules! token {
     (, $i:expr, i64) => ( $i.parse().and_then(|s: syn::LitInt| s.base10_parse()) );
     (, $i:expr, String) => ( $i.parse().map(|s: syn::LitStr| s.value()) );
     (, $i:expr, bool) => ( $i.parse().map(|s: syn::LitBool| s.value()) );
-    (, $i:expr, $t:ty) => ( $i.parse::<$t>() );
+    (, $i:expr, $($t:tt)+) => ( $i.parse::<syncd!($($t)+)>() );
     (, $i:expr,) => ( Ok(crate::parse::rules::Void) );
 }
 
+macro_rules! specd {
+    (syn::$t:ident, $data:expr, $spec:path) => ( $spec($data)? );
+    (safe::$t:ident, $data:expr, $spec:path) => ( $spec($data)? );
+    ($($t:ty)?, $data:expr, $spec:path) => ( Clone::clone($data) );
+}
+
 macro_rules! saved {
-    ($($p:ident::)*<$a:tt (= syn::$t:ident)$b:tt>) => {
-        typed!($($p::)*<$a(= <syn::$t as $($p::)*Safe>::Safe)$b>)
-    };
-    ($($p:ident::)*<$a:tt (= $t:ty)$b:tt>) => ( typed!($($p::)*<$a(= $t)$b>) );
     ($($p:ident::)*<$a:tt>) => ( typed!($($p::)*<$a>) );
+    ($($p:ident::)*<$a:tt (= $($t:tt)*)$b:tt>) => (
+        typed!($($p::)*<$a(= saved!($($t)*))$b>)
+    );
+    ($data:expr, $($t:tt)*) => ( specd!($($t)*, $data, crate::parse::rules::Safe::send) );
+    (syn::$t:ident) => ( <syn::$t as crate::parse::rules::Safe>::Safe );
+    (safe::$t:ident) => ( <$t as crate::parse::rules::Safe>::Safe );
+    ($($t:ty)?) => ( $($t)? );
+}
+
+macro_rules! syncd {
+    ($($p:ident::)*<$a:tt>) => ( typed!($($p::)*<$a>) );
+    ($($p:ident::)*<$a:tt (= $($t:tt)*)$b:tt>) => (
+        typed!($($p::)*<$a(= syncd!($($t)*))$b>)
+    );
+    ($data:expr, $($t:tt)*) => ( specd!($($t)*, $data, crate::parse::rules::Safe::sync) );
+    (syn::$t:ident) => ( syn::$t );
+    (safe::$t:ident) => ( $t );
+    ($($t:ty)?) => ( $($t)? );
 }
 
 macro_rules! typed {

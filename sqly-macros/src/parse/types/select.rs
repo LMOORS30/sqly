@@ -7,12 +7,16 @@ parse! {
         ((table)! (= syn::Path)!),
         ((rename)? (= Rename)!),
 
+        ((unchecked)?),
         ((print)?),
         ((debug)?),
     }
     pub SelectField {
         ((column)? (= String)!),
         ((rename)? (= Rename)!),
+
+        ((value)? (= syn::Expr)!),
+        ((infer)?),
 
         ((skip)?),
     }

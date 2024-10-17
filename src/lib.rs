@@ -1,43 +1,12 @@
 //! sqly is a lightweight macro system on top of [sqlx].
 //! 
+//! See the [README](https://github.com/LMOORS30/sqly#sqly) for additional information, [Installation](https://github.com/LMOORS30/sqly#cargotoml) and [Features](https://github.com/LMOORS30/sqly#features).
+//! 
 //! [![github-com]](https://github.com/LMOORS30/sqly)&ensp;[![crates-io]](https://crates.io/crates/sqly)&ensp;[![docs-rs]](crate)
 //! 
 //! [github-com]: https://img.shields.io/badge/github.com-LMOORS30/sqly-5e728a?labelColor=505050&style=for-the-badge&logo=github
 //! [crates-io]: https://img.shields.io/badge/crates.io-sqly-5e888a?labelColor=505050&style=for-the-badge&logo=rust
 //! [docs-rs]: https://img.shields.io/badge/docs.rs-sqly-5e8a76?labelColor=505050&style=for-the-badge&logo=docs.rs
-//! 
-//! It works by generating common SQL queries and associated structs at compile time, letting the generated queries be checked and executed by sqlx. Additionally, [`sqly::query!`](query!) macros can be used to further expand generated queries while still providing compile-time verification.
-//! 
-//! This functionality is still under development (see [Roadmap](https://github.com/LMOORS30/sqly#roadmap)).
-//! <br>
-//! <br>
-//! ##### Cargo.toml
-//! ```toml
-//! [dependencies.sqly]
-//! version = "0.2.0"
-//! features = ["postgres"]
-//! 
-//! [dependencies.sqlx]
-//! version = "0.8.0"
-//! default-features = false
-//! features = ["postgres", "macros"]
-//! 
-//! [profile.dev.package.sqlx-macros]
-//! opt-level = 3
-//! 
-//! [profile.dev.package.sqly-macros]
-//! opt-level = 3
-//! ```
-//! 
-//! ##### Features
-//! `unchecked`&ensp;—&ensp;disable compile-time checking<br>
-//! ` postgres`&ensp;—&ensp;generate queries for PostgreSQL<br>
-//! `   sqlite`&ensp;—&ensp;generate queries for SQLite (not supported)<br>
-//! `    mysql`&ensp;—&ensp;generate queries for MySQL (not supported)
-//! 
-//! Currently only postgres is supported.
-//! 
-//! <br>
 //! 
 //! # Example
 //! ```
@@ -47,17 +16,18 @@
 //! #[derive(Table)]
 //! #[sqly(table = "books")]
 //! struct Book {
+//!     #[sqly(key)]
 //!     id: i32,
 //!     title: String,
 //! }
 //! 
 //! #[derive(Table)]
+//! #[sqly(table = "pages")]
 //! #[sqly(insert, update, select)]
 //! #[sqly(delete = DeleteAllPages)]
-//! #[sqly(table = "pages")]
 //! struct Page {
-//!     #[sqly(key)]
-//!     book_id: i32,
+//!     #[sqly(key, foreign)]
+//!     book: Book,
 //!     #[sqly(key, skip = delete)]
 //!     page_number: i32,
 //!     content: String,
@@ -82,7 +52,11 @@
 //! }
 //! 
 //! async fn test(book: &Book, db: &sqlx::PgPool) -> Result<()> {
-//!     Page::insert(&InsertPage {
+//!     // struct instantiation will likely be done externally (for example by serde)
+//!     // and the structs should be passed as parameters (e.g. `page: &InsertPage`)
+//!     // this syntax is less ideal and only used for the sake of this example
+//! 
+//!     Page::insert(&InsertPage { // insert a new page
 //!         book_id: book.id,
 //!         page_number: 1,
 //!         content: "The Wrong Content".into(),
@@ -91,7 +65,7 @@
 //!     .execute(db)
 //!     .await?;
 //! 
-//!     Page::update(&UpdatePage {
+//!     Page::update(&UpdatePage { // update the page content
 //!         book_id: book.id,
 //!         page_number: 1,
 //!         content: "The Right Content".into(),
@@ -99,7 +73,7 @@
 //!     .execute(db)
 //!     .await?;
 //! 
-//!     Page::update(&MarkAsRead {
+//!     Page::update(&MarkAsRead { // mark the page as read
 //!         book_id: book.id,
 //!         page_number: 1,
 //!         read: true,
@@ -107,31 +81,32 @@
 //!     .execute(db)
 //!     .await?;
 //! 
-//!     let page = Page::select(&SelectPage {
+//!     let page = Page::select(&SelectPage { // select the updated page
 //!         book_id: book.id,
 //!         page_number: 1,
 //!     })
 //!     .fetch_one(db)
 //!     .await?;
-//!     assert_eq!(page.read, true);
+//!     assert_eq!(page.read, true); // confirm it is marked as read
+//!     assert_eq!(page.book.title, book.title); // the book is also fetched
 //! 
-//!     Page::delete(&DeleteAllPages {
-//!         book_id: book.id,
+//!     Page::delete(&DeleteAllPages { // delete all pages from the book
+//!         book_id: page.book.id,
 //!     })
 //!     .execute(db)
 //!     .await?;
 //!
-//!     let pages = Page::select(&GetBookPages {
-//!         book_id: book.id,
+//!     let pages = Page::select(&GetBookPages { // get all pages from the book
+//!         book_id: page.book.id,
 //!     })
 //!     .fetch_all(db)
 //!     .await?;
-//!     assert!(pages.is_empty());
+//!     assert!(pages.is_empty()); // confirm no pages are left
 //! 
 //!     Ok(())
 //! }
 //! ```
-//! Currently only simple `DELETE`, `INSERT`, `SELECT` and `UPDATE` queries are supported.
+//! <br>
 //! 
 //! See [`#[derive(Table)]`](derive@Table) to get started.
 //! 
@@ -139,10 +114,12 @@
 
 
 
+#[cfg(feature = "mariadb")]
+compile_error!("MariaDB is currently not supported");
 #[cfg(feature = "sqlite")]
-compile_error!("sqlite is currently not supported");
+compile_error!("SQLite is currently not supported");
 #[cfg(feature = "mysql")]
-compile_error!("mysql is currently not supported");
+compile_error!("MySQL is currently not supported");
 
 #[cfg(feature = "postgres")]
 mod sqly;

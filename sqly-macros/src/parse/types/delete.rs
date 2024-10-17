@@ -7,12 +7,16 @@ parse! {
         ((table)! (= syn::Path)!),
         ((rename)? (= Rename)!),
 
+        ((unchecked)?),
         ((print)?),
         ((debug)?),
     }
     pub DeleteField {
         ((column)? (= String)!),
         ((rename)? (= Rename)!),
+
+        ((value)? (= syn::Expr)!),
+        ((infer)?),
 
         ((skip)?),
     }
