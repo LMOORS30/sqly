@@ -2,7 +2,7 @@
 members = ["sqly-macros"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/LMOORS30/sqly"
@@ -27,7 +27,7 @@ mysql = ["sqlx/mysql","sqly-macros/mysql"]
 unchecked = ["sqly-macros/unchecked"]
 
 [workspace.dependencies]
-sqly-macros = { version = "=0.2.0", path = "sqly-macros" }
+sqly-macros = { version = "=0.3.0", path = "sqly-macros" }
 
 [dependencies]
 sqlx = { version = "0.8.0", default-features = false }
