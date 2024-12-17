@@ -284,9 +284,13 @@ impl $table {
     pub fn declaration(&self, field: &$field, named: &syn::Ident) -> Result<(String, String)> {
         const SEP: &'static [char] = &['!', '?', ':'];
 
+        let iden;
         let name = match &field.attr.column {
             Some(column) => &column.data.data,
-            None => &named.to_string(),
+            None => {
+                iden = named.to_string();
+                &iden
+            },
         };
 
         let (name, info) = match name.find(SEP) {

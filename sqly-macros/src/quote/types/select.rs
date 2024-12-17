@@ -74,8 +74,8 @@ impl<'c> Construct<'c> {
                 Code::Query => {
                     let alias = flattened.column.alias()?;
                     let alias = match target {
-                        Target::Function => alias,
-                        Target::Macro => &format!("{alias}!: _"),
+                        Target::Function => alias.to_string(),
+                        Target::Macro => format!("{alias}!: _"),
                     };
                     let column = flattened.column.column()?;
                     let table = flattened.construct.unique()?;
