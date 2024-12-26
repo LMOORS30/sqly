@@ -16,7 +16,7 @@ This functionality is still under development (see [Roadmap](#roadmap)).
 ##### Cargo.toml
 ```toml
 [dependencies.sqly]
-version = "0.3.0"
+version = "0.3.1"
 features = ["postgres"]
 
 [dependencies.sqlx]
