@@ -7,14 +7,14 @@ use super::*;
 /// 
 /// This trait is not meant to be manually implemented,
 /// see [`#[derive(Insert)]`](derive@Insert)
-/// or [`#[sqly(insert)]`](derive@Table#insert)
+/// or [`#[sqly(insert)]`](docs::attr#insert)
 /// instead.
 pub trait Insert {
     /// The type representing the table which this query will operate on.
     /// 
-    /// When generated with [`#[derive(Insert)]`](derive@Insert) this type is set by the [`#[sqly(table = Ident)]`](derive@Table#table) attribute.
+    /// When generated with [`#[derive(Insert)]`](derive@Insert) this type is set by the [`#[sqly(table = Ident)]`](docs::attr#table) attribute.
     /// 
-    /// When generated with [`#[sqly(insert)]`](derive@Table#insert) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
+    /// When generated with [`#[sqly(insert)]`](docs::attr#insert) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
     /// As this type implements the [`Table`](Table) trait the [`Table::insert`](`Table::insert`) alias is made available, this type serves no other purpose.
     type Table: Table;
@@ -29,7 +29,7 @@ pub trait Insert {
     /// 
     /// This function is not meant to be manualy implemented,
     /// see [`#[derive(Insert)]`](derive@Insert)
-    /// or [`#[sqly(insert)]`](derive@Table#insert)
+    /// or [`#[sqly(insert)]`](docs::attr#insert)
     /// instead.
     fn insert(&self) -> Self::Query<'_>;
 }

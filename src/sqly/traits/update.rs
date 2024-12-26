@@ -7,14 +7,14 @@ use super::*;
 /// 
 /// This trait is not meant to be manually implemented,
 /// see [`#[derive(Update)]`](derive@Update)
-/// or [`#[sqly(update)]`](derive@Table#update)
+/// or [`#[sqly(update)]`](docs::attr#update)
 /// instead.
 pub trait Update {
     /// The type representing the table which this query will operate on.
     /// 
-    /// When generated with [`#[derive(Update)]`](derive@Update) this type is set by the [`#[sqly(table = Ident)]`](derive@Table#table) attribute.
+    /// When generated with [`#[derive(Update)]`](derive@Update) this type is set by the [`#[sqly(table = Ident)]`](docs::attr#table) attribute.
     /// 
-    /// When generated with [`#[sqly(update)]`](derive@Table#update) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
+    /// When generated with [`#[sqly(update)]`](docs::attr#update) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
     /// As this type implements the [`Table`](Table) trait the [`Table::update`](`Table::update`) alias is made available, this type serves no other purpose.
     type Table: Table;
@@ -29,7 +29,7 @@ pub trait Update {
     /// 
     /// This function is not meant to be manualy implemented,
     /// see [`#[derive(Update)]`](derive@Update)
-    /// or [`#[sqly(update)]`](derive@Table#update)
+    /// or [`#[sqly(update)]`](docs::attr#update)
     /// instead.
     fn update(&self) -> Self::Query<'_>;
 }

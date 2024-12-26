@@ -9,25 +9,25 @@ use super::*;
 /// 
 /// <br>
 /// 
-/// ### Attribute Definition&ensp;<sub>(see [Attribute Notation](derive@Table#attribute-notation) and [Attribute Documentation](derive@Table#attribute-documentation))</sub>
+/// ### Attribute Definition&ensp;<sub>(see [Attribute Notation](docs::attr::note) and [Attribute Documentation](docs::attr))</sub>
 /// 
 /// ##### Struct Attributes:
-/// `#[sqly((`[`table`](derive@Table#table)`)! (= `[`Path`](derive@Table#table)`)!)] // required`<br>
-/// `#[sqly((`[`rename`](derive@Table#rename)`)? (= `[`String`](derive@Table#rename)`)!)]`<br>
+/// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)`)!)] // required`<br>
+/// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
-/// `#[sqly((`[`unchecked`](derive@Table#dev-attributes)`)?)]`<br>
-/// `#[sqly((`[`print`](derive@Table#dev-attributes)`)?)]`<br>
-/// `#[sqly((`[`debug`](derive@Table#dev-attributes)`)?)]`<br>
+/// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
+/// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
+/// `#[sqly((`[`debug`](docs::attr#dev-attributes)`)?)]`<br>
 /// 
 /// ##### Field Attributes:
-/// `#[sqly((`[`column`](derive@Table#column)`)? (= `[`String`](derive@Table#column)`)!)]`<br>
-/// `#[sqly((`[`rename`](derive@Table#rename)`)? (= `[`String`](derive@Table#rename)`)!)]`<br>
+/// `#[sqly((`[`column`](docs::attr#column)`)? (= `[`String`](docs::attr#column)`)!)]`<br>
+/// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
-/// `#[sqly((`[`value`](derive@Table#value)`)? (= `[`Expr`](derive@Table#value)`)!)]`<br>
-/// `#[sqly((`[`infer`](derive@Table#infer)`)?)]`<br>
+/// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
+/// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 
-/// `#[sqly((`[`skip`](derive@Table#skip)`)?)]`<br>
-/// `#[sqly((`[`key`](derive@Table#key)`)?)]`
+/// `#[sqly((`[`skip`](docs::attr#skip)`)?)]`<br>
+/// `#[sqly((`[`key`](docs::attr#key)`)?)]`
 /// 
 /// <br>
 /// 
