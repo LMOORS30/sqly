@@ -431,9 +431,20 @@ impl<'c> Construct<'c> {
         Ok(params)
     }
 
+    pub fn selects(&'c self, alias: &'c str) -> Result<Params<'c>> {
+        let mut params = Params::new();
+        params.emplace("table", self.unique()?);
+        params.emplace("alias", alias);
+        Ok(params)
+    }
+
 }
 
 impl<'c> Flattened<'c> {
+
+    pub fn selects(&self, alias: &'c str) -> Result<Params<'c>> {
+        self.construct.selects(alias)
+    }
 
     pub fn foreigns(&self, foreign: &'c Construct<'c>) -> Result<Params<'c>> {
         let mut params = self.construct.params()?;
@@ -502,7 +513,7 @@ impl<'c> Params<'c> {
 
     pub fn emplace(&mut self, key: &str, val: &'c str) {
         if let Some(res) = self.0.insert(key.to_string(), val) {
-            self.emplace(&format!("table__{key}"), res);
+            self.emplace(&format!("self__{key}"), res);
         }
     }
 

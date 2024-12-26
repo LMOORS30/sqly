@@ -67,7 +67,7 @@ Currently only postgres is supported.
     - [ ] `#[derive(Flat)]` and `#[sqly(flat)]` for flexibility
 - [X] `#[sqly(infer)]` for custom sqlx types
 - [X] `#[sqly(value)]` for custom parameter binding
-- [ ] `#[sqly(select)]` for custom SQL select expressions
+- [X] `#[sqly(select)]` for custom SQL select expressions
 - [ ] `#[sqly(filter)]` for custom SQL filter expressions
 - [ ] `#[sqly(optional)]` for optional update and insert fields
 - [ ] `#[sqly(returning)]` for SQL `RETURNING` clause

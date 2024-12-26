@@ -79,6 +79,14 @@ impl QueryTable {
 
 impl QueryTable {
 
+    pub fn selects<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
+        let iter = field.attr.select.iter();
+        let foreigns = iter.flat_map(|select| {
+            &select.data
+        }).collect();
+        Ok(foreigns)
+    }
+
     pub fn foreigns<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
         let iter = field.attr.foreign.iter();
         let foreigns = iter.flat_map(|foreign| {

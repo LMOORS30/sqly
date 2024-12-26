@@ -83,6 +83,7 @@ parse! {
         ((column)? (= String)!),
         ((rename)? (= Rename)!),
 
+        ((select)* (= String)+),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 

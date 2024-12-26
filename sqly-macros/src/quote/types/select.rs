@@ -77,11 +77,24 @@ impl<'c> Construct<'c> {
                         Target::Function => alias.to_string(),
                         Target::Macro => format!("{alias}!: _"),
                     };
-                    let column = flattened.column.column()?;
-                    let table = flattened.construct.unique()?;
-                    write!(&mut query,
-                        "\t\"{table}\".\"{column}\" AS \"{alias}\",\n"
-                    ).unwrap();
+                    let column = flattened.column;
+                    let list = column.table.selects(column.field)?;
+                    if !list.is_empty() {
+                        query.push_str("\t");
+                        let params = flattened.selects(&alias)?;
+                        let select = list.into_iter().map(|select| {
+                            params.replace(&select.data, select.span)
+                        }).collect::<Result<String>>()?;
+                        query.push_str(&select);
+                        query.push_str(",\n");
+                    }
+                    else {
+                        let column = flattened.column.column()?;
+                        let table = flattened.construct.unique()?;
+                        write!(&mut query,
+                            "\t\"{table}\".\"{column}\" AS \"{alias}\",\n"
+                        ).unwrap();
+                    }
                     i += 1;
                 },
                 Code::Foreign(construct) => {

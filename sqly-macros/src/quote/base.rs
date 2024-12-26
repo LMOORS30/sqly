@@ -128,12 +128,24 @@ impl<'c> Construct<'c> {
                 let alias = column.alias()?;
                 let modifier = column.modifier()?;
                 let alias = format!("{alias}{modifier}");
+                let list = column.table.selects(column.field)?;
+                if !list.is_empty() {
+                    query.push_str("\t");
+                    let params = self.selects(&alias)?;
+                    let select = list.into_iter().map(|select| {
+                        params.replace(&select.data, select.span)
+                    }).collect::<Result<String>>()?;
+                    query.push_str(&select);
+                    query.push_str(",\n");
+                }
+                else {
+                    let column = column.column()?;
+                    write!(&mut query,
+                        "\t\"{column}\" AS \"{alias}\",\n"
+                    ).unwrap();
+                }
                 let ty = column.typed()?;
                 let ident = column.ident()?;
-                let column = column.column()?;
-                write!(&mut query,
-                    "\t\"{column}\" AS \"{alias}\",\n"
-                ).unwrap();
                 fields.push(quote::quote! {
                     #ident: #ty
                 });

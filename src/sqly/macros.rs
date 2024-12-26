@@ -19,7 +19,7 @@ pub use update::*;
 /// 
 /// <br>
 /// 
-/// This macro can also be used to generate definitions for [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) structs, along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
+/// This macro can also be used to generate definitions for [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) structs along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
 /// 
 /// See:<br>
 /// [`#[derive(Delete)]`](derive@Delete)<br>
@@ -158,6 +158,7 @@ pub use update::*;
 /// `#[sqly((`[`column`](#column)`)? (= `[`String`](#column)`)!)]`<br>
 /// `#[sqly((`[`rename`](#rename)`)? (= `[`String`](#rename)`)!)]`<br>
 /// 
+/// `#[sqly((`[`select`](#select-1)`)* (= `[`String`](#select-1)`)+)]`<br>
 /// `#[sqly((`[`value`](#value)`)? (= `[`Expr`](#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](#infer)`)?)]`<br>
 /// 
@@ -196,7 +197,7 @@ pub use update::*;
 /// <br>
 /// 
 /// ### String Placeholders
-/// The [`#[sqly(foreign = "")]`](#foreign) attribute allows for writing arbitrary SQL strings which will appear verbatim in generated queries. This causes issues for certain parts of the query, such as table and column names, as these will be automatically renamed as needed. String placeholders can be used in order to reference these unknown values, they will be replaced by the appropriate value before being included in the generated query. 
+/// The [`#[sqly(select = "")]`](#select-1) and [`#[sqly(foreign = "")]`](#foreign) attributes allow for writing arbitrary SQL strings which will appear verbatim in generated queries. This causes issues for certain parts of the query, such as table and column names, as these will be automatically renamed as needed. String placeholders can be used in order to reference these unknown values, they will be replaced by the appropriate value before being included in the generated query. 
 /// 
 /// String placeholders start with a `$` sign and can appear anywhere in the SQL string.
 /// 
@@ -208,7 +209,7 @@ pub use update::*;
 /// 
 /// All variables are optional and can be used any amount of times.
 /// 
-/// The [`#[sqly(foreign)]`](#foreign) section mentions which variables are available.
+/// The [`#[sqly(select)]`](#select-1) and [`#[sqly(foreign)]`](#foreign) sections mention which variables are available.
 /// 
 /// <br>
 /// <br>
@@ -516,6 +517,26 @@ pub use update::*;
 /// 
 /// <br>
 /// 
+/// #### select
+/// ---
+/// ```
+/// # #[derive(sqly::Table)]
+/// # #[sqly(table = "")]
+/// # struct T {
+/// #[sqly(select = "$table.column AS \"$alias\"")]
+/// # t: i32
+/// # }
+/// ```
+/// The SQL expression to select the column for this field.
+/// 
+/// This attribute supports [String Placeholders](#string-placeholders), and they are necessary to generate valid queries.
+/// 
+/// The column must be renamed to `"$alias"` and the table must be referenced as `$table`.
+/// 
+/// No other string placeholders are available, other tables can currently not be referenced.
+/// 
+/// <br>
+/// 
 /// #### value
 /// ---
 /// ```
@@ -553,7 +574,7 @@ pub use update::*;
 /// 
 /// <br>
 /// 
-/// ### foreign
+/// #### foreign
 /// ---
 /// ```
 /// # #[derive(sqly::Table)]
@@ -571,7 +592,7 @@ pub use update::*;
 /// 
 /// The type of this field is required to have [`#[derive(Table)]`](derive@Table) and must be a path without any generics. The only exception is `Option<T>`, where the same restrictions apply to `T` and the identifier of `Option` must not be renamed. This prompts the generated expression to perform a `LEFT JOIN` instead of an `INNER JOIN`.
 /// 
-/// When generating [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs this field will have its name and type changed in order to match the foreign key used in the SQL `JOIN`. When generating the [`Table::Flat`](Table::Flat) struct all fields are recursively flattened and renamed in order to match the SQL `SELECT` list.
+/// When generating [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs this field will have its name and type changed in order to match the foreign key used in the SQL `JOIN` expression. When generating the [`Table::Flat`](Table::Flat) struct all fields are recursively flattened and renamed in order to match the SQL `SELECT` list.
 /// 
 /// The other attribute definitions in this section further explain this behavior.
 /// 
@@ -642,7 +663,7 @@ pub use update::*;
 /// 
 /// This is supposed to match the type of the foreign key used in the SQL `JOIN` expression.
 /// 
-/// If not specified this defaults to the type of the chosen foreign field.
+/// If not specified this defaults to the type of the chosen foreign field, if no matching foreign field is found an error will be raised.
 /// 
 /// ---
 /// ```
@@ -671,7 +692,7 @@ pub use update::*;
 /// Either specify the relevant attributes ([`#[sqly(column)]`](#column), [`#[sqly(foreign_named)]`](#foreign), [`#[sqly(foreign_typed)]`](#foreign)), or exclude this field from generated structs ([`#[sqly(skip = delete, insert, select, update)]`](#skip)).
 /// 
 /// **Warning**<br>
-/// Nullability is not checked for SQL `JOIN`s, when performing a `LEFT JOIN`, be sure to set the type of this field to an `Option`.
+/// Nullability is not checked for SQL `JOIN`s. When performing a `LEFT JOIN` be sure to set the type of this field to an `Option`.
 /// 
 /// 
 /// <br>
