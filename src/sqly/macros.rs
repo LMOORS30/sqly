@@ -72,6 +72,9 @@ pub use update::*;
 /// `#[sqly((`[`foreign_named`](docs::attr#foreign)`)? (= `[`Ident`](docs::attr#foreign)`)!)]`<br>
 /// `#[sqly((`[`foreign_typed`](docs::attr#foreign)`)? (= `[`Type`](docs::attr#foreign)`)!)]`<br>
 /// 
+/// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Path`](docs::attr#default)`)?)]`<br>
+/// `#[sqly((`[`from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
+/// 
 /// `#[sqly((`[`skip`](docs::attr#skip)`)? (= `[`delete`](docs::attr#skip)` | `[`insert`](docs::attr#skip)` | `[`select`](docs::attr#skip)` | `[`update`](docs::attr#skip)` | `[`query`](docs::attr#skip)`)*)]`<br>
 /// `#[sqly((`[`key`](docs::attr#key)`)? (= `[`delete`](docs::attr#key)` | `[`select`](docs::attr#key)` | `[`update`](docs::attr#key)`)*)]`
 /// 

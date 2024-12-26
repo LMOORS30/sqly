@@ -57,14 +57,14 @@ impl TryFrom<&syn::Path> for Id {
     fn try_from(path: &syn::Path) -> Result<Self> {
         match path.segments.last() {
             None => {
-                let span = syn::spanned::Spanned::span(path);
+                let span = path.span();
                 let msg = "invalid path: no segments\n\
                     note: required by sqly internals";
-                Err(syn::Error::new(span, msg))
+                return Err(syn::Error::new(span, msg));
             },
             Some(segment) => {
                 if !segment.arguments.is_none() {
-                    let span = syn::spanned::Spanned::span(path);
+                    let span = path.span();
                     let msg = "invalid path: generics not supported\n\
                         note: required by sqly internals";
                     return Err(syn::Error::new(span, msg));

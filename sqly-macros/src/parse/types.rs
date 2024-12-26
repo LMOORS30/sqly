@@ -92,6 +92,9 @@ parse! {
         ((foreign_named)? (= syn::Ident)!),
         ((foreign_typed)? (= syn::Type)!),
 
+        ((default)? (= syn::Path)?),
+        ((from)? (= syn::Type)!),
+
         ((skip)? (= Skips)*),
         ((key)? (= Keys)*),
     }

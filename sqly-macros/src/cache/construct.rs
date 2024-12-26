@@ -28,7 +28,13 @@ pub struct Construct<'c> {
 
 pub struct Foreign<'c> {
     pub path: &'c syn::Path,
-    pub optional: Option<syn::Path>,
+    pub optional: Option<Optional<'c>>,
+}
+
+#[derive(Clone, Copy)]
+pub enum Optional<'c> {
+    Default(Option<&'c syn::Path>),
+    Option(&'c syn::Path),
 }
 
 pub enum Resolved<'c> {
@@ -45,7 +51,7 @@ pub struct Compromise<'c> {
 pub struct Flattened<'c> {
     pub column: &'c Constructed<'c>,
     pub construct: &'c Construct<'c>,
-    pub optional: Option<&'c syn::Path>,
+    pub optional: Option<Optional<'c>>,
 }
 
 pub type Constructed<'c> = Column<'c, Construct<'c>>;
@@ -54,34 +60,44 @@ pub type Constructed<'c> = Column<'c, Construct<'c>>;
 
 impl QueryTable {
 
-    pub fn optional<'c>(&self, field: &'c QueryField) -> Result<Option<&'c syn::Path>> {
-        Ok(optype(&field.ty).map(|optional| optional.0))
+    pub fn optional<'c>(&'c self, field: &'c QueryField) -> Result<Option<Optional<'c>>> {
+        let opt = match &field.attr.default {
+            Some(default) => {
+                let path = default.data.as_ref();
+                let path = path.map(|data| &data.data);
+                Some(Optional::Default(path))
+            }
+            None => {
+                let opt = optype(self.ty(field)?);
+                let path = opt.map(|(path, _)| path);
+                path.map(Optional::Option)
+            }
+        };
+        Ok(opt)
     }
 
-    pub fn foreign<'c>(&self, field: &'c QueryField) -> Result<Option<Foreign<'c>>> {
+    pub fn foreign<'c>(&'c self, field: &'c QueryField) -> Result<Option<Foreign<'c>>> {
         if field.attr.foreign.is_empty() {
             return Ok(None);
         }
 
-        let optional = optype(&field.ty);
-
-        let ty = match optional {
+        let ty = self.ty(field)?;
+        let ty = match optype(ty) {
             Some((_, ty)) => ty,
-            None => &field.ty,
+            None => ty,
         };
 
         let path = match typath(ty) {
             Some(path) => path,
             None => {
-                let span = syn::spanned::Spanned::span(ty);
+                let span = ty.span();
                 let msg = "invalid type: not a path\n\
                     note: expected due to #[sqly(foreign)] attribute";
                 return Err(syn::Error::new(span, msg));
             }
         };
 
-        let optional = optional.map(|(path, _)| argone(path));
-
+        let optional = self.optional(field)?;
         Ok(Some(Foreign {
             optional,
             path,
@@ -169,9 +185,13 @@ impl QueryTable {
 
 impl<'c> Construct<'c> {
 
-    fn flatten(&'c self, opt: Option<&'c syn::Path>) -> Result<impl Iterator<Item = Result<Flattened<'c>>>> {
+    fn flatten(&'c self, opt: Option<Optional<'c>>) -> Result<impl Iterator<Item = Result<Flattened<'c>>>> {
         let columns = self.fields.iter().map(move |column| {
-            let once = std::iter::once(Ok(Flattened { column, construct: self, optional: opt }));
+            let once = std::iter::once(Ok(Flattened {
+                construct: self,
+                optional: opt,
+                column,
+            }));
             let iter: Box<dyn Iterator<Item = _>> = match &column.code {
                 Code::Skip => Box::new(once),
                 Code::Query => Box::new(once),
@@ -225,11 +245,14 @@ impl<'c> Constructed<'c> {
         Ok(named)
     }
 
-    pub fn typed(&'c self) -> Result<&'c syn::Type> {
+    pub fn typed(&'c self) -> Result<TokenStream> {
         let typed = match &self.code {
             Code::Foreign(construct) => {
                 match &self.field.attr.foreign_typed {
-                    Some(typed) => &typed.data.data,
+                    Some(typed) => {
+                        let typed = &typed.data.data;
+                        quote::quote! { #typed }
+                    },
                     None => match &construct.correlate(self)? {
                         Resolved::Field(field) => field.typed()?,
                         Resolved::Attr(compromise) => {
@@ -243,8 +266,8 @@ impl<'c> Constructed<'c> {
                     }
                 }
             },
-            Code::Query => &self.field.ty,
-            Code::Skip => &self.field.ty,
+            Code::Query => self.table.typed(&self.field)?,
+            Code::Skip => self.table.typed(&self.field)?,
         };
         Ok(typed)
     }

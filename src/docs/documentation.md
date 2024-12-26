@@ -479,6 +479,55 @@ Either specify the relevant attributes ([`#[sqly(column)]`](#column), [`#[sqly(f
 **Warning**<br>
 Nullability is not checked for SQL `JOIN`s. When performing a `LEFT JOIN` be sure to set the type of this field to an `Option`.
 
+<br>
+
+#### default
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T {
+#[sqly(default)]
+# t: i32
+# }
+```
+Decode this field by using its `Default` implementation for `NULL` values in the query result.
+
+This attribute can be used along with [`#[sqly(foreign)]`](#foreign), in which case a `LEFT JOIN` will be performed.
+
+This will wrap the type of this field in an `Option` when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T {
+#[sqly(default = Default::default)]
+# t: i32
+# }
+```
+Same as above, except the default value is provided by calling the given path.
+
+This function will also be used to provide the default value for [`#[sqly(skip)]`](#skip).
+
+<br>
+
+#### from
+---
+```
+# type Type = i32;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T {
+#[sqly(from = Type)]
+# t: i32
+# }
+```
+Decode this field by decoding into the given type before converting with the `From<T>` implementation.
+
+This attribute can be used along with [`#[sqly(foreign)]`](#foreign), where the given type represents the foreign table.
+
+This will replace the type of this field when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.
 
 <br>
 
@@ -494,7 +543,7 @@ Nullability is not checked for SQL `JOIN`s. When performing a `LEFT JOIN` be sur
 ```
 Do not include this field when generating queries or structs.
 
-When used in [`#[derive(Table)]`](derive@Table) the type for this field has to implement `Default`.
+In [`#[derive(Table)]`](derive@Table) the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) must be specified.
 
 ---
 ```
@@ -510,7 +559,7 @@ When used in [`#[derive(Table)]`](derive@Table) the type for this field has to i
 ```
 Same as above, except only for the operations specified.
 
-When `query` is skipped the type for this field has to implement `Default`.
+When `query` is skipped the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) must be specified.
 
 <br>
 

@@ -170,8 +170,11 @@ impl<'c> Construct<'c> {
 
                 let ty = column.typed()?;
                 let vis = &column.field.vis;
-                let ty = match (optional, column.table.optional(&column.field)?) {
-                    (Some(option), None) => quote::quote! { #option<#ty> },
+                let ty = match (optional, column.optional()?) {
+                    (Some(optional), None) => {
+                        let option = optional.option()?;
+                        quote::quote! { #option<#ty> }
+                    },
                     _ => quote::quote! { #ty },
                 };
                 fields.push(quote::quote! {
@@ -207,9 +210,10 @@ impl<'c> Construct<'c> {
 
 
 struct Former<'c> {
-    option: &'c syn::Path,
+    target: &'c Constructed<'c>,
+    source: &'c Constructed<'c>,
+    option: Optional<'c>,
     ident: syn::Ident,
-    alias: &'c str,
 }
 
 impl<'c> Construct<'c> {
@@ -236,47 +240,84 @@ impl<'c> Construct<'c> {
         let fields = self.fields.iter().map(|column| {
             let value = match &column.code {
                 Code::Skip => {
-                    quote::quote! { ::core::default::Default::default() }
+                    let default = column.field.attr.default.as_ref();
+                    match default.and_then(|data| data.data.as_ref()) {
+                        None =>  quote::quote! { ::core::default::Default::default() },
+                        Some(default) => quote::quote! { #default() },
+                    }
                 },
                 Code::Query => match source {
-                    Source::Field => {
-                        let unwrap = match former {
-                            Some(former) => match column.table.optional(column.field)? {
-                                None => Some(former.option),
-                                Some(_) => None,
-                            },
-                            None => None,
-                        };
-                        let ident = column.ident()?;
-                        match unwrap {
-                            None => quote::quote! { row.#ident },
-                            Some(option) => quote::quote! {
+                    Source::Field => match (former, column.optional()?) {
+                        (Some(former), None) => {
+                            let optional = &former.option;
+                            let from = column.from()?;
+                            let ident = column.ident()?;
+                            let option = optional.option()?;
+                            let default = optional.default()?;
+                            let none = former.source.none()?;
+                            quote::quote! {
                                 match row.#ident {
-                                    #option::Some(val) => val,
-                                    #option::None => break #option::None,
+                                    #option::Some(val) => #from(val),
+                                    #option::None => break #none(#default),
                                 }
-                            },
-                        }
+                            }
+                        },
+                        (_, Some(Optional::Default(path))) => {
+                            let optional = Optional::Default(path);
+                            let from = column.from()?;
+                            let ident = column.ident()?;
+                            let option = optional.option()?;
+                            let default = optional.default()?;
+                            quote::quote! {
+                                match row.#ident {
+                                    #option::Some(val) => #from(val),
+                                    #option::None => #default,
+                                }
+                            }
+                        },
+                        _ => {
+                            let from = column.from()?;
+                            let ident = column.ident()?;
+                            quote::quote! { #from(row.#ident) }
+                        },
                     },
                     Source::Column => {
-                        let param = match former {
-                            None => None,
-                            Some(former) => {
-                                let ident = column.ident()?;
-                                match ident.eq(&former.ident) {
-                                    true => Some(ident),
-                                    false => None,
+                        let ident = column.ident()? ;
+                        let param = former.and_then(|former| {
+                            match ident.eq(&former.ident) {
+                                true => Some(ident),
+                                false => None,
+                            }
+                        });
+                        match param {
+                            Some(param) => {
+                                let from = column.from()?;
+                                quote::quote! { #from(#param) }
+                            },
+                            None => match column.optional()? {
+                                Some(Optional::Default(path)) => {
+                                    let optional = Optional::Default(path);
+                                    let ty = column.typed()?;
+                                    let from = column.from()?;
+                                    let alias = column.alias()?;
+                                    let option = optional.option()?;
+                                    let default = optional.default()?;
+                                    quote::quote! {
+                                        match row.try_get::<#ty, _>(#alias)? {
+                                            #option::Some(val) => #from(val),
+                                            #option::None => #default,
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    let ty = column.typed()?;
+                                    let from = column.from()?;
+                                    let alias = column.alias()?;
+                                    quote::quote! { #from(row.try_get::<#ty, _>(#alias)?) }
                                 }
                             }
-                        };
-                        match param {
-                            Some(param) => quote::quote! { #param },
-                            None => {
-                                let alias = column.alias()?;
-                                quote::quote! { row.try_get(#alias)? }
-                            }
                         }
-                    }
+                    },
                 },
                 Code::Foreign(construct) => {
                     let optional = match construct.optional()? {
@@ -286,34 +327,45 @@ impl<'c> Construct<'c> {
                                 Some(field) => field,
                                 None => {
                                     let ident = &construct.table.ident;
-                                    let span = syn::spanned::Spanned::span(&column.field.ty);
+                                    let span = column.table.ty(&column.field)?.span();
                                     let msg = format!("ambiguous left join on {ident}: \
                                         all fetched fields are optional");
                                     return Err(syn::Error::new(span, msg));
                                 }
                             };
-                            let alias = field.alias()?;
+                            let target = &field;
+                            let source = &column;
                             let ident = field.ident()?;
-                            Some(Former { option, ident, alias })
+                            Some(Former { option, source, target, ident })
                         }
                     };
                     let former = optional.as_ref().or(former);
                     let formed = construct.formed(former, source)?;
                     match optional {
-                        None => formed,
+                        None => {
+                            let from = column.from()?;
+                            quote::quote! { #from(#formed) }
+                        },
                         Some(former) => match source {
                             Source::Field => {
-                                let option = former.option;
-                                quote::quote! { loop { break #option::Some(#formed); } }
+                                let from = column.from()?;
+                                let some = former.option.some()?;
+                                quote::quote! { loop { break #from(#some(#formed)); } }
                             },
                             Source::Column => {
-                                let alias = &former.alias;
                                 let ident = &former.ident;
-                                let option = &former.option;
+                                let optional = &former.option;
+                                let ty = former.target.typed()?;
+                                let alias = former.target.alias()?;
+                                let default = optional.default()?;
+                                let option = optional.option()?;
+                                let some = optional.some()?;
+                                let none = column.none()?;
+                                let from = column.from()?;
                                 quote::quote! {
-                                    match row.try_get::<#option<_>, _>(#alias)? {
-                                        #option::Some(#ident) => #option::Some(#formed),
-                                        #option::None => #option::None,
+                                    match row.try_get::<#option<#ty>, _>(#alias)? {
+                                        #option::Some(#ident) => #from(#some(#formed)),
+                                        #option::None => #none(#default),
                                     }
                                 }
                             }

@@ -6,6 +6,8 @@ mod base;
 pub use rules::*;
 pub use types::*;
 
+pub use syn::spanned::Spanned;
+
 
 
 pub fn typath(mut ty: &syn::Type) -> Option<&syn::Path> {

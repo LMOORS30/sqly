@@ -68,11 +68,11 @@ Currently only postgres is supported.
 - [X] `#[sqly(infer)]` for custom sqlx types
 - [X] `#[sqly(value)]` for custom parameter binding
 - [X] `#[sqly(select)]` for custom SQL select expressions
+- [X] `#[sqly(default, from)]` for decoding table fields
 - [ ] `#[sqly(filter)]` for custom SQL filter expressions
 - [ ] `#[sqly(optional)]` for optional update and insert fields
 - [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
 - [ ] `#[sqly(distinct)]` for SQL `DISTINCT` clause
-- [ ] `#[sqly(from, try_from, default)]` for table
 - [ ] Implementation of bulk operations for `&[T]`
 
 **Draft**

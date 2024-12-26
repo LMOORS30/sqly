@@ -1,10 +1,10 @@
 #[cfg(feature = "postgres")]
-macro_rules! db { [] => ( quote::quote!{ ::sqlx::Postgres } ) }
+macro_rules! db { [] => ( quote::quote! { ::sqlx::Postgres } ) }
 
 macro_rules! result {
 [$l:lifetime] => ({
     let db = db![];
-    quote::quote!{
+    quote::quote! {
         ::sqlx::query::Query<
             $l,
             #db,
@@ -14,7 +14,7 @@ macro_rules! result {
 });
 [$l:lifetime, $t:ident] => ({
     let db = db![];
-    quote::quote!{
+    quote::quote! {
         ::sqlx::query::Map<
             $l,
             #db,
@@ -37,7 +37,7 @@ macro_rules! fun {
     let expr = $args.iter().map(|field| {
         $table.value(field, Target::Function)
     }).collect::<Result<Vec<_>>>()?;
-    quote::quote!{
+    quote::quote! {
         #(let #bind = &(#expr);)*
         use ::sqlx::Arguments as _;
         let mut args = <#db as ::sqlx::Database>::Arguments::<'_>::default();

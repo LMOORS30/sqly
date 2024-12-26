@@ -391,15 +391,15 @@ paste::paste! {
 
 macro_rules! vars {
 { $($vis:vis $e:ident$(: $a:ident)? { $(($($t:tt)*),)* })* } => {
-    $(vari!{ $vis $e$(: $a)? { $(($($t)*),)* } })*
+    $(vari! { $vis $e$(: $a)? { $(($($t)*),)* } })*
 } }
 
 macro_rules! vari {
 { $vis:vis $e:ident$(: $a:ident)? { $(($v:ident = $n:literal),)* } } => {
-    vari!{ impl $vis $e $($a)? { $(($v, stringify!($n), $n),)* } true }
+    vari! { impl $vis $e $($a)? { $(($v, stringify!($n), $n),)* } true }
 };
 { $vis:vis $e:ident$(: $a:ident)? { $(($v:ident = $n:ident),)* } } => {
-    vari!{ impl $vis $e $($a)? { $(($v, stringify!($n), stringify!($n)),)* } false }
+    vari! { impl $vis $e $($a)? { $(($v, stringify!($n), stringify!($n)),)* } false }
 };
 { impl $vis:vis $e:ident $($a:ident)? { $(($v:ident, $n:expr, $s:expr),)* } $lit:tt } => {
 

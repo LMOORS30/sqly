@@ -79,34 +79,12 @@ impl QueryTable {
 
 impl QueryTable {
 
-    pub fn selects<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
-        let iter = field.attr.select.iter();
-        let foreigns = iter.flat_map(|select| {
-            &select.data
-        }).collect();
-        Ok(foreigns)
-    }
-
-    pub fn foreigns<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
-        let iter = field.attr.foreign.iter();
-        let foreigns = iter.flat_map(|foreign| {
-            &foreign.data
-        }).collect();
-        Ok(foreigns)
-    }
-
-}
-
-
-
-impl QueryTable {
-
     pub fn fielded(&self, field: &QueryField, r#type: Types) -> bool {
         !self.skipped(field, r#type.into()) && match r#type {
-            crate::parse::Types::Delete => self.keyed(field, r#type),
-            crate::parse::Types::Select => self.keyed(field, r#type),
-            crate::parse::Types::Insert => true,
-            crate::parse::Types::Update => true,
+            Types::Delete => self.keyed(field, r#type),
+            Types::Select => self.keyed(field, r#type),
+            Types::Insert => true,
+            Types::Update => true,
         }
     }
 
@@ -138,11 +116,57 @@ impl QueryTable {
 
 
 
+impl QueryTable {
+
+    pub fn selects<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
+        let iter = field.attr.select.iter();
+        let foreigns = iter.flat_map(|select| {
+            &select.data
+        }).collect();
+        Ok(foreigns)
+    }
+
+    pub fn foreigns<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
+        let iter = field.attr.foreign.iter();
+        let foreigns = iter.flat_map(|foreign| {
+            &foreign.data
+        }).collect();
+        Ok(foreigns)
+    }
+
+}
+
+
+
+impl QueryTable {
+
+    pub fn ty<'c>(&'c self, field: &'c QueryField) -> Result<&'c syn::Type> {
+        let ty = match &field.attr.from {
+            Some(ty) => &ty.data.data,
+            None => &field.ty,
+        };
+        Ok(ty)
+    }
+
+}
+
+
+
+impl<'c> Constructed<'c> {
+
+    pub fn optional(&self) -> Result<Option<Optional<'c>>> {
+        self.table.optional(&self.field)
+    }
+
+}
+
+
+
 impl<'c> Construct<'c> {
 
-    pub fn optional(&self) -> Result<Option<&syn::Path>> {
+    pub fn optional(&self) -> Result<Option<Optional<'c>>> {
         let optional = match &self.foreign {
-            Some(foreign) => foreign.optional.as_ref(),
+            Some(foreign) => foreign.optional,
             None => None,
         };
         Ok(optional)
@@ -298,7 +322,7 @@ impl $table {
             None => {
                 iden = named.to_string();
                 &iden
-            },
+            }
         };
 
         let (name, info) = match name.find(SEP) {

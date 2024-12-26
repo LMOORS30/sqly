@@ -43,10 +43,10 @@ impl QueryTable {
             proc_macro2::Span::call_site()
         }); 
         let derive = match r#type {
-            Types::Delete => quote::quote_spanned!{ span => ::sqly::Delete },
-            Types::Insert => quote::quote_spanned!{ span => ::sqly::Insert },
-            Types::Select => quote::quote_spanned!{ span => ::sqly::Select },
-            Types::Update => quote::quote_spanned!{ span => ::sqly::Update },
+            Types::Delete => quote::quote_spanned! { span => ::sqly::Delete },
+            Types::Insert => quote::quote_spanned! { span => ::sqly::Insert },
+            Types::Select => quote::quote_spanned! { span => ::sqly::Select },
+            Types::Update => quote::quote_spanned! { span => ::sqly::Update },
         };
         Ok(quote::quote! { #[derive(#derive #(, #derives)*)] })
     }
@@ -92,6 +92,92 @@ impl QueryTable {
             }
         };
         Ok(fttr)
+    }
+
+}
+
+
+
+impl QueryTable {
+
+    pub fn typed(&self, field: &QueryField) -> Result<TokenStream> {
+        let ty = self.ty(field)?;
+        let typed = match field.attr.default {
+            Some(_) => quote::quote! { ::core::option::Option<#ty> },
+            None => quote::quote! { #ty },
+        };
+        Ok(typed)
+    }
+
+}
+
+
+
+impl<'c> Constructed<'c> {
+
+    pub fn from(&self) -> Result<TokenStream> {
+        let from = match self.field.attr.from {
+            None => TokenStream::new(),
+            Some(_) => {
+                let ty = &self.field.ty;
+                quote::quote! { <#ty>::from }
+            }
+        };
+        Ok(from)
+    }
+
+    pub fn none(&self) -> Result<TokenStream> {
+        let none = match self.field.attr.default {
+            Some(_) => TokenStream::new(),
+            None => self.from()?,
+        };
+        Ok(none)
+    }
+
+}
+
+
+
+impl<'c> Optional<'c> {
+
+    pub fn some(&self) -> Result<TokenStream> {
+        let some = match self {
+            Optional::Option(path) => {
+                let path = argone(path);
+                quote::quote! { #path::Some }
+            },
+            Optional::Default(_) => {
+                TokenStream::new()
+            }
+        };
+        Ok(some)
+    }
+
+    pub fn option(&self) -> Result<TokenStream> {
+        let option = match self {
+            Optional::Option(path) => {
+                let path = argone(path);
+                quote::quote! { #path }
+            },
+            Optional::Default(_) => {
+                quote::quote! { ::core::option::Option }
+            }
+        };
+        Ok(option)
+    }
+
+    pub fn default(&self) -> Result<TokenStream> {
+        let default = match self {
+            Optional::Option(path) => {
+                let path = argone(path);
+                quote::quote! { #path::None }
+            },
+            Optional::Default(path) => match &path {
+                Some(path) => quote::quote! { #path() },
+                None => quote::quote! { ::core::default::Default::default() },
+            }
+        };
+        Ok(default)
     }
 
 }
@@ -222,10 +308,10 @@ macro_rules! both {
 impl $table {
 
     pub fn value(&self, field: &$field, target: Target) -> Result<proc_macro2::TokenStream> {
-        let span = syn::spanned::Spanned::span(&field.ty);
         let value = match &field.attr.value {
-            Some(expr) => {
-                let expr = &expr.data.data;
+            Some(value) => {
+                let expr = &value.data.data;
+                let span = value.data.span;
                 let unfer = unfer(expr);
                 let unfer = unfer.as_ref().unwrap_or(expr);
                 match (target, &field.attr.infer) {
@@ -236,6 +322,7 @@ impl $table {
             },
             None => {
                 let ident = &field.ident;
+                let span = field.ty.span();
                 match &field.attr.infer.as_ref().map(|_| target) {
                     Some(Target::Macro) => quote::quote_spanned!(span => obj.#ident as _),
                     Some(Target::Function) | None => quote::quote_spanned!(span => obj.#ident),
