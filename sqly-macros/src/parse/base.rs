@@ -321,13 +321,16 @@ impl $table {
             Some(column) => &column.data.data,
             None => {
                 iden = named.to_string();
-                &iden
+                match iden.strip_prefix("r#") {
+                    Some(strip) => strip,
+                    None => &iden,
+                }
             }
         };
 
         let (name, info) = match name.find(SEP) {
             Some(i) => name.split_at(i),
-            None => (name.as_str(), ""),
+            None => (name, ""),
         };
 
         let name = self.rename(field, name)?;
