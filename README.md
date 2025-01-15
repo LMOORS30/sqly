@@ -64,7 +64,7 @@ Currently only postgres is supported.
 
 **Minor**
 - [X] `Table::Flat` type for convenience
-    - [ ] `#[derive(Flat)]` and `#[sqly(flat)]` for flexibility
+    - [ ] `#[derive(Flat)]` for flexibility
 - [X] `#[sqly(infer)]` for custom sqlx types
 - [X] `#[sqly(value)]` for custom parameter binding
 - [X] `#[sqly(select)]` for custom SQL select expressions
@@ -72,11 +72,12 @@ Currently only postgres is supported.
 - [ ] `#[sqly(filter)]` for custom SQL filter expressions
 - [ ] `#[sqly(optional)]` for optional update and insert fields
 - [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
-- [ ] `#[sqly(distinct)]` for SQL `DISTINCT` clause
+- [ ] `#[sqly(insert, update)]` for SQL expression
 - [ ] Implementation of bulk operations for `&[T]`
 
 **Draft**
 - [ ] `#[sqly(group)]` for SQL `GROUP BY` clause
+- [ ] `#[sqly(distinct)]` for SQL `DISTINCT` clause
 - [ ] Decoding database rows unchecked or by index
 - [ ] Custom macro attributes in generated structs
 - [ ] Support for generic structs

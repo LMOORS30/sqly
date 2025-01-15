@@ -266,8 +266,8 @@ impl<'c> Constructed<'c> {
                     }
                 }
             },
-            Code::Query => self.table.typed(&self.field)?,
-            Code::Skip => self.table.typed(&self.field)?,
+            Code::Query => self.table.typed(self.field)?,
+            Code::Skip => self.table.typed(self.field)?,
         };
         Ok(typed)
     }
@@ -300,7 +300,7 @@ impl<'c> Construct<'c> {
         };
 
         let resolved = match field {
-            Some(column) => Some(Resolved::Field(&column)),
+            Some(column) => Some(Resolved::Field(column)),
             None => match &foreign.field.attr.foreign_key {
                 Some(key) => match &key.data.data {
                     Named::String(column) => {
@@ -538,6 +538,14 @@ impl<'c> Params<'c> {
         if let Some(res) = self.0.insert(key.to_string(), val) {
             self.emplace(&format!("self__{key}"), res);
         }
+    }
+
+    pub fn output(&self, input: &[&Info<String>]) -> Result<String> {
+        let output = input.iter().map(|select| {
+            let line = select.data.trim_ascii();
+            self.replace(line, select.span)
+        }).collect::<Result<Vec<_>>>()?;
+        Ok(output.join("\n"))
     }
 
     pub fn replace(&self, src: &str, span: proc_macro2::Span) -> Result<String> {

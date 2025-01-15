@@ -152,19 +152,19 @@ impl QueryTable {
 
 
 
-impl<'c> Constructed<'c> {
+impl Constructed<'_> {
 
-    pub fn optional(&self) -> Result<Option<Optional<'c>>> {
-        self.table.optional(&self.field)
+    pub fn optional(&self) -> Result<Option<Optional<'_>>> {
+        self.table.optional(self.field)
     }
 
 }
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
-    pub fn optional(&self) -> Result<Option<Optional<'c>>> {
+    pub fn optional(&self) -> Result<Option<Optional<'_>>> {
         let optional = match &self.foreign {
             Some(foreign) => foreign.optional,
             None => None,
@@ -174,7 +174,7 @@ impl<'c> Construct<'c> {
 
 }
 
-impl<'c> Resolved<'c> {
+impl Resolved<'_> {
 
     pub fn column(&self) -> Result<String> {
         let column = match self {
@@ -188,7 +188,7 @@ impl<'c> Resolved<'c> {
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     pub fn unique(&self) -> Result<&str> {
         match self.unique.get() {
@@ -204,7 +204,7 @@ impl<'c> Construct<'c> {
 
 }
 
-impl<'c> Constructed<'c> {
+impl Constructed<'_> {
 
     pub fn unique(&self) -> Result<&str> {
         match self.unique.get() {
@@ -222,7 +222,7 @@ impl<'c> Constructed<'c> {
 
 
 
-impl<'c> Constructed<'c> {
+impl Constructed<'_> {
 
     pub fn column(&self) -> Result<String> {
         let table = &self.table;

@@ -181,20 +181,18 @@ impl QueryTable {
             for item in &list.data {
                 if let Ok(r#type) = item.data.try_into() {
                     if !types.contains(&r#type) {
-                        let span = item.span;
                         let name = item.data.to_string();
                         let msg = format!("unused value: requires #[sqly({})] on struct", name);
-                        return Err(syn::Error::new(span, msg));
+                        return Err(syn::Error::new(item.span, msg));
                     }
                 }
             }
             for (i, item) in list.data.iter().enumerate() {
                 let mut rest = list.data.as_slice()[i + 1..].iter();
                 if let Some(item) = rest.find(|i| i.data == item.data) {
-                    let span = item.span;
                     let name = item.data.to_string();
                     let msg = format!("duplicate value: {}", name);
-                    return Err(syn::Error::new(span, msg));
+                    return Err(syn::Error::new(item.span, msg));
                 }
             }
         }

@@ -133,19 +133,19 @@ pub use update::*;
 /// 
 /// // executed query:
 /// /*
-///	    SELECT
-///	    	publisher.id AS publisher__id,
-///	    	publisher.unique_name AS publisher__unique_name,
-///	    	book.id AS book__id,
-///	    	book.title AS book__title,
-///	    	author.id AS author__id,
-///	    	author.name AS author__name
-///	    FROM publications AS self
-///	    LEFT JOIN publishers AS publisher ON publisher.unique_name = self.publisher_name
-///	    INNER JOIN books AS book ON book.id = self.book_id
-///	    INNER JOIN authors AS author ON author.id = book.author_id
-///	    WHERE
-///	    	self.book_id = $1
+///     SELECT
+///         publisher.id AS publisher__id,
+///         publisher.unique_name AS publisher__unique_name,
+///         book.id AS book__id,
+///         book.title AS book__title,
+///         author.id AS author__id,
+///         author.name AS author__name
+///     FROM publications AS self
+///     LEFT JOIN publishers AS publisher ON publisher.unique_name = self.publisher_name
+///     INNER JOIN books AS book ON book.id = self.book_id
+///     INNER JOIN authors AS author ON author.id = book.author_id
+///     WHERE
+///         self.book_id = $1
 /// */
 /// 
 /// // example response:

@@ -113,7 +113,7 @@ impl QueryTable {
 
 
 
-impl<'c> Constructed<'c> {
+impl Constructed<'_> {
 
     pub fn from(&self) -> Result<TokenStream> {
         let from = match self.field.attr.from {
@@ -138,7 +138,7 @@ impl<'c> Constructed<'c> {
 
 
 
-impl<'c> Optional<'c> {
+impl Optional<'_> {
 
     pub fn some(&self) -> Result<TokenStream> {
         let some = match self {
@@ -184,7 +184,7 @@ impl<'c> Optional<'c> {
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     #[cfg(feature = "unchecked")]
     pub fn check(&self) -> Result<TokenStream> {
@@ -218,9 +218,7 @@ impl<'c> Construct<'c> {
                 if !list.is_empty() {
                     query.push_str("\t");
                     let params = self.selects(&alias)?;
-                    let select = list.into_iter().map(|select| {
-                        params.replace(&select.data, select.span)
-                    }).collect::<Result<String>>()?;
+                    let select = params.output(&list)?;
                     query.push_str(&select);
                     query.push_str(",\n");
                 }

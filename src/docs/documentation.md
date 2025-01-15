@@ -320,6 +320,10 @@ The column must be renamed to `"$alias"` and the table must be referenced as `$t
 
 No other string placeholders are available, other tables can currently not be referenced.
 
+This attribute can be specified any amount of times and multiple strings can be passed each time.
+
+Individual strings have leading and trailing whitespace removed and are joined with newlines.
+
 <br>
 
 #### value
@@ -468,6 +472,10 @@ The joined table must be renamed to `$other` and the current table must be refer
 Joins should be specified with one of `$INNER`, `$inner`, `$LEFT`, `$left` in order to support `LEFT JOIN`s on this table.
 
 Other tables can be referenced by using their unique alias relative to the current scope as a variable (e.g. `$table_name`).
+
+This attribute can be specified any amount of times and multiple strings can be passed each time.
+
+Individual strings have leading and trailing whitespace removed and are joined with newlines.
 
 **Note**<br>
 Foreign fields may be included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.

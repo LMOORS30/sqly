@@ -96,7 +96,7 @@ impl QueryTable {
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     pub fn build(&self, r#type: Types) -> Result<TokenStream> {
         let derive = self.table.derive(r#type)?;
@@ -130,7 +130,7 @@ impl<'c> Construct<'c> {
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     pub fn flat(&self) -> Result<TokenStream> {
         let ident = &self.table.ident;
@@ -216,7 +216,7 @@ struct Former<'c> {
     ident: syn::Ident,
 }
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     pub fn form(&self, source: Source) -> Result<TokenStream> {
         let formed = self.formed(None, source)?;
@@ -236,7 +236,7 @@ impl<'c> Construct<'c> {
         }
     }
 
-    fn formed(&self, former: Option<&Former<'c>>, source: Source) -> Result<TokenStream> {
+    fn formed(&self, former: Option<&Former<'_>>, source: Source) -> Result<TokenStream> {
         let fields = self.fields.iter().map(|column| {
             let value = match &column.code {
                 Code::Skip => {
@@ -327,7 +327,7 @@ impl<'c> Construct<'c> {
                                 Some(field) => field,
                                 None => {
                                     let ident = &construct.table.ident;
-                                    let span = column.table.ty(&column.field)?.span();
+                                    let span = column.table.ty(column.field)?.span();
                                     let msg = format!("ambiguous left join on {ident}: \
                                         all fetched fields are optional");
                                     return Err(syn::Error::new(span, msg));

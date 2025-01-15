@@ -60,22 +60,20 @@ pub fn argone(path: &syn::Path) -> syn::Path {
 
 pub fn unfer(expr: &syn::Expr) -> Option<syn::Expr> {
     match expr {
-        syn::Expr::Group(group) => match unfer(&group.expr) {
-            Some(expr) => Some(syn::Expr::Group(syn::ExprGroup {
+        syn::Expr::Group(group) => unfer(&group.expr).map(|expr| {
+            syn::Expr::Group(syn::ExprGroup {
                 expr: Box::new(expr),
                 attrs: group.attrs.clone(),
                 group_token: group.group_token.clone(),
-            })),
-            None => None,
-        },
-        syn::Expr::Paren(paren) => match unfer(&paren.expr) {
-            Some(expr) => Some(syn::Expr::Paren(syn::ExprParen {
+            })
+        }),
+        syn::Expr::Paren(paren) => unfer(&paren.expr).map(|expr| {
+            syn::Expr::Paren(syn::ExprParen {
                 expr: Box::new(expr),
                 attrs: paren.attrs.clone(),
                 paren_token: paren.paren_token.clone(),
-            })),
-            None => None,
-        },
+            })
+        }),
         syn::Expr::Cast(cast) => match &*cast.ty {
             syn::Type::Infer(_) => Some((*cast.expr).clone()),
             _ => None,

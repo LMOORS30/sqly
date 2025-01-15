@@ -54,7 +54,7 @@ impl SelectTable {
 
 
 
-impl<'c> Construct<'c> {
+impl Construct<'_> {
 
     pub fn query(&self, target: Target) -> Result<String> {
         let table = &self.table.attr.table.data.data;
@@ -82,9 +82,7 @@ impl<'c> Construct<'c> {
                     if !list.is_empty() {
                         query.push_str("\t");
                         let params = flattened.selects(&alias)?;
-                        let select = list.into_iter().map(|select| {
-                            params.replace(&select.data, select.span)
-                        }).collect::<Result<String>>()?;
+                        let select = params.output(&list)?;
                         query.push_str(&select);
                         query.push_str(",\n");
                     }
@@ -101,10 +99,9 @@ impl<'c> Construct<'c> {
                     let column = flattened.column;
                     let list = column.table.foreigns(column.field)?;
                     if !list.is_empty() {
+                        joins.push_str("\n");
                         let params = flattened.foreigns(construct)?;
-                        let foreign = list.into_iter().map(|foreign| {
-                            params.replace(&foreign.data, foreign.span)
-                        }).collect::<Result<String>>()?;
+                        let foreign = params.output(&list)?;
                         joins.push_str(&foreign);
                     }
                     else {

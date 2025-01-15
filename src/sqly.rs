@@ -2,6 +2,7 @@ mod macros;
 mod rules;
 mod traits;
 
+/// Documentation.
 pub mod docs {
     #[allow(unused_imports)]
     use super::*;
