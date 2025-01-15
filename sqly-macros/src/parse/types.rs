@@ -154,6 +154,10 @@ impl QueryTable {
                             return Err(syn::Error::new(skip.span, msg));
                         }
                     }
+                    if let Some(select) = field.attr.select.first() {
+                        let msg = "conflicting attributes: #[sqly(foreign, select)]";
+                        return Err(syn::Error::new(select.span, msg));
+                    }
                 },
                 None => {
                     for field in [
