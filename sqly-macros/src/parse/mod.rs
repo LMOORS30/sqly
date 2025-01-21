@@ -6,7 +6,25 @@ mod base;
 pub use rules::*;
 pub use types::*;
 
+pub use syn::Result;
+
 pub use syn::spanned::Spanned;
+
+
+
+pub trait Unraw {
+    fn unraw(&self) -> String;
+}
+
+impl Unraw for syn::Ident {
+    fn unraw(&self) -> String {
+        let string = self.to_string();
+        match string.strip_prefix("r#") {
+            Some(unraw) => unraw.to_string(),
+            None => string,
+        }
+    }
+}
 
 
 
@@ -77,7 +95,7 @@ pub fn unfer(expr: &syn::Expr) -> Option<syn::Expr> {
         syn::Expr::Cast(cast) => match &*cast.ty {
             syn::Type::Infer(_) => Some((*cast.expr).clone()),
             _ => None,
-        },
+        }
         _ => None,
     }
 }

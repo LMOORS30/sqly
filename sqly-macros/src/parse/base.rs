@@ -1,5 +1,3 @@
-use syn::Result;
-
 use crate::cache::*;
 use crate::parse::*;
 
@@ -239,16 +237,15 @@ impl Constructed<'_> {
     }
 
     pub fn segment(&self) -> Result<String> {
-        let ident = self.field.ident.to_string();
-        let unique = match ident.strip_prefix("r#") {
-            Some(strip) => strip.to_string(),
-            None => ident,
-        };
-        Ok(unique)
+        let ident = &self.field.ident;
+        Ok(ident.unraw())
     }
 
     pub fn ident(&self) -> Result<syn::Ident> {
-        Ok(quote::format_ident!("r#{}", self.alias()?))
+        let alias = self.alias()?;
+        let mut ident = quote::format_ident!("r#{}", alias);
+        ident.set_span(self.field.ident.span());
+        Ok(ident)
     }
 
     pub fn alias(&self) -> Result<&str> {

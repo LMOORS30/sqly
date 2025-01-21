@@ -1,4 +1,4 @@
-use syn::Result;
+use super::*;
 
 mod delete;
 mod insert;
@@ -9,8 +9,6 @@ pub use delete::*;
 pub use insert::*;
 pub use select::*;
 pub use update::*;
-
-use super::rules::*;
 
 
 
@@ -158,7 +156,7 @@ impl QueryTable {
                         let msg = "conflicting attributes: #[sqly(foreign, select)]";
                         return Err(syn::Error::new(select.span, msg));
                     }
-                },
+                }
                 None => {
                     for field in [
                         field.attr.foreign_key.as_ref().map(|v| v.span),

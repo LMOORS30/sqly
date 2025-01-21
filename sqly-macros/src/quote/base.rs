@@ -1,5 +1,4 @@
 use proc_macro2::TokenStream;
-use syn::Result;
 
 use crate::cache::*;
 use crate::parse::*;
@@ -41,7 +40,7 @@ impl QueryTable {
             Types::Update => self.attr.update.as_ref(),
         }.map(|attr| attr.span).unwrap_or_else(|| {
             proc_macro2::Span::call_site()
-        }); 
+        });
         let derive = match r#type {
             Types::Delete => quote::quote_spanned! { span => ::sqly::Delete },
             Types::Insert => quote::quote_spanned! { span => ::sqly::Insert },
@@ -145,7 +144,7 @@ impl Optional<'_> {
             Optional::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path::Some }
-            },
+            }
             Optional::Default(_) => {
                 TokenStream::new()
             }
@@ -158,7 +157,7 @@ impl Optional<'_> {
             Optional::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path }
-            },
+            }
             Optional::Default(_) => {
                 quote::quote! { ::core::option::Option }
             }
@@ -171,7 +170,7 @@ impl Optional<'_> {
             Optional::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path::None }
-            },
+            }
             Optional::Default(path) => match &path {
                 Some(path) => quote::quote! { #path() },
                 None => quote::quote! { ::core::default::Default::default() },
@@ -197,56 +196,23 @@ impl Construct<'_> {
             return Ok(TokenStream::new());
         }
 
-        use std::fmt::Write;
-        let name = &self.table.ident;
-        let table = &self.table.attr.table.data.data;
-        let mut query = String::new();
         let mut fields = Vec::new();
-        let unique = self.unique()?;
-
-        write!(&mut query,
-            "SELECT\n"
-        ).unwrap();
-
-        let mut i = 1;
+        let name = &self.table.ident;
         for column in self.fields.iter() {
             if let Code::Query = column.code {
-                let alias = column.alias()?;
-                let modifier = column.modifier()?;
-                let alias = format!("{alias}{modifier}");
-                let list = column.table.selects(column.field)?;
-                if !list.is_empty() {
-                    query.push_str("\t");
-                    let params = self.selects(&alias)?;
-                    let select = params.output(&list)?;
-                    query.push_str(&select);
-                    query.push_str(",\n");
-                }
-                else {
-                    let column = column.column()?;
-                    write!(&mut query,
-                        "\t\"{column}\" AS \"{alias}\",\n"
-                    ).unwrap();
-                }
                 let ty = column.typed()?;
                 let ident = column.ident()?;
                 fields.push(quote::quote! {
                     #ident: #ty
                 });
-                i += 1;
             }
         }
-        if i <= 1 { return Ok(TokenStream::new()); }
-        let trunc = if i > 1 { 2 } else { 1 };
-        query.truncate(query.len() - trunc);
 
-        write!(&mut query,
-            "\nFROM \"{table}\" AS \"{unique}\""
-        ).unwrap();
-
+        if fields.is_empty() { return Ok(TokenStream::new()); }
+        let query = self.query(Target::Macro, Scope::Local)?;
         Ok(quote::quote! {
             #[allow(unused)]
-            fn __() { 
+            fn __() {
                 struct #name { #(#fields,)* }
                 ::sqlx::query_as!(#name, #query);
             }
@@ -317,7 +283,7 @@ impl $table {
                     (Target::Macro, Some(_)) => quote::quote_spanned!(span => (#unfer) as _),
                     (Target::Function, _) => quote::quote_spanned!(span => #unfer),
                 }
-            },
+            }
             None => {
                 let ident = &field.ident;
                 let span = field.ty.span();
@@ -359,13 +325,13 @@ impl $table {
                     let rs = prettyplease::unparse(&tree);
                     println!("{}", rs);
                     Ok(res)
-                },
+                }
                 Err(err) => {
                     let rs = res.to_string();
                     println!("{}", rs);
                     Err(err)
-                },
-            },
+                }
+            }
             None => Ok(res),
         }
     }

@@ -208,7 +208,7 @@ paste::paste! {
                         f.ident.is_some()
                     }) { Some(data) }
                     else { None }
-                },
+                }
                 _ => None,
             };
 

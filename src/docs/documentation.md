@@ -308,7 +308,7 @@ This attribute can be applied to both the struct and its fields, where the value
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 # struct T {
-#[sqly(select = "$table.column AS \"$alias\"")]
+#[sqly(select = "$table.$column")]
 # t: i32
 # }
 ```
@@ -316,7 +316,7 @@ The SQL expression to select the column for this field.
 
 This attribute supports [String Placeholders](#string-placeholders), and they are necessary to generate valid queries.
 
-The column must be renamed to `"$alias"` and the table must be referenced as `$table`.
+The table must be referenced as `$table`, the column can optionally be referenced as `$column`, the alias must not be set.
 
 No other string placeholders are available, other tables can currently not be referenced.
 

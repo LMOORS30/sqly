@@ -1,5 +1,4 @@
 use proc_macro2::TokenStream;
-use syn::Result;
 
 mod delete;
 mod insert;
@@ -23,6 +22,12 @@ pub enum Target {
 pub enum Source {
     Column,
     Field,
+}
+
+#[derive(Clone, Copy)]
+pub enum Scope {
+    Global,
+    Local,
 }
 
 
@@ -156,7 +161,7 @@ impl Construct<'_> {
         let mut fields = Vec::new();
         let mut flatted = Vec::new();
 
-        for flattened in self.flattened()? {
+        for flattened in self.flatten()? {
             let flattened = flattened?;
             let column = flattened.column;
             let optional = flattened.optional;
@@ -174,7 +179,7 @@ impl Construct<'_> {
                     (Some(optional), None) => {
                         let option = optional.option()?;
                         quote::quote! { #option<#ty> }
-                    },
+                    }
                     _ => quote::quote! { #ty },
                 };
                 fields.push(quote::quote! {
@@ -186,6 +191,7 @@ impl Construct<'_> {
         let form = self.form(Source::Field)?;
 
         Ok(quote::quote! {
+            #[allow(non_snake_case)]
             #derive #vis struct #flat {
                 #(#fields,)*
             }
@@ -226,7 +232,7 @@ impl Construct<'_> {
                 Ok(quote::quote! {
                     #formed
                 })
-            },
+            }
             Source::Column => {
                 Ok(quote::quote! {
                     use ::sqlx::Row as _;
@@ -242,10 +248,10 @@ impl Construct<'_> {
                 Code::Skip => {
                     let default = column.field.attr.default.as_ref();
                     match default.and_then(|data| data.data.as_ref()) {
-                        None =>  quote::quote! { ::core::default::Default::default() },
+                        None => quote::quote! { ::core::default::Default::default() },
                         Some(default) => quote::quote! { #default() },
                     }
-                },
+                }
                 Code::Query => match source {
                     Source::Field => match (former, column.optional()?) {
                         (Some(former), None) => {
@@ -261,7 +267,7 @@ impl Construct<'_> {
                                     #option::None => break #none(#default),
                                 }
                             }
-                        },
+                        }
                         (_, Some(Optional::Default(path))) => {
                             let optional = Optional::Default(path);
                             let from = column.from()?;
@@ -274,15 +280,15 @@ impl Construct<'_> {
                                     #option::None => #default,
                                 }
                             }
-                        },
+                        }
                         _ => {
                             let from = column.from()?;
                             let ident = column.ident()?;
                             quote::quote! { #from(row.#ident) }
-                        },
-                    },
+                        }
+                    }
                     Source::Column => {
-                        let ident = column.ident()? ;
+                        let ident = column.ident()?;
                         let param = former.and_then(|former| {
                             match ident.eq(&former.ident) {
                                 true => Some(ident),
@@ -293,7 +299,7 @@ impl Construct<'_> {
                             Some(param) => {
                                 let from = column.from()?;
                                 quote::quote! { #from(#param) }
-                            },
+                            }
                             None => match column.optional()? {
                                 Some(Optional::Default(path)) => {
                                     let optional = Optional::Default(path);
@@ -317,8 +323,8 @@ impl Construct<'_> {
                                 }
                             }
                         }
-                    },
-                },
+                    }
+                }
                 Code::Foreign(construct) => {
                     let optional = match construct.optional()? {
                         None => None,
@@ -345,13 +351,13 @@ impl Construct<'_> {
                         None => {
                             let from = column.from()?;
                             quote::quote! { #from(#formed) }
-                        },
+                        }
                         Some(former) => match source {
                             Source::Field => {
                                 let from = column.from()?;
                                 let some = former.option.some()?;
                                 quote::quote! { loop { break #from(#some(#formed)); } }
-                            },
+                            }
                             Source::Column => {
                                 let ident = &former.ident;
                                 let optional = &former.option;
@@ -381,7 +387,7 @@ impl Construct<'_> {
             Some(foreign) => {
                 let path = foreign.path;
                 quote::quote! { #path }
-            },
+            }
             None => {
                 let ident = &self.table.ident;
                 quote::quote! { #ident }

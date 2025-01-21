@@ -4,18 +4,19 @@ use std::collections::{
 };
 
 use proc_macro2::TokenStream;
-use syn::Result;
 
 use std::sync::RwLockWriteGuard;
 use std::sync::RwLockReadGuard;
 use std::sync::OnceLock;
 use std::sync::RwLock;
 
-use super::parse::*;
+use crate::parse::*;
 
 pub use construct::*;
+pub use params::*;
 
 mod construct;
+mod params;
 
 
 
@@ -43,12 +44,7 @@ pub enum Key {
 impl TryFrom<&syn::Ident> for Id {
     type Error = syn::Error;
     fn try_from(ident: &syn::Ident) -> Result<Self> {
-        let ident = ident.to_string();
-        let strip = match ident.strip_prefix("r#") {
-            Some(strip) => strip.to_string(),
-            None => ident,
-        };
-        Ok(Self { ident: strip })
+        Ok(Self { ident: ident.unraw() })
     }
 }
 
@@ -61,7 +57,7 @@ impl TryFrom<&syn::Path> for Id {
                 let msg = "invalid path: no segments\n\
                     note: required by sqly internals";
                 return Err(syn::Error::new(span, msg));
-            },
+            }
             Some(segment) => {
                 if !segment.arguments.is_none() {
                     let span = path.span();
@@ -306,7 +302,7 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
                     stringify!($upper));
                 let span = proc_macro2::Span::call_site();
                 return Err(syn::Error::new(span, msg));
-            },
+            }
             map::Entry::Vacant(entry) => {
                 entry.insert(Tree {
                     val: safe,

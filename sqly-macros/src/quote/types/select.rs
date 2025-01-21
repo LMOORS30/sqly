@@ -54,9 +54,38 @@ impl SelectTable {
 
 
 
+impl<'c> Flattened<'c> {
+
+    pub fn selects(&self) -> Result<Params<&'static str, String>> {
+        let mut params = Params::default();
+        params.put("table", self.construct.unique()?.to_string());
+        params.put("column", self.column.column()?);
+        Ok(params)
+    }
+
+    pub fn foreigns(&self) -> Result<Params<String, &'c str>> {
+        let mut params = self.construct.params()?;
+        let inner = match self.optional {
+            Some(_) => ("left", "LEFT"),
+            None => ("inner", "INNER"),
+        };
+        params.emplace("left", "left");
+        params.emplace("LEFT", "LEFT");
+        params.emplace("inner", inner.0);
+        params.emplace("INNER", inner.1);
+        if let Code::Foreign(foreign) = &self.column.code {
+            params.emplace("other", foreign.unique()?);
+        }
+        Ok(params)
+    }
+
+}
+
+
+
 impl Construct<'_> {
 
-    pub fn query(&self, target: Target) -> Result<String> {
+    pub fn query(&self, target: Target, scope: Scope) -> Result<String> {
         let table = &self.table.attr.table.data.data;
         let mut query = String::new();
         let mut joins = String::new();
@@ -67,26 +96,30 @@ impl Construct<'_> {
         ).unwrap();
 
         let mut i = 1;
-        for flattened in self.flattened()? {
+        for flattened in self.flatten()? {
             let flattened = flattened?;
-            match &flattened.column.code {
-                Code::Skip => {},
-                Code::Query => {
+            match (&flattened.column.code, flattened.level, scope) {
+                (_, 1.., Scope::Local) => {}
+                (Code::Skip, _, _) => {}
+                (Code::Query, _, _) => {
                     let alias = flattened.column.alias()?;
-                    let alias = match target {
-                        Target::Function => alias.to_string(),
-                        Target::Macro => format!("{alias}!: _"),
+                    let alias = match (target, scope) {
+                        (Target::Function, _) => alias.to_string(),
+                        (Target::Macro, Scope::Global) => format!("{alias}!: _"),
+                        (Target::Macro, Scope::Local) => {
+                            let modifier = flattened.column.modifier()?;
+                            format!("{alias}{modifier}")
+                        }
                     };
                     let column = flattened.column;
                     let list = column.table.selects(column.field)?;
                     if !list.is_empty() {
-                        query.push_str("\t");
-                        let params = flattened.selects(&alias)?;
+                        let params = flattened.selects()?;
                         let select = params.output(&list)?;
-                        query.push_str(&select);
-                        query.push_str(",\n");
-                    }
-                    else {
+                        write!(&mut query,
+                            "\t{select} AS \"{alias}\",\n"
+                        ).unwrap();
+                    } else {
                         let column = flattened.column.column()?;
                         let table = flattened.construct.unique()?;
                         write!(&mut query,
@@ -94,17 +127,16 @@ impl Construct<'_> {
                         ).unwrap();
                     }
                     i += 1;
-                },
-                Code::Foreign(construct) => {
+                }
+                (Code::Foreign(construct), _, Scope::Global) => {
                     let column = flattened.column;
                     let list = column.table.foreigns(column.field)?;
                     if !list.is_empty() {
                         joins.push_str("\n");
-                        let params = flattened.foreigns(construct)?;
+                        let params = flattened.foreigns()?;
                         let foreign = params.output(&list)?;
                         joins.push_str(&foreign);
-                    }
-                    else {
+                    } else {
                         let unique = construct.unique()?;
                         let table = flattened.construct.unique()?;
                         let other = &construct.table.attr.table.data.data;
@@ -122,6 +154,7 @@ impl Construct<'_> {
                         ).unwrap();
                     }
                 }
+                _ => {}
             }
         }
         let trunc = if i > 1 { 2 } else { 1 };
@@ -151,7 +184,7 @@ impl SelectTable {
         let construct = table.construct(local)?;
         let table = construct.unique()?;
 
-        let mut query = construct.query(Target::Function)?;
+        let mut query = construct.query(Target::Function, Scope::Global)?;
         let mut select = String::new();
         let mut args = Vec::new();
 
@@ -176,7 +209,7 @@ impl SelectTable {
         let run = fun!(self, query, args);
 
         let check = self.checked(&args, |args| {
-            let mut query = construct.query(Target::Macro)?;
+            let mut query = construct.query(Target::Macro, Scope::Global)?;
             query.push_str(&select);
             Ok(quote::quote! {
                 type Flat = <#res as ::sqly::Table>::Flat;
