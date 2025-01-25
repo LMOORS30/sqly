@@ -277,6 +277,33 @@ impl $table {
         Ok(fields)
     }
 
+    pub fn cells<'c, K, V, F>(
+        &'c self,
+        params: &mut Params<K, Rc<RefCell<V>>>,
+        mut val: F,
+    ) -> Result<Vec<(&'c $field, Rc<RefCell<V>>)>>
+    where
+        K: From<String> + Hash + Eq,
+        V: Placer,
+        F: FnMut(&'c $field) -> V,
+    {
+        let fields = self.fields.iter().filter_map(|field| {
+            let cell = Rc::new(RefCell::new(val(field)));
+            let key = field.ident.unraw();
+            match &field.attr.skip {
+                None => {
+                    params.put(key, cell.clone());
+                    Some((field, cell))
+                }
+                Some(_) => {
+                    params.put(key, cell);
+                    None
+                }
+            }
+        }).collect();
+        Ok(fields)
+    }
+
 }
 
 impl $table {

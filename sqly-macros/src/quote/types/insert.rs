@@ -57,9 +57,14 @@ impl InsertTable {
 impl InsertTable {
 
     pub fn query(&self) -> Result<TokenStream> {
+        let mut params = Params::default();
         let mut query = String::new();
-        let mut args = Vec::new();
         let table = self.table()?;
+
+        let fields = self.cells(&mut params, |field| {
+            Dollar(Index::Unset(field))
+        })?;
+        params.ensure("i");
 
         write!(&mut query,
             "INSERT INTO \"{table}\" (\n"
@@ -75,20 +80,26 @@ impl InsertTable {
         }
         let trunc = if i > 1 { 2 } else { 0 };
         query.truncate(query.len() - trunc);
-        query.push_str("\n)\nVALUES\n\t(");
+        query.push_str("\n) VALUES (\n");
 
         let mut i = 1;
-        for field in self.fields()? {
+        for (field, mut cell) in fields {
+            params.put("i", cell.clone());
+            let list = field.attr.insert.infos();
+            let arg = match list.is_empty() {
+                false => params.output(&list)?,
+                true => params.place(&mut cell)?,
+            };
             write!(&mut query,
-                "${i}, "
+                "\t{arg},\n"
             ).unwrap();
-            args.push(field);
             i += 1;
         }
-        let trunc = if i > 1 { 2 } else { 0 };
+        let trunc = if i > 1 { 2 } else { 1 };
         query.truncate(query.len() - trunc);
-        query.push(')');
+        query.push_str("\n)");
 
+        let args = params.state;
         self.print(&query, &args)?;
         let run = fun!(self, query, args);
         let check = self.check(&query, &args)?;

@@ -111,10 +111,9 @@ impl Construct<'_> {
                             format!("{alias}{modifier}")
                         }
                     };
-                    let column = flattened.column;
-                    let list = column.table.selects(column.field)?;
+                    let list = flattened.column.field.attr.select.infos();
                     if !list.is_empty() {
-                        let params = flattened.selects()?;
+                        let mut params = flattened.selects()?;
                         let select = params.output(&list)?;
                         write!(&mut query,
                             "\t{select} AS \"{alias}\",\n"
@@ -129,11 +128,10 @@ impl Construct<'_> {
                     i += 1;
                 }
                 (Code::Foreign(construct), _, Scope::Global) => {
-                    let column = flattened.column;
-                    let list = column.table.foreigns(column.field)?;
+                    let list = flattened.column.field.attr.foreign.infos();
                     if !list.is_empty() {
                         joins.push_str("\n");
-                        let params = flattened.foreigns()?;
+                        let mut params = flattened.foreigns()?;
                         let foreign = params.output(&list)?;
                         joins.push_str(&foreign);
                     } else {

@@ -82,6 +82,8 @@ parse! {
         ((rename)? (= Rename)!),
 
         ((select)* (= String)+),
+        ((insert)* (= String)+),
+        ((update)* (= String)+),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -103,17 +105,16 @@ parse! {
 impl QueryTable {
 
     pub fn init(self) -> Result<Self> {
-        for (name, attr, derive, visibility) in [
-            ("delete", &self.attr.delete, &self.attr.delete_derive, &self.attr.delete_visibility),
-            ("insert", &self.attr.insert, &self.attr.insert_derive, &self.attr.insert_visibility),
-            ("select", &self.attr.select, &self.attr.select_derive, &self.attr.select_visibility),
-            ("update", &self.attr.update, &self.attr.update_derive, &self.attr.update_visibility),
+        let a = &self.attr;
+        for (r#type, attr, derive, visibility) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility),
         ] {
             if attr.is_none() {
-                let visibility = visibility.as_ref().map(|visibility| visibility.span);
-                let derive = derive.first().map(|derive| derive.span);
-                if let Some(span) = derive.or(visibility) {
-                    let msg = format!("unused attribute: requires #[sqly({})]", name);
+                if let Some(span) = spany!(derive, visibility) {
+                    let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
             }
@@ -144,10 +145,33 @@ impl QueryTable {
         }
 
         for field in &self.fields {
+            let b = &field.attr;
+            for (r#type, attr, value) in [
+                (Types::Insert, &a.insert, &b.insert),
+                (Types::Update, &a.update, &b.update),
+            ] {
+                if let Some(span) = spany!(value) {
+                    if attr.is_none() {
+                        let msg = format!("unused attribute: requires #[sqly({})] on struct", r#type);
+                        return Err(syn::Error::new(span, msg));
+                    }
+                    if !self.fielded(field, r#type) {
+                        let msg = format!("unused attribute: field not included in #[sqly({})]", r#type);
+                        return Err(syn::Error::new(span, msg));
+                    }
+                }
+            }
+        }
+
+        for field in &self.fields {
             match self.foreign(field)? {
                 Some(_) => {
-                    if let Some(skip) = &field.attr.skip {
-                        if skip.data.is_empty() {
+                    if let Some(skips) = &field.attr.skip {
+                        if skips.data.is_empty() {
+                            let msg = "conflicting attributes: #[sqly(skip, foreign)]";
+                            return Err(syn::Error::new(skips.span, msg));
+                        }
+                        if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::Query) {
                             let msg = "conflicting attributes: #[sqly(skip, foreign)]";
                             return Err(syn::Error::new(skip.span, msg));
                         }
@@ -158,15 +182,10 @@ impl QueryTable {
                     }
                 }
                 None => {
-                    for field in [
-                        field.attr.foreign_key.as_ref().map(|v| v.span),
-                        field.attr.foreign_named.as_ref().map(|v| v.span),
-                        field.attr.foreign_typed.as_ref().map(|v| v.span),
-                    ] {
-                        if let Some(span) = field {
-                            let msg = "unused attribute: requires #[sqly(foreign)]";
-                            return Err(syn::Error::new(span, msg));
-                        }
+                    let b = &field.attr;
+                    if let Some(span) = spany!(b.foreign_key, b.foreign_named, b.foreign_typed) {
+                        let msg = "unused attribute: requires #[sqly(foreign)]";
+                        return Err(syn::Error::new(span, msg));
                     }
                 }
             }

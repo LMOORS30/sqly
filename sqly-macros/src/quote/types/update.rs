@@ -57,22 +57,32 @@ impl UpdateTable {
 impl UpdateTable {
 
     pub fn query(&self) -> Result<TokenStream> {
+        let mut params = Params::default();
         let mut query = String::new();
-        let mut args = Vec::new();
         let table = self.table()?;
+
+        let mut fields = self.cells(&mut params, |field| {
+            Dollar(Index::Unset(field))
+        })?;
+        params.ensure("i");
 
         write!(&mut query,
             "UPDATE \"{table}\" SET\n",
         ).unwrap();
 
         let mut i = 1;
-        for field in self.fields()? {
+        for (field, cell) in &mut fields {
             if field.attr.key.is_none() {
+                params.put("i", cell.clone());
                 let column = self.column(field)?;
+                let list = field.attr.update.infos();
+                let arg = match list.is_empty() {
+                    false => params.output(&list)?,
+                    true => params.place(cell)?,
+                };
                 write!(&mut query,
-                    "\t\"{column}\" = ${i},\n"
+                    "\t\"{column}\" = {arg},\n"
                 ).unwrap();
-                args.push(field);
                 i += 1;
             }
         }
@@ -81,19 +91,20 @@ impl UpdateTable {
         query.push_str("\nWHERE\n");
 
         let mut j = i;
-        for field in &self.fields {
+        for (field, cell) in &mut fields {
             if field.attr.key.is_some() {
                 let column = self.column(field)?;
+                let arg = params.place(cell)?;
                 write!(&mut query,
-                    "\t\"{column}\" = ${j} AND\n"
+                    "\t\"{column}\" = {arg} AND\n"
                 ).unwrap();
-                args.push(field);
                 j += 1;
             }
         }
         let trunc = if j > i { 5 } else { 7 };
         query.truncate(query.len() - trunc);
 
+        let args = params.state;
         self.print(&query, &args)?;
         let run = fun!(self, query, args);
         let check = self.check(&query, &args)?;

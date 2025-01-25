@@ -1,53 +1,172 @@
 use std::collections::{HashMap as Map};
+use std::fmt::{self, Write, Display};
 use std::borrow::Borrow;
-use std::fmt::Display;
-use std::hash::Hash;
+
+pub use std::cell::RefCell;
+pub use std::hash::Hash;
+pub use std::rc::Rc;
 
 use crate::parse::*;
 
 
 
-#[derive(Default)]
-pub struct Params<K, V>(Map<K, V>);
+pub enum Index<T> {
+    Value(usize),
+    Unset(T),
+}
 
-impl<K: Hash + Eq, V> Params<K, V> {
+impl<T> Placer for Index<T> {
+    type State = Vec<T>;
+    type Item<'c> = usize
+        where Self: 'c;
+    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
+        Ok(match self {
+            Index::Value(i) => *i,
+            Index::Unset(_) => {
+                let i = state.len() + 1;
+                let val = Index::Value(i);
+                match core::mem::replace(self, val) {
+                    Index::Unset(ident) => state.push(ident),
+                    Index::Value(_) => unreachable!(),
+                };
+                i
+            }
+        })
+    }
+}
+
+
+
+pub struct Dollar<T>(pub T);
+
+impl<T: Placer> Placer for Dollar<T> {
+    type State = T::State;
+    type Item<'c> = Dollar<T::Item<'c>>
+        where Self: 'c;
+    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
+        Ok(Dollar(self.0.place(state)?))
+    }
+}
+
+impl<T: Display> Display for Dollar<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "$")?;
+        write!(f, "{}", self.0)?;
+        Ok(())
+    }
+}
+
+
+
+impl Displacer for usize {}
+impl Displacer for String {}
+impl<'c> Displacer for &'c str {}
+
+pub trait Displacer: Display {}
+
+pub trait Placer {
+    type State;
+    type Item<'c>: Display
+        where Self: 'c;
+    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>>;
+}
+
+impl<T: Displacer> Placer for T {
+    type State = ();
+    type Item<'c> = &'c Self
+        where Self: 'c;
+    fn place(&mut self, _: &mut Self::State) -> Result<Self::Item<'_>> {
+        Ok(self)
+    }
+}
+
+impl<T: Placer> Placer for Rc<RefCell<T>> {
+    type State = T::State;
+    type Item<'c> = String
+        where Self: 'c;
+    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
+        Ok(self.as_ref().borrow_mut().place(state)?.to_string())
+    }
+}
+
+
+
+pub struct Params<K, V: Placer> {
+    pub state: V::State,
+    map: Map<K, V>,
+}
+
+impl<K, V: Placer> Params<K, V> {
+
+    pub fn state(state: V::State) -> Self {
+        Self {
+            state,
+            map: Default::default(),
+        }
+    }
+
+}
+
+impl<K, V: Placer> Default for Params<K, V>
+where V::State: Default {
+
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            map: Default::default(),
+        }
+    }
+
+}
+
+impl<K: Hash + Eq, V: Placer> Params<K, V> {
 
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.0.get(key)
+        self.map.get(key)
     }
 
     pub fn put<Q: Into<K>>(&mut self, key: Q, val: V) -> Option<V> {
-        self.0.insert(key.into(), val)
+        self.map.insert(key.into(), val)
+    }
+
+    pub fn place<'c>(&mut self, val: &'c mut V) -> Result<V::Item<'c>> {
+        val.place(&mut self.state)
     }
 
 }
 
-impl<V> Params<String, V> {
+impl<V: Placer> Params<String, V> {
+
+    pub fn ensure<K: AsRef<str>>(&mut self, key: K) {
+        if let Some(res) = self.map.remove(key.as_ref()) {
+            self.emplace(format!("self__{}", key.as_ref()), res);
+        }
+    }
 
     pub fn emplace<K: Display>(&mut self, key: K, val: V) {
-        if let Some(res) = self.0.insert(key.to_string(), val) {
-            self.emplace(&format!("self__{key}"), res);
+        if let Some(res) = self.map.insert(key.to_string(), val) {
+            self.emplace(format!("self__{key}"), res);
         }
     }
 
 }
 
-impl<K: Borrow<str> + Hash + Eq, V: AsRef<str>> Params<K, V> {
+impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
 
-    pub fn output(&self, input: &[&Info<String>]) -> Result<String> {
+    pub fn output(&mut self, input: &[&Info<String>]) -> Result<String> {
         let output = input.iter().map(|select| {
             let line = select.data.trim_ascii();
-            self.replace(line, select.span)
+            self.apply(line, select.span)
         }).collect::<Result<Vec<_>>>()?;
         Ok(output.join("\n"))
     }
 
-    pub fn replace(&self, src: &str, span: proc_macro2::Span) -> Result<String> {
-        let mut res = String::new();
+    pub fn apply(&mut self, src: &str, span: proc_macro2::Span) -> Result<String> {
+        let mut dst = String::new();
         let mut src = src;
 
         while let Some(i) = src.find('$') {
@@ -55,7 +174,7 @@ impl<K: Borrow<str> + Hash + Eq, V: AsRef<str>> Params<K, V> {
             let next = chars.nth(1);
 
             if next == Some('$') {
-                res.push_str(&src[..=i]);
+                dst.push_str(&src[..=i]);
                 src = &src[i + 2..];
                 continue;
             }
@@ -71,19 +190,19 @@ impl<K: Borrow<str> + Hash + Eq, V: AsRef<str>> Params<K, V> {
                         }
                     };
                     let var = &src[i + 2..j];
-                    res.push_str(&src[..i]);
+                    dst.push_str(&src[..i]);
                     src = &src[j + 1..];
                     var
-                },
+                }
                 Some(char) => {
                     let o = if char == 'r' && chars.next() == Some('#') { 3 } else { 1 };
                     let j = src[i + o..].find(|c| !unicode_ident::is_xid_continue(c));
                     let j = j.map_or(src.len(), |j| j + i + o);
                     let var = &src[i + 1..j];
-                    res.push_str(&src[..i]);
+                    dst.push_str(&src[..i]);
                     src = &src[j..];
                     var
-                },
+                }
                 None => {
                     let var = &src[i + 1..];
                     src = &src[i + 1..];
@@ -116,11 +235,14 @@ impl<K: Borrow<str> + Hash + Eq, V: AsRef<str>> Params<K, V> {
                 }
             };
 
-            match self.0.get(ident.as_ref()) {
-                Some(val) => res.push_str(val.as_ref()),
+            match self.map.get_mut(&ident) {
+                Some(val) => {
+                    let res = val.place(&mut self.state)?;
+                    write!(&mut dst, "{}", res).unwrap()
+                }
                 None => {
-                    let mut params = self.0.keys().map(|key| key.borrow()).collect::<Vec<_>>();
-                    params.sort_unstable_by_key(|params| (params.len(), params.to_string()));
+                    let mut params = self.map.keys().map(|key| key.borrow()).collect::<Vec<_>>();
+                    params.sort_unstable_by_key(|&params| (params.split("__").count(), params));
                     let params = params.join(", ");
                     let msg = match next.unwrap_or('\0') {
                         '{' => format!("unknown parameter: {var}\n \
@@ -135,8 +257,8 @@ impl<K: Borrow<str> + Hash + Eq, V: AsRef<str>> Params<K, V> {
             }
         }
 
-        res.push_str(src);
-        Ok(res)
+        dst.push_str(src);
+        Ok(dst)
     }
 
 }
@@ -161,7 +283,7 @@ mod tests {
             params.put("table", "elbat");
             params.put("other", "rehto");
             let span = proc_macro2::Span::call_site();
-            params.replace(src, span)
+            params.apply(src, span)
         }
 
         fn replaced(src: &str) -> String {

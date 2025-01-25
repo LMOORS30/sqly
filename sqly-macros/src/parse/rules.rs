@@ -49,6 +49,43 @@ impl Save for syn::Visibility {}
 
 
 
+pub trait Spany {
+    fn spany(&self) -> Option<Span>;
+}
+
+pub trait Infos<T> {
+    fn infos(&self) -> Vec<&Info<T>>;
+}
+
+impl<T> Spany for Option<Name<T>> {
+    fn spany(&self) -> Option<Span> {
+        self.as_ref().map(|opt| opt.span)
+    }
+}
+impl<T> Spany for Vec<Name<T>> {
+    fn spany(&self) -> Option<Span> {
+        self.first().map(|opt| opt.span)
+    }
+}
+
+impl<T> Infos<T> for Vec<Name<Info<T>>> {
+    fn infos(&self) -> Vec<&Info<T>> {
+        self.iter().map(|list| &list.data).collect()
+    }
+}
+
+impl<T> Infos<T> for Vec<Name<Vec<Info<T>>>> {
+    fn infos(&self) -> Vec<&Info<T>> {
+        self.iter().flat_map(|list| &list.data).collect()
+    }
+}
+
+macro_rules! spany {
+    ($($opt:expr),+ $(,)?) => { [$($opt.spany()),*].into_iter().find_map(|opt| opt) }
+}
+
+
+
 fn respan(stream: TokenStream, span: Span) -> impl Iterator<Item = TokenTree> {
     fn respanned(mut token: TokenTree, span: Span) -> TokenTree {
         if let TokenTree::Group(g) = &mut token {
@@ -69,7 +106,12 @@ impl<T: ToTokens> ToTokens for Info<T> {
     }
 }
 
-impl ToTokens for Name<Info<Void>> {
+
+
+macro_rules! asref {
+($($c:tt)?) => {
+
+impl ToTokens for Name<$($c)?Info<Void>> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         name.set_span(self.span);
@@ -77,7 +119,7 @@ impl ToTokens for Name<Info<Void>> {
     }
 }
 
-impl<T: ToTokens> ToTokens for Name<Info<T>> {
+impl<T: ToTokens> ToTokens for Name<$($c)?Info<T>> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         let equals = Punct::new('=', Spacing::Alone);
@@ -88,7 +130,7 @@ impl<T: ToTokens> ToTokens for Name<Info<T>> {
     }
 }
 
-impl<T: ToTokens> ToTokens for Name<Option<T>> {
+impl<T: ToTokens> ToTokens for Name<$($c)?Option<T>> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         let equals = Punct::new('=', Spacing::Alone);
@@ -101,16 +143,31 @@ impl<T: ToTokens> ToTokens for Name<Option<T>> {
     }
 }
 
-impl<T: ToTokens> ToTokens for Name<Vec<T>> {
+impl<T: ToTokens> ToTokens for Name<$($c)?Vec<T>> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut name = quote::format_ident!("{}", self.name);
         let mut char = Punct::new('=', Spacing::Alone);
         name.set_span(self.span);
         name.to_tokens(tokens);
-        for data in &self.data {
+        for data in self.data.as_slice() {
             char.to_tokens(tokens);
             data.to_tokens(tokens);
             char = Punct::new(',', Spacing::Alone);
+        }
+    }
+}
+
+} }
+
+asref!();
+asref!(&);
+
+impl<T> Name<T> {
+    pub fn rename(&self, name: &'static str) -> Name<&T> {
+        Name {
+            data: &self.data,
+            span: self.span,
+            name: name,
         }
     }
 }
@@ -490,7 +547,7 @@ paste::paste! {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
             let span = input.span();
             let res = Err(syn::Error::new(span, ""));
-            $(let res = res.or_else(|_| token!(, input, $($t)*).map($e::$v));)*
+            $(let res = res.or_else(|_| token!(; input, $($t)*).map($e::$v));)*
             let res = res.or_else(|_| {
                 let list = [$(stringify!($($t)*),)*];
                 let mut list = list.iter().map(|name| {
@@ -588,7 +645,6 @@ macro_rules! safe {
 }
 
 
-
 macro_rules! token {
     ($i:expr, (= $($t:tt)*)*) => ({
         match $i.peek(syn::Token![=]) {
@@ -604,6 +660,12 @@ macro_rules! token {
             if $i.peek3(syn::Token![=]) {
                 break;
             }
+            token!(lit($($t)*) {
+                use syn::ext::IdentExt as _;
+                if $i.peek2(syn::Ident::peek_any) {
+                    break;
+                }
+            });
             $i.parse::<syn::Token![,]>()?;
             if $i.cursor().eof() {
                 break;
@@ -624,17 +686,23 @@ macro_rules! token {
     });
     ($i:expr, $($t:tt)*) => ({
         let span = $i.span();
-        token!(, $i, $($t)*).map(|v| {
+        token!(; $i, $($t)*).map(|v| {
             crate::parse::rules::Info::new(v, span)
         })
     });
-    (, $i:expr, f64) => ( $i.parse().and_then(|s: syn::LitFloat| s.base10_parse()) );
-    (, $i:expr, u64) => ( $i.parse().and_then(|s: syn::LitInt| s.base10_parse()) );
-    (, $i:expr, i64) => ( $i.parse().and_then(|s: syn::LitInt| s.base10_parse()) );
-    (, $i:expr, String) => ( $i.parse().map(|s: syn::LitStr| s.value()) );
-    (, $i:expr, bool) => ( $i.parse().map(|s: syn::LitBool| s.value()) );
-    (, $i:expr, $($t:tt)+) => ( $i.parse::<syncd!($($t)+)>() );
-    (, $i:expr,) => ( Ok(crate::parse::rules::Void) );
+    (; $i:expr, f64) => ( $i.parse().and_then(|s: syn::LitFloat| s.base10_parse()) );
+    (; $i:expr, u64) => ( $i.parse().and_then(|s: syn::LitInt| s.base10_parse()) );
+    (; $i:expr, i64) => ( $i.parse().and_then(|s: syn::LitInt| s.base10_parse()) );
+    (; $i:expr, String) => ( $i.parse().map(|s: syn::LitStr| s.value()) );
+    (; $i:expr, bool) => ( $i.parse().map(|s: syn::LitBool| s.value()) );
+    (; $i:expr, $($t:tt)+) => ( $i.parse::<syncd!($($t)+)>() );
+    (; $i:expr,) => ( Ok(crate::parse::rules::Void) );
+    (lit(f64) { $($t:tt)* }) => ( $($t)* );
+    (lit(u64) { $($t:tt)* }) => ( $($t)* );
+    (lit(i64) { $($t:tt)* }) => ( $($t)* );
+    (lit(String) { $($t:tt)* }) => ( $($t)* );
+    (lit(bool) { $($t:tt)* }) => ( $($t)* );
+    (lit($($t:tt)+) { $($_:tt)* }) => ();
 }
 
 macro_rules! specd {

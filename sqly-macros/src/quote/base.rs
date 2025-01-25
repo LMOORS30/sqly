@@ -63,21 +63,26 @@ impl QueryTable {
             field.attr.infer,
             field.attr.value,
         ];
+        if let Types::Update = r#type {
+            if self.keyed(field, r#type) {
+                let span = field.attr.key.as_ref().map(|key| {
+                    key.data.iter().find(|val| {
+                        r#type == val.data.into()
+                    }).map_or(key.span, |val| val.span)
+                }).unwrap_or_else(proc_macro2::Span::call_site);
+                let key = quote::quote_spanned! { span => key };
+                fttrs.push(key);
+            }
+        }
         match r#type {
             Types::Delete => {},
-            Types::Insert => {},
+            Types::Insert => args!(fttrs, [
+                (insert = field.attr.insert),
+            ]),
             Types::Select => {},
-            Types::Update => {
-                if self.keyed(field, r#type) {
-                    let span = field.attr.key.as_ref().map(|key| {
-                        key.data.iter().find(|val| {
-                            r#type == val.data.into()
-                        }).map_or(key.span, |val| val.span)
-                    }).unwrap_or_else(proc_macro2::Span::call_site);
-                    let key = quote::quote_spanned! { span => key };
-                    fttrs.insert(0, key);
-                }
-            }
+            Types::Update => args!(fttrs, [
+                (update = field.attr.update),
+            ]),
         }
         Ok(fttrs)
     }

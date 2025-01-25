@@ -69,10 +69,10 @@ Currently only postgres is supported.
 - [X] `#[sqly(value)]` for custom parameter binding
 - [X] `#[sqly(select)]` for custom SQL select expressions
 - [X] `#[sqly(default, from)]` for decoding table fields
+- [X] `#[sqly(insert, update)]` for custom SQL value expressions
 - [ ] `#[sqly(filter)]` for custom SQL filter expressions
 - [ ] `#[sqly(optional)]` for optional update and insert fields
 - [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
-- [ ] `#[sqly(insert, update)]` for SQL expression
 - [ ] Implementation of bulk operations for `&[T]`
 
 **Draft**

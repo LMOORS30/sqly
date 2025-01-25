@@ -269,7 +269,7 @@ If not specified this defaults to the name of the field.
 
 All uses of the column name will be enclosed in quotes.
 
-Includes support for the sqlx `?`, `!`, `: _` and `: T` [type overrides](https://docs.rs/sqlx/latest/sqlx/macro.query.html#type-overrides-output-columns).
+Includes support for the sqlx `?`, `!`, `: _` and `: T` [type overrides](https://docs.rs/sqlx/0.8.0/sqlx/macro.query.html#type-overrides-output-columns).
 
 <br>
 
@@ -326,6 +326,55 @@ Individual strings have leading and trailing whitespace removed and are joined w
 
 <br>
 
+#### insert
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", insert)]
+# struct T {
+#[sqly(insert = "$i")]
+# t: i32
+# }
+```
+The SQL expression to insert the column for this field.
+
+This attribute supports [String Placeholders](#string-placeholders), and they are necessary to generate valid queries.
+
+The value bound by this field must be referenced as `$i`, other fields can be referenced by their identifier (e.g. `$ident`).
+
+Any field can be referenced any amount of times, including skipped fields, or not at all.
+
+This attribute can be specified any amount of times and multiple strings can be passed each time.
+
+Individual strings have leading and trailing whitespace removed and are joined with newlines.
+
+<br>
+
+#### update
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", update)]
+# struct T {
+#[sqly(update = "$i")]
+# t: i32,
+# #[sqly(key)] d: i32
+# }
+```
+The SQL expression to update the column for this field.
+
+This attribute supports [String Placeholders](#string-placeholders), and they are necessary to generate valid queries.
+
+The value bound by this field must be referenced as `$i`, other fields can be referenced by their identifier (e.g. `$ident`).
+
+Any field can be referenced any amount of times, including skipped and keyed fields, or not at all.
+
+This attribute can be specified any amount of times and multiple strings can be passed each time.
+
+Individual strings have leading and trailing whitespace removed and are joined with newlines.
+
+<br>
+
 #### value
 ---
 ```
@@ -336,11 +385,11 @@ Individual strings have leading and trailing whitespace removed and are joined w
 # field: i32
 # }
 ```
-The expression to be used when binding this field as an argument.
+The Rust expression to bind this field as an argument.
 
 A reference to the instance of this object is assigned to `obj`.
 
-Includes support for the sqlx `as _` [type override](https://docs.rs/sqlx/latest/sqlx/macro.query.html#type-overrides-bind-parameters-postgres-only).
+Includes support for the sqlx `as _` [type override](https://docs.rs/sqlx/0.8.0/sqlx/macro.query.html#type-overrides-bind-parameters-postgres-only).
 
 <br>
 
@@ -471,7 +520,7 @@ The joined table must be renamed to `$other` and the current table must be refer
 
 Joins should be specified with one of `$INNER`, `$inner`, `$LEFT`, `$left` in order to support `LEFT JOIN`s on this table.
 
-Other tables can be referenced by using their unique alias relative to the current scope as a variable (e.g. `$table_name`).
+Other tables can be referenced by their unique alias relative to the current scope (e.g. `$table_name`).
 
 This attribute can be specified any amount of times and multiple strings can be passed each time.
 
