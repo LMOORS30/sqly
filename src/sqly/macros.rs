@@ -55,6 +55,11 @@ pub use update::*;
 /// `#[sqly((`[`select_visibility`](docs::attr#visibility)`)? (= `[`Visibility`](docs::attr#visibility)`)!)]`<br>
 /// `#[sqly((`[`update_visibility`](docs::attr#visibility)`)? (= `[`Visibility`](docs::attr#visibility)`)!)]`<br>
 /// 
+/// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`delete_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// 
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`debug`](docs::attr#dev-attributes)`)?)]`<br>
@@ -66,6 +71,12 @@ pub use update::*;
 /// `#[sqly((`[`select`](docs::attr#select-1)`)* (= `[`String`](docs::attr#select-1)`)+)]`<br>
 /// `#[sqly((`[`insert`](docs::attr#insert-1)`)* (= `[`String`](docs::attr#insert-1)`)+)]`<br>
 /// `#[sqly((`[`update`](docs::attr#update-1)`)* (= `[`String`](docs::attr#update-1)`)+)]`<br>
+/// 
+/// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`delete_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// 
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 

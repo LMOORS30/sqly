@@ -63,48 +63,74 @@ impl UpdateTable {
 
         let mut fields = self.cells(&mut params, |field| {
             Dollar(Index::Unset(field))
-        })?;
+        }, Either::<_, String>::Left)?;
+        params.ensure("column");
         params.ensure("i");
 
         write!(&mut query,
-            "UPDATE \"{table}\" SET\n",
+            "UPDATE \"{table}\" AS \"self\"\nSET\n",
         ).unwrap();
 
-        let mut i = 1;
         for (field, cell) in &mut fields {
             if field.attr.key.is_none() {
-                params.put("i", cell.clone());
                 let column = self.column(field)?;
                 let list = field.attr.update.infos();
-                let arg = match list.is_empty() {
-                    false => params.output(&list)?,
-                    true => params.place(cell)?,
-                };
                 write!(&mut query,
-                    "\t\"{column}\" = {arg},\n"
+                    "\t\"{column}\" = "
                 ).unwrap();
-                i += 1;
+                if !list.is_empty() {
+                    params.put("i", cell.clone());
+                    params.put("column", Right(column));
+                    let arg = params.output(&list)?;
+                    write!(&mut query,
+                        "{arg},\n"
+                    ).unwrap();
+                } else {
+                    let arg = params.place(cell)?;
+                    write!(&mut query,
+                        "{arg},\n"
+                    ).unwrap();
+                }
             }
         }
-        let trunc = if i > 1 { 2 } else { 5 };
-        query.truncate(query.len() - trunc);
+        query.truncate(query.len() - 2);
         query.push_str("\nWHERE\n");
 
-        let mut j = i;
-        for (field, cell) in &mut fields {
+        let list = self.attr.filter.infos();
+        if !list.is_empty() {
+            let filter = params.output(&list)?;
+            write!(&mut query,
+                "({filter}) AND\n"
+            ).unwrap();
+        }
+
+        for (field, mut cell) in fields {
             if field.attr.key.is_some() {
                 let column = self.column(field)?;
-                let arg = params.place(cell)?;
-                write!(&mut query,
-                    "\t\"{column}\" = {arg} AND\n"
-                ).unwrap();
-                j += 1;
+                let list = field.attr.filter.infos();
+                if !list.is_empty() {
+                    params.put("i", cell);
+                    params.put("column", Right(column));
+                    let filter = params.output(&list)?;
+                    write!(&mut query,
+                        "({filter}) AND\n"
+                    ).unwrap();
+                } else {
+                    let arg = params.place(&mut cell)?;
+                    write!(&mut query,
+                        "(\"{column}\" = {arg}) AND\n"
+                    ).unwrap();
+                }
             }
         }
-        let trunc = if j > i { 5 } else { 7 };
-        query.truncate(query.len() - trunc);
+        if !query.ends_with(" AND\n") {
+            let span = proc_macro2::Span::call_site();
+            let msg = "incomplete query: missing update filter";
+            return Err(syn::Error::new(span, msg));
+        }
+        query.truncate(query.len() - 5);
 
-        let args = params.state;
+        let args = params.state.0;
         self.print(&query, &args)?;
         let run = fun!(self, query, args);
         let check = self.check(&query, &args)?;

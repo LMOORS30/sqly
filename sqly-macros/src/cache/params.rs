@@ -89,6 +89,18 @@ impl<T: Placer> Placer for Rc<RefCell<T>> {
     }
 }
 
+impl<L: Placer, R: Placer> Placer for Either<L, R> {
+    type State = (L::State, R::State);
+    type Item<'c> = Either<L::Item<'c>, R::Item<'c>>
+        where Self: 'c;
+    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
+        Ok(match self {
+            Left(left) => Left(left.place(&mut state.0)?),
+            Right(right) => Right(right.place(&mut state.1)?),
+        })
+    }
+}
+
 
 
 pub struct Params<K, V: Placer> {
@@ -143,13 +155,13 @@ impl<V: Placer> Params<String, V> {
 
     pub fn ensure<K: AsRef<str>>(&mut self, key: K) {
         if let Some(res) = self.map.remove(key.as_ref()) {
-            self.emplace(format!("self__{}", key.as_ref()), res);
+            self.displace(format!("self__{}", key.as_ref()), res);
         }
     }
 
-    pub fn emplace<K: Display>(&mut self, key: K, val: V) {
+    pub fn displace<K: Display>(&mut self, key: K, val: V) {
         if let Some(res) = self.map.insert(key.to_string(), val) {
-            self.emplace(format!("self__{key}"), res);
+            self.displace(format!("self__{key}"), res);
         }
     }
 
@@ -226,9 +238,9 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
                 Ok(ident) => ident.unraw(),
                 Err(_) => {
                     let msg = match next.unwrap_or('\0') {
-                        '{' => format!("invalid identifier: \"{var}\"\n\
+                        '{' => format!("invalid identifier: \"${{{var}}}\" is expected to be an identifier\n\
                             help: use \"$${{{var}}}\" to escape and resolve to the literal \"${{{var}}}\""),
-                        _ => format!("invalid identifier: \"{var}\"\n\
+                        _ => format!("invalid identifier: \"${var}\" is expected to be an identifier\n\
                             help: use \"$${var}\" to escape and resolve to the literal \"${var}\""),
                     };
                     return Err(syn::Error::new(span, msg));

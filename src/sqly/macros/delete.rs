@@ -15,6 +15,8 @@ use super::*;
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
+/// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// 
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`debug`](docs::attr#dev-attributes)`)?)]`<br>
@@ -23,6 +25,7 @@ use super::*;
 /// `#[sqly((`[`column`](docs::attr#column)`)? (= `[`String`](docs::attr#column)`)!)]`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
+/// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 

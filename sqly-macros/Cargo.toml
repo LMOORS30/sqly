@@ -18,6 +18,7 @@ mysql = []
 unchecked = []
 
 [dependencies]
+either = "1.13.0"
 heck = "0.5"
 paste = "1.0"
 prettyplease = "0.2"

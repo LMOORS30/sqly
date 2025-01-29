@@ -57,26 +57,53 @@ impl DeleteTable {
 impl DeleteTable {
 
     pub fn query(&self) -> Result<TokenStream> {
+        let mut params = Params::default();
         let mut query = String::new();
-        let mut args = Vec::new();
         let table = self.table()?;
 
+        let fields = self.cells(&mut params, |field| {
+            Dollar(Index::Unset(field))
+        }, Either::<_, String>::Left)?;
+        params.ensure("column");
+        params.ensure("i");
+
         write!(&mut query,
-            "DELETE FROM \"{table}\"\nWHERE\n"
+            "DELETE FROM \"{table}\" AS \"self\"\nWHERE\n"
         ).unwrap();
 
-        let mut i = 1;
-        for field in self.fields()? {
-            let column = self.column(field)?;
+        let list = self.attr.filter.infos();
+        if !list.is_empty() {
+            let filter = params.output(&list)?;
             write!(&mut query,
-                "\t\"{column}\" = ${i} AND\n"
+                "({filter}) AND\n"
             ).unwrap();
-            args.push(field);
-            i += 1;
         }
-        let trunc = if i > 1 { 5 } else { 7 };
-        query.truncate(query.len() - trunc);
 
+        for (field, mut cell) in fields {
+            let column = self.column(field)?;
+            let list = field.attr.filter.infos();
+            if !list.is_empty() {
+                params.put("i", cell);
+                params.put("column", Right(column));
+                let filter = params.output(&list)?;
+                write!(&mut query,
+                    "({filter}) AND\n"
+                ).unwrap();
+            } else {
+                let arg = params.place(&mut cell)?;
+                write!(&mut query,
+                    "(\"{column}\" = {arg}) AND\n"
+                ).unwrap();
+            }
+        }
+        if !query.ends_with(" AND\n") {
+            let span = proc_macro2::Span::call_site();
+            let msg = "incomplete query: missing delete filter";
+            return Err(syn::Error::new(span, msg));
+        }
+        query.truncate(query.len() - 5);
+
+        let args = params.state.0;
         self.print(&query, &args)?;
         let run = fun!(self, query, args);
         let check = self.check(&query, &args)?;

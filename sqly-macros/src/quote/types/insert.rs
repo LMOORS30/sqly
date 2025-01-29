@@ -63,40 +63,38 @@ impl InsertTable {
 
         let fields = self.cells(&mut params, |field| {
             Dollar(Index::Unset(field))
-        })?;
+        }, |cell| cell)?;
         params.ensure("i");
 
         write!(&mut query,
-            "INSERT INTO \"{table}\" (\n"
+            "INSERT INTO \"{table}\" AS \"self\" (\n"
         ).unwrap();
 
-        let mut i = 1;
         for field in self.fields()? {
             let column = self.column(field)?;
             write!(&mut query,
                 "\t\"{column}\",\n"
             ).unwrap();
-            i += 1;
         }
-        let trunc = if i > 1 { 2 } else { 0 };
-        query.truncate(query.len() - trunc);
+        query.truncate(query.len() - 2);
         query.push_str("\n) VALUES (\n");
 
-        let mut i = 1;
         for (field, mut cell) in fields {
-            params.put("i", cell.clone());
             let list = field.attr.insert.infos();
-            let arg = match list.is_empty() {
-                false => params.output(&list)?,
-                true => params.place(&mut cell)?,
-            };
-            write!(&mut query,
-                "\t{arg},\n"
-            ).unwrap();
-            i += 1;
+            if !list.is_empty() {
+                params.put("i", cell);
+                let arg = params.output(&list)?;
+                write!(&mut query,
+                    "\t{arg},\n"
+                ).unwrap();
+            } else {
+                let arg = params.place(&mut cell)?;
+                write!(&mut query,
+                    "\t{arg},\n"
+                ).unwrap();
+            }
         }
-        let trunc = if i > 1 { 2 } else { 1 };
-        query.truncate(query.len() - trunc);
+        query.truncate(query.len() - 2);
         query.push_str("\n)");
 
         let args = params.state;

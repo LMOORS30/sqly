@@ -8,15 +8,28 @@ use crate::quote::*;
 
 impl QueryTable {
 
-    pub fn attrs(&self, _: Types) -> Result<Vec<TokenStream>> {
+    pub fn attrs(&self, r#type: Types) -> Result<Vec<TokenStream>> {
         let ident = &self.ident;
-        let attrs = vectok![
+        let mut attrs = vectok![
             quote::quote! { table = #ident },
             self.attr.rename,
             self.attr.unchecked,
             self.attr.print,
             self.attr.debug,
         ];
+        let a = &self.attr;
+        match r#type {
+            Types::Delete => args!(attrs, [
+                (filter = a.delete_filter, a.filter),
+            ]),
+            Types::Insert => {},
+            Types::Select => args!(attrs, [
+                (filter = a.select_filter, a.filter),
+            ]),
+            Types::Update => args!(attrs, [
+                (filter = a.update_filter, a.filter),
+            ]),
+        }
         Ok(attrs)
     }
 
@@ -74,13 +87,19 @@ impl QueryTable {
                 fttrs.push(key);
             }
         }
+        let a = &field.attr;
         match r#type {
-            Types::Delete => {},
+            Types::Delete => args!(fttrs, [
+                (filter = a.delete_filter, a.filter),
+            ]),
             Types::Insert => args!(fttrs, [
                 (insert = field.attr.insert),
             ]),
-            Types::Select => {},
+            Types::Select => args!(fttrs, [
+                (filter = a.select_filter, a.filter),
+            ]),
             Types::Update => args!(fttrs, [
+                (filter = a.update_filter, a.filter),
                 (update = field.attr.update),
             ]),
         }

@@ -19,11 +19,12 @@ pub use update::*;
 /// see [`#[derive(Table)]`](derive@Table) instead.
 /// 
 /// This trait serves as an alias to the implementation of other traits
-/// ([`Delete`](Delete), [`Insert`](Insert), [`Select`](Select), [`Update`](Update)) where `<Table = Self>`.
+/// ([`Delete`](Delete), [`Insert`](Insert), [`Select`](Select), [`Update`](Update))
+/// where `<Table = Self>`.
 pub trait Table: From<Self::Flat> {
     /// The sqlx database type for which queries are built.
     /// 
-    /// This will be equal to the type defined by the features enabled for this crate (see [Features](crate#features)).
+    /// This will be equal to the type defined by the features enabled for this crate (see [Features](https://github.com/LMOORS30/sqly#features)).
     type DB: sqlx::Database;
 
     /// The flattened row representation of this type.
@@ -40,8 +41,7 @@ pub trait Table: From<Self::Flat> {
 
     /// Returns a query which deletes rows from the table according to the definition of the given type.
     /// 
-    /// This function is not meant to be implemented
-    /// and instead delegates to [`Delete::delete`](Delete::delete).
+    /// This function is not meant to be implemented and instead delegates to [`Delete::delete`](Delete::delete).
     fn delete<R>(row: &R) -> R::Query<'_>
     where R: Delete<Table = Self> {
         row.delete()
@@ -49,8 +49,7 @@ pub trait Table: From<Self::Flat> {
 
     /// Returns a query which inserts rows into the table according to the definition of the given type.
     /// 
-    /// This function is not meant to be implemented
-    /// and instead delegates to [`Insert::insert`](Insert::insert).
+    /// This function is not meant to be implemented and instead delegates to [`Insert::insert`](Insert::insert).
     fn insert<R>(row: &R) -> R::Query<'_>
     where R: Insert<Table = Self> {
         row.insert()
@@ -58,8 +57,7 @@ pub trait Table: From<Self::Flat> {
 
     /// Returns a query which selects rows from the table according to the definition of the given type.
     /// 
-    /// This function is not meant to be implemented
-    /// and instead delegates to [`Select::select`](Select::select).
+    /// This function is not meant to be implemented and instead delegates to [`Select::select`](Select::select).
     fn select<R>(row: &R) -> R::Query<'_>
     where R: Select<Table = Self> {
         row.select()
@@ -67,8 +65,7 @@ pub trait Table: From<Self::Flat> {
 
     /// Returns a query which updates rows in the table according to the definition of the given type.
     /// 
-    /// This function is not meant to be implemented
-    /// and instead delegates to [`Update::update`](Update::update).
+    /// This function is not meant to be implemented and instead delegates to [`Update::update`](Update::update).
     fn update<R>(row: &R) -> R::Query<'_>
     where R: Update<Table = Self> {
         row.update()

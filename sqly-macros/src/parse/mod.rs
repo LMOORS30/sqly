@@ -8,6 +8,9 @@ pub use types::*;
 
 pub use syn::Result;
 
+pub use either::Either;
+pub use either::Either::*;
+
 pub use syn::spanned::Spanned;
 
 

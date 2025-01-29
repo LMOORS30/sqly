@@ -73,6 +73,11 @@ parse! {
         ((select_visibility)? (= syn::Visibility)!),
         ((update_visibility)? (= syn::Visibility)!),
 
+        ((filter)* (= String)+),
+        ((delete_filter)* (= String)+),
+        ((select_filter)* (= String)+),
+        ((update_filter)* (= String)+),
+
         ((unchecked)?),
         ((print)?),
         ((debug)?),
@@ -84,6 +89,12 @@ parse! {
         ((select)* (= String)+),
         ((insert)* (= String)+),
         ((update)* (= String)+),
+
+        ((filter)* (= String)+),
+        ((delete_filter)* (= String)+),
+        ((select_filter)* (= String)+),
+        ((update_filter)* (= String)+),
+
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -106,14 +117,14 @@ impl QueryTable {
 
     pub fn init(self) -> Result<Self> {
         let a = &self.attr;
-        for (r#type, attr, derive, visibility) in [
-            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility),
-            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility),
-            (Types::Select, &a.select, &a.select_derive, &a.select_visibility),
-            (Types::Update, &a.update, &a.update_derive, &a.update_visibility),
+        for (r#type, attr, derive, visibility, filter) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![],        ),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter),
         ] {
             if attr.is_none() {
-                if let Some(span) = spany!(derive, visibility) {
+                if let Some(span) = spany!(derive, visibility, filter) {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
@@ -146,11 +157,13 @@ impl QueryTable {
 
         for field in &self.fields {
             let b = &field.attr;
-            for (r#type, attr, value) in [
-                (Types::Insert, &a.insert, &b.insert),
-                (Types::Update, &a.update, &b.update),
+            for (r#type, attr, value, filter) in [
+                (Types::Delete, &a.delete, &vec![],   &b.delete_filter),
+                (Types::Insert, &a.insert, &b.insert, &vec![],        ),
+                (Types::Select, &a.select, &vec![],   &b.select_filter),
+                (Types::Update, &a.update, &b.update, &b.update_filter),
             ] {
-                if let Some(span) = spany!(value) {
+                if let Some(span) = spany!(value, filter) {
                     if attr.is_none() {
                         let msg = format!("unused attribute: requires #[sqly({})] on struct", r#type);
                         return Err(syn::Error::new(span, msg));
@@ -159,6 +172,12 @@ impl QueryTable {
                         let msg = format!("unused attribute: field not included in #[sqly({})]", r#type);
                         return Err(syn::Error::new(span, msg));
                     }
+                }
+            }
+            if field.attr.key.is_none() {
+                if let Some(span) = field.attr.filter.spany() {
+                    let msg = "unused attribute: requires #[sqly(key)]";
+                    return Err(syn::Error::new(span, msg));
                 }
             }
         }

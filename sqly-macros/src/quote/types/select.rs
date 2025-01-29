@@ -69,12 +69,12 @@ impl<'c> Flattened<'c> {
             Some(_) => ("left", "LEFT"),
             None => ("inner", "INNER"),
         };
-        params.emplace("left", "left");
-        params.emplace("LEFT", "LEFT");
-        params.emplace("inner", inner.0);
-        params.emplace("INNER", inner.1);
+        params.displace("left", "left");
+        params.displace("LEFT", "LEFT");
+        params.displace("inner", inner.0);
+        params.displace("INNER", inner.1);
         if let Code::Foreign(foreign) = &self.column.code {
-            params.emplace("other", foreign.unique()?);
+            params.displace("other", foreign.unique()?);
         }
         Ok(params)
     }
@@ -183,26 +183,51 @@ impl SelectTable {
         let table = construct.unique()?;
 
         let mut query = construct.query(Target::Function, Scope::Global)?;
+        let mut params = Params::default();
         let mut select = String::new();
-        let mut args = Vec::new();
+
+        let fields = self.cells(&mut params, |field| {
+            Dollar(Index::Unset(field))
+        }, Either::<_, String>::Left)?;
+        params.ensure("column");
+        params.ensure("i");
 
         write!(&mut select,
             "\nWHERE\n"
         ).unwrap();
 
-        let mut i = 1;
-        for field in self.fields()? {
-            let column = self.column(field)?;
+        let list = self.attr.filter.infos();
+        if !list.is_empty() {
+            let filter = params.output(&list)?;
             write!(&mut select,
-                "\t\"{table}\".\"{column}\" = ${i} AND\n"
+                "({filter}) AND\n"
             ).unwrap();
-            args.push(field);
-            i += 1;
         }
-        let trunc = if i > 1 { 5 } else { 7 };
-        select.truncate(select.len() - trunc);
 
+        for (field, mut cell) in fields {
+            let column = self.column(field)?;
+            let list = field.attr.filter.infos();
+            if !list.is_empty() {
+                params.put("i", cell);
+                params.put("column", Right(column));
+                let filter = params.output(&list)?;
+                write!(&mut select,
+                    "({filter}) AND\n"
+                ).unwrap();
+            } else {
+                let arg = params.place(&mut cell)?;
+                write!(&mut select,
+                    "(\"{table}\".\"{column}\" = {arg}) AND\n"
+                ).unwrap();
+            }
+        }
+        if !select.ends_with(" AND\n") {
+            select.truncate(select.len() - 2);
+        }
+        select.truncate(select.len() - 5);
         query.push_str(&select);
+
+        let args = params.state.0;
         self.print(&query, &args)?;
         let run = fun!(self, query, args);
 

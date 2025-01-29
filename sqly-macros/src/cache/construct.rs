@@ -329,9 +329,9 @@ impl<'c> Construct<'c> {
                         let span = foreign.field.ident.span();
                         let msg = match first {
                             None => format!("missing foreign key: no keys in {ident}\n\
-                                help: use #[sqly(foreign_key = )] to disambiguate"),
+                                help: use #[sqly(foreign_key)] to disambiguate"),
                             _ => format!("ambiguous foreign key: multiple keys in {ident}\n\
-                                help: use #[sqly(foreign_key = )] to disambiguate"),
+                                help: use #[sqly(foreign_key)] to disambiguate"),
                         };
                         return Err(syn::Error::new(span, msg));
                     }
@@ -486,7 +486,7 @@ impl<'c> Construct<'c> {
             params.put(local, unique);
         }
 
-        params.emplace("table", self.unique()?);
+        params.displace("table", self.unique()?);
         Ok(params)
     }
 
