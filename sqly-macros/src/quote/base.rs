@@ -235,10 +235,14 @@ impl Construct<'_> {
         if fields.is_empty() { return Ok(TokenStream::new()); }
         let query = self.query(Target::Macro, Scope::Local)?;
         Ok(quote::quote! {
-            #[allow(unused)]
-            fn __() {
-                struct #name { #(#fields,)* }
-                ::sqlx::query_as!(#name, #query);
+            #[automatically_derived]
+            impl ::sqly::Checked for #name {
+                #[allow(unused)]
+                fn check(&self) {
+                    #[allow(non_snake_case)]
+                    struct #name { #(#fields,)* }
+                    ::sqlx::query_as!(#name, #query);
+                }
             }
         })
     }
@@ -271,9 +275,12 @@ impl $table {
         }).collect::<Result<Vec<_>>>()?;
         let check = cb(&args)?;
         Ok(quote::quote! {
-            #[allow(unused)]
-            fn __(obj: &#obj) {
-                #check
+            #[automatically_derived]
+            impl ::sqly::Checked for #obj {
+                #[allow(unused)]
+                fn check(&self) {
+                    #check
+                }
             }
         })
     }
@@ -312,8 +319,8 @@ impl $table {
                 let ident = &field.ident;
                 let span = field.ty.span();
                 match &field.attr.infer.as_ref().map(|_| target) {
-                    Some(Target::Macro) => quote::quote_spanned!(span => obj.#ident as _),
-                    Some(Target::Function) | None => quote::quote_spanned!(span => obj.#ident),
+                    Some(Target::Macro) => quote::quote_spanned!(span => self.#ident as _),
+                    Some(Target::Function) | None => quote::quote_spanned!(span => self.#ident),
                 }
             }
         };

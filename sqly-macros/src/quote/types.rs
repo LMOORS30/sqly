@@ -84,12 +84,12 @@ impl QueryTable {
 
         Ok(quote::quote! {
             #flat
+            #check
             #[automatically_derived]
             impl ::sqly::Table for #ident {
                 type DB = #db;
                 type Flat = #row;
                 fn from_row(row: <Self::DB as ::sqlx::Database>::Row) -> ::sqlx::Result<Self> {
-                    #check
                     #form
                 }
             }

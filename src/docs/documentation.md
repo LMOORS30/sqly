@@ -243,7 +243,7 @@ Intended use: `cargo check > generated.rs`.
 
 Intended for development only.
 
-This example is not checked in order to avoid build output in tests. lol
+This example is not tested in order to avoid build output in tests. lol
 
 <br>
 <br>
@@ -409,13 +409,13 @@ This overrides the value set with `filter`.
 # #[derive(sqly::Table)]
 # #[sqly(table = "", insert)]
 # struct T {
-#[sqly(value = obj.field)]
+#[sqly(value = self.field)]
 # field: i32
 # }
 ```
 The Rust expression to bind this field as a parameter.
 
-A reference to the instance of this object is assigned to `obj`.
+A reference to the instance of this object is assigned to `self`.
 
 Includes support for the sqlx&ensp;`as _`&ensp;[type override](https://docs.rs/sqlx/0.8.0/sqlx/macro.query.html#type-overrides-bind-parameters-postgres-only).
 

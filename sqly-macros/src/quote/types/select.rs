@@ -33,17 +33,17 @@ impl SelectTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
         let table = &self.attr.table.data.data;
-        let query = self.query()?;
+        let (check, query) = self.query()?;
         let ident = &self.ident;
         let res = result!['q, table];
 
         Ok(quote::quote! {
+            #check
             #[automatically_derived]
             impl ::sqly::Select for #ident {
                 type Table = #table;
                 type Query<'q> = #res;
                 fn select(&self) -> Self::Query<'_> {
-                    let obj = self;
                     #query
                 }
             }
@@ -173,7 +173,7 @@ impl Construct<'_> {
 
 impl SelectTable {
 
-    pub fn query(&self) -> Result<TokenStream> {
+    pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
         let res = &self.attr.table.data.data;
         let table = cache::fetch().table(&res.try_into()?)?.sync()?;
 
@@ -240,10 +240,11 @@ impl SelectTable {
             })
         })?;
 
-        Ok(quote::quote! {
-            #check
+        let run = quote::quote! {
             #run.try_map(<#res as ::sqly::Table>::from_row)
-        })
+        };
+
+        Ok((check, run))
     }
 
 }
