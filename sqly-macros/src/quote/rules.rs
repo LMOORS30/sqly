@@ -32,19 +32,20 @@ macro_rules! fun {
     let db = db![];
     let len = $args.len();
     let bind = (0..len).map(|i| {
-        quote::format_ident!("arg{i}")
+        let i = syn::Index::from(i);
+        quote::quote!{ arg.#i }
     }).collect::<Vec<_>>();
     let expr = $args.iter().map(|field| {
         $table.value(field, Target::Function)
     }).collect::<Result<Vec<_>>>()?;
     quote::quote! {
-        #(let #bind = &(#expr);)*
+        let arg = (#(&(#expr),)*);
         use ::sqlx::Arguments as _;
-        let mut args = <#db as ::sqlx::Database>::Arguments::<'_>::default();
+        let mut args = <#db as ::sqlx::Database>::Arguments::default();
         args.reserve(#len, 0 #(+ ::sqlx::Encode::<#db>::size_hint(#bind))*);
-        let args = ::core::result::Result::<_, ::sqlx::error::BoxDynError>::Ok(args)
-        #(.and_then(move |mut args| args.add(#bind).map(move |()| args) ))*;
-        ::sqlx::__query_with_result::<#db, _>(#$query, args)
+        let args = ::core::result::Result::Ok(args)
+        #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
+        ::sqlx::__query_with_result(#$query, args)
     }
 }) }
 
