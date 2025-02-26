@@ -28,11 +28,11 @@ pub struct Construct<'c> {
 
 pub struct Foreign<'c> {
     pub path: &'c syn::Path,
-    pub optional: Option<Optional<'c>>,
+    pub nullable: Option<Nullable<'c>>,
 }
 
 #[derive(Clone, Copy)]
-pub enum Optional<'c> {
+pub enum Nullable<'c> {
     Default(Option<&'c syn::Path>),
     Option(&'c syn::Path),
 }
@@ -51,7 +51,7 @@ pub struct Compromise<'c> {
 pub struct Flattened<'c> {
     pub column: &'c Constructed<'c>,
     pub construct: &'c Construct<'c>,
-    pub optional: Option<Optional<'c>>,
+    pub nullable: Option<Nullable<'c>>,
     pub level: usize,
 }
 
@@ -61,17 +61,25 @@ pub type Constructed<'c> = Column<'c, Construct<'c>>;
 
 impl QueryTable {
 
-    pub fn optional<'c>(&'c self, field: &'c QueryField) -> Result<Option<Optional<'c>>> {
+    pub fn defaulted<'c>(&'c self, field: &'c QueryField) -> Result<Option<Nullable<'c>>> {
         let opt = match &field.attr.default {
             Some(default) => {
                 let path = default.data.as_ref();
                 let path = path.map(|data| &data.data);
-                Some(Optional::Default(path))
+                Some(Nullable::Default(path))
             }
+            None => None,
+        };
+        Ok(opt)
+    }
+
+    pub fn nullable<'c>(&'c self, field: &'c QueryField) -> Result<Option<Nullable<'c>>> {
+        let opt = match self.defaulted(field)? {
+            Some(defaulted) => Some(defaulted),
             None => {
                 let opt = optype(self.ty(field)?);
                 let path = opt.map(|(path, _)| path);
-                path.map(Optional::Option)
+                path.map(Nullable::Option)
             }
         };
         Ok(opt)
@@ -98,8 +106,8 @@ impl QueryTable {
             }
         };
 
-        let optional = self.optional(field)?;
-        Ok(Some(Foreign { optional, path }))
+        let nullable = self.nullable(field)?;
+        Ok(Some(Foreign { nullable, path }))
     }
 
     pub fn coded<'c>(&'c self) -> Result<impl Iterator<Item = Result<Column<'c, Foreign<'c>>>>> {
@@ -183,11 +191,11 @@ impl QueryTable {
 
 impl<'c> Construct<'c> {
 
-    fn flattened(&'c self, opt: Option<Optional<'c>>, n: usize) -> Result<impl Iterator<Item = Result<Flattened<'c>>>> {
+    fn flattened(&'c self, opt: Option<Nullable<'c>>, n: usize) -> Result<impl Iterator<Item = Result<Flattened<'c>>>> {
         let flatten = self.fields.iter().map(move |column| {
             let once = std::iter::once(Ok(Flattened {
                 construct: self,
-                optional: opt,
+                nullable: opt,
                 level: n,
                 column,
             }));
@@ -195,7 +203,7 @@ impl<'c> Construct<'c> {
                 Code::Skip => Box::new(once),
                 Code::Query => Box::new(once),
                 Code::Foreign(construct) => {
-                    let opt = construct.optional()?.or(opt);
+                    let opt = construct.nullable()?.or(opt);
                     Box::new(once.chain(construct.flattened(opt, n + 1)?))
                 }
             };
@@ -360,7 +368,7 @@ impl<'c> Construct<'c> {
 
         for column in &self.fields {
             if let Code::Query = &column.code {
-                if column.table.optional(column.field)?.is_none() {
+                if column.table.nullable(column.field)?.is_none() {
                     match &column.field.attr.key {
                         Some(keys) => match keys.data.len() {
                             0 => id = id.or(Some(column)),
@@ -378,7 +386,7 @@ impl<'c> Construct<'c> {
 
         for column in &self.fields {
             if let Code::Foreign(construct) = &column.code {
-                if construct.optional()?.is_none() {
+                if construct.nullable()?.is_none() {
                     if let Some(column) = construct.constitute()? {
                         return Ok(Some(column));
                     }

@@ -39,12 +39,25 @@ This type is required to have [`#[derive(Table)]`](derive@Table).
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
+#[sqly(flat)]
+# struct T { #[sqly(key)] t: i32 };
+```
+Generate the flattened struct representation of this table.
+
+This excludes all skipped fields and matches the SQL `SELECT` list.
+
+Implements the [`sqly::Flat`](Flat), [`sqlx::FromRow`](https://docs.rs/sqlx/0.8.0/sqlx/trait.FromRow.html) and `From<Flat>` traits.
+
+The struct is named by `format_ident!("Flat{}", self.ident)`.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
 #[sqly(flat = Ident)]
 # struct T { #[sqly(key)] t: i32 };
 ```
-Set the name of the generated [`Table::Flat`](Table::Flat) struct to the given `Ident`.
-
-If not specified the struct will be named by `format_ident!("Flat{}", self.ident)`.
+Same as above, except the struct is named by the given `Ident`.
 
 <br>
 
@@ -60,7 +73,7 @@ Generate a delete struct with [`#[derive(Delete)]`](derive@Delete) applied.
 
 Only fields which are marked as [`#[sqly(key)]`](#key) will be included in the generated struct.
 
-The struct will be named by `format_ident!("Delete{}", self.ident)`.
+The struct is named by `format_ident!("Delete{}", self.ident)`.
 
 ---
 ```
@@ -69,7 +82,7 @@ The struct will be named by `format_ident!("Delete{}", self.ident)`.
 #[sqly(delete = Ident)]
 # struct T { #[sqly(key)] t: i32 };
 ```
-Same as above, except the struct name is set to the given `Ident`.
+Same as above, except the struct is named by the given `Ident`.
 
 <br>
 
@@ -85,7 +98,7 @@ Generate an insert struct with [`#[derive(Insert)]`](derive@Insert) applied.
 
 All fields which are not marked as [`#[sqly(skip)]`](#skip) will be included in the generated struct.
 
-The struct will be named by `format_ident!("Insert{}", self.ident)`.
+The struct is named by `format_ident!("Insert{}", self.ident)`.
 
 ---
 ```
@@ -94,7 +107,7 @@ The struct will be named by `format_ident!("Insert{}", self.ident)`.
 #[sqly(insert = Ident)]
 # struct T { t: i32 };
 ```
-Same as above, except the struct name is set to the given `Ident`.
+Same as above, except the struct is named by the given `Ident`.
 
 <br>
 
@@ -110,7 +123,7 @@ Generate a select struct with [`#[derive(Select)]`](derive@Select) applied.
 
 Only fields which are marked as [`#[sqly(key)]`](#key) will be included in the generated struct.
 
-The struct will be named by `format_ident!("Select{}", self.ident)`.
+The struct is named by `format_ident!("Select{}", self.ident)`.
 
 ---
 ```
@@ -119,7 +132,7 @@ The struct will be named by `format_ident!("Select{}", self.ident)`.
 #[sqly(select = Ident)]
 # struct T { #[sqly(key)] t: i32 };
 ```
-Same as above, except the struct name is set to the given `Ident`.
+Same as above, except the struct is named by the given `Ident`.
 
 <br>
 
@@ -135,7 +148,7 @@ Generate an update struct with [`#[derive(Update)]`](derive@Update) applied.
 
 All fields which are not marked as [`#[sqly(skip)]`](#skip) will be included in the generated struct.
 
-The struct will be named by `format_ident!("Update{}", self.ident)`.
+The struct is named by `format_ident!("Update{}", self.ident)`.
 
 ---
 ```
@@ -144,7 +157,7 @@ The struct will be named by `format_ident!("Update{}", self.ident)`.
 #[sqly(update = Ident)]
 # struct T { #[sqly(key)] t: i32, d: i32 };
 ```
-Same as above, except the struct name is set to the given `Ident`.
+Same as above, except the struct is named by the given `Ident`.
 
 <br>
 
@@ -459,7 +472,7 @@ When generating `SELECT` queries an SQL `JOIN` expression is added for the forei
 
 The type of this field is required to have [`#[derive(Table)]`](derive@Table) and must be a path without any generics. The only exception is `Option<T>`, where the same restrictions apply to `T` and the identifier of `Option` must not be renamed. This prompts the generated expression to perform a `LEFT JOIN` instead of an `INNER JOIN`.
 
-When generating [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs this field will have its name and type changed in order to match the foreign key used in the SQL `JOIN` expression. When generating the [`Table::Flat`](Table::Flat) struct all fields are recursively flattened and renamed in order to match the SQL `SELECT` list.
+When generating [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs this field will have its name and type changed in order to match the foreign key used in the SQL `JOIN` expression. When generating the [`Table::Flat`](#flat) struct all fields are recursively flattened and renamed in order to match the SQL `SELECT` list.
 
 The other attribute definitions in this section further explain this behavior.
 

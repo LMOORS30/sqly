@@ -35,7 +35,7 @@ pub use update::*;
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`String`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
-/// `#[sqly((`[`flat`](docs::attr#flat)`)? (= `[`Ident`](docs::attr#flat)`)!)]`<br>
+/// `#[sqly((`[`flat`](docs::attr#flat)`)? (= `[`Ident`](docs::attr#flat)`)?)]`<br>
 /// `#[sqly((`[`delete`](docs::attr#delete)`)? (= `[`Ident`](docs::attr#delete)`)?)]`<br>
 /// `#[sqly((`[`insert`](docs::attr#insert)`)? (= `[`Ident`](docs::attr#insert)`)?)]`<br>
 /// `#[sqly((`[`select`](docs::attr#select)`)? (= `[`Ident`](docs::attr#select)`)?)]`<br>
@@ -95,7 +95,7 @@ pub use update::*;
 /// 
 /// # Example
 /// ```
-/// use sqly::*; // traits
+/// use sqly::derive::*; // traits
 /// # struct Page;
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// 

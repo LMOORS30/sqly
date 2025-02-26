@@ -65,7 +65,7 @@ impl<'c> Flattened<'c> {
 
     pub fn foreigns(&self) -> Result<Params<String, &'c str>> {
         let mut params = self.construct.params()?;
-        let inner = match self.optional {
+        let inner = match &self.nullable {
             Some(_) => ("left", "LEFT"),
             None => ("inner", "INNER"),
         };
@@ -113,10 +113,11 @@ impl Construct<'_> {
                     };
                     let list = flattened.column.field.attr.select.infos();
                     if !list.is_empty() {
+                        query.push_str("\t");
                         let mut params = flattened.selects()?;
-                        let select = params.output(&list)?;
+                        params.output(&mut query, &list)?;
                         write!(&mut query,
-                            "\t{select} AS \"{alias}\",\n"
+                            " AS \"{alias}\",\n"
                         ).unwrap();
                     } else {
                         let column = flattened.column.column()?;
@@ -132,17 +133,16 @@ impl Construct<'_> {
                     if !list.is_empty() {
                         joins.push_str("\n");
                         let mut params = flattened.foreigns()?;
-                        let foreign = params.output(&list)?;
-                        joins.push_str(&foreign);
+                        params.output(&mut joins, &list)?;
                     } else {
                         let unique = construct.unique()?;
                         let table = flattened.construct.unique()?;
                         let other = &construct.table.attr.table.data.data;
                         let resolved = construct.correlate(flattened.column)?;
                         let column = flattened.column.column()?;
-                        let optional = construct.optional()?;
+                        let nullable = construct.nullable()?;
                         let foreign = resolved.column()?;
-                        let join = match optional.or(flattened.optional) {
+                        let join = match nullable.or(flattened.nullable) {
                             Some(_) => "LEFT JOIN",
                             None => "INNER JOIN",
                         };
@@ -163,7 +163,6 @@ impl Construct<'_> {
         ).unwrap();
 
         query.push_str(&joins);
-
         Ok(query)
     }
 
@@ -183,25 +182,24 @@ impl SelectTable {
         let table = construct.unique()?;
 
         let mut query = construct.query(Target::Function, Scope::Global)?;
-        let mut params = Params::default();
-        let mut select = String::new();
+        let params = &mut Params::default();
+        let select = &mut String::new();
 
-        let fields = self.cells(&mut params, |field| {
-            Dollar(Index::Unset(field))
+        let fields = self.cells(params, |field| {
+            Dollar(Index::unset(field))
         }, Either::<_, String>::Left)?;
         params.ensure("column");
         params.ensure("i");
 
-        write!(&mut select,
+        write!(select,
             "\nWHERE\n"
         ).unwrap();
 
         let list = self.attr.filter.infos();
         if !list.is_empty() {
-            let filter = params.output(&list)?;
-            write!(&mut select,
-                "({filter}) AND\n"
-            ).unwrap();
+            select.push_str("\t(");
+            params.output(select, &list)?;
+            select.push_str(") AND\n");
         }
 
         for (field, mut cell) in fields {
@@ -210,15 +208,13 @@ impl SelectTable {
             if !list.is_empty() {
                 params.put("i", cell);
                 params.put("column", Right(column));
-                let filter = params.output(&list)?;
-                write!(&mut select,
-                    "({filter}) AND\n"
-                ).unwrap();
+                select.push_str("\t(");
+                params.output(select, &list)?;
+                select.push_str(") AND\n");
             } else {
-                let arg = params.place(&mut cell)?;
-                write!(&mut select,
-                    "(\"{table}\".\"{column}\" = {arg}) AND\n"
-                ).unwrap();
+                write!(select, "\t(\"{table}\".\"{column}\" = ").unwrap();
+                params.place(select, &mut cell)?;
+                select.push_str(") AND\n");
             }
         }
         if !select.ends_with(" AND\n") {
@@ -227,17 +223,26 @@ impl SelectTable {
         select.truncate(select.len() - 5);
         query.push_str(&select);
 
-        let args = params.state.0;
-        self.print(&query, &args)?;
+        let args = &params.state.0;
+        self.print(&query, args)?;
         let run = fun!(self, query, args);
 
-        let check = self.checked(&args, |args| {
+        let check = self.checking(args, |args| {
             let mut query = construct.query(Target::Macro, Scope::Global)?;
             query.push_str(&select);
-            Ok(quote::quote! {
-                type Flat = <#res as ::sqly::Table>::Flat;
-                ::sqlx::query_as!(Flat, #query #(, #args)*);
-            })
+            match &construct.table.attr.flat {
+                Some(_) => Ok(quote::quote! {
+                    type Flat = <#res as ::sqly::Flat>::Flat;
+                    ::sqlx::query_as!(Flat, #query #(, #args)*);
+                }),
+                None => {
+                    let flats = construct.flats()?;
+                    Ok(quote::quote! {
+                        struct Flat { #(#flats,)* }
+                        ::sqlx::query_as!(Flat, #query #(, #args)*);
+                    })
+                }
+            }
         })?;
 
         let run = quote::quote! {

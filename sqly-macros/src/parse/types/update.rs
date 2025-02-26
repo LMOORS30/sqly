@@ -42,10 +42,6 @@ impl UpdateTable {
                     let msg = "conflicting attributes: #[sqly(skip, update)]";
                     return Err(syn::Error::new(skip.span, msg));
                 }
-                if !field.attr.filter.is_empty() {
-                    let msg = "conflicting attributes: #[sqly(skip, filter)]";
-                    return Err(syn::Error::new(skip.span, msg));
-                }
             }
             if let Some(key) = &field.attr.key {
                 if !field.attr.update.is_empty() {
@@ -63,7 +59,7 @@ impl UpdateTable {
         if self.fields()?.all(|field| {
             field.attr.key.is_some()
         }) {
-            let span = proc_macro2::Span::call_site();
+            let span = Span::call_site();
             let msg = "incomplete query: missing update value";
             return Err(syn::Error::new(span, msg));
         }
@@ -73,7 +69,7 @@ impl UpdateTable {
                 field.attr.key.is_none()
             })
         ) {
-            let span = proc_macro2::Span::call_site();
+            let span = Span::call_site();
             let msg = "incomplete query: missing update key";
             return Err(syn::Error::new(span, msg));
         }

@@ -1,8 +1,4 @@
-use proc_macro2::TokenStream;
-
-use crate::cache::*;
-use crate::parse::*;
-use crate::quote::*;
+use super::*;
 
 
 
@@ -44,21 +40,26 @@ impl QueryTable {
         Ok(attr)
     }
 
-    pub fn derive(&self, r#type: Types) -> Result<TokenStream> {
+    pub fn derive(&self, r#type: Structs) -> Result<TokenStream> {
         let derives = self.derives(r#type)?;
         let span = match r#type {
-            Types::Delete => self.attr.delete.as_ref(),
-            Types::Insert => self.attr.insert.as_ref(),
-            Types::Select => self.attr.select.as_ref(),
-            Types::Update => self.attr.update.as_ref(),
+            Structs::Flat => self.attr.flat.as_ref(),
+            Structs::Delete => self.attr.delete.as_ref(),
+            Structs::Insert => self.attr.insert.as_ref(),
+            Structs::Select => self.attr.select.as_ref(),
+            Structs::Update => self.attr.update.as_ref(),
         }.map(|attr| attr.span).unwrap_or_else(|| {
-            proc_macro2::Span::call_site()
+            Span::call_site()
         });
         let derive = match r#type {
-            Types::Delete => quote::quote_spanned! { span => ::sqly::Delete },
-            Types::Insert => quote::quote_spanned! { span => ::sqly::Insert },
-            Types::Select => quote::quote_spanned! { span => ::sqly::Select },
-            Types::Update => quote::quote_spanned! { span => ::sqly::Update },
+            Structs::Delete => quote::quote_spanned! { span => ::sqly::Delete },
+            Structs::Insert => quote::quote_spanned! { span => ::sqly::Insert },
+            Structs::Select => quote::quote_spanned! { span => ::sqly::Select },
+            Structs::Update => quote::quote_spanned! { span => ::sqly::Update },
+            Structs::Flat => return Ok(match derives.len() {
+                0 => TokenStream::new(),
+                _ => quote::quote! { #[derive(#(#derives,)*)] },
+            }),
         };
         Ok(quote::quote! { #[derive(#derive #(, #derives)*)] })
     }
@@ -82,7 +83,7 @@ impl QueryTable {
                     key.data.iter().find(|val| {
                         r#type == val.data.into()
                     }).map_or(key.span, |val| val.span)
-                }).unwrap_or_else(proc_macro2::Span::call_site);
+                }).unwrap_or_else(|| Span::call_site());
                 let key = quote::quote_spanned! { span => key };
                 fttrs.push(key);
             }
@@ -125,9 +126,12 @@ impl QueryTable {
 
     pub fn typed(&self, field: &QueryField) -> Result<TokenStream> {
         let ty = self.ty(field)?;
-        let typed = match field.attr.default {
-            Some(_) => quote::quote! { ::core::option::Option<#ty> },
-            None => quote::quote! { #ty },
+        let typed = match self.defaulted(field)? {
+            Some(nullable) => {
+                let option = nullable.option()?;
+                quote::quote! { #option<#ty> }
+            },
+            _ => quote::quote! { #ty },
         };
         Ok(typed)
     }
@@ -139,7 +143,7 @@ impl QueryTable {
 impl Constructed<'_> {
 
     pub fn from(&self) -> Result<TokenStream> {
-        let from = match self.field.attr.from {
+        let from = match &self.field.attr.from {
             None => TokenStream::new(),
             Some(_) => {
                 let ty = &self.field.ty;
@@ -150,7 +154,7 @@ impl Constructed<'_> {
     }
 
     pub fn none(&self) -> Result<TokenStream> {
-        let none = match self.field.attr.default {
+        let none = match &self.field.attr.default {
             Some(_) => TokenStream::new(),
             None => self.from()?,
         };
@@ -161,15 +165,15 @@ impl Constructed<'_> {
 
 
 
-impl Optional<'_> {
+impl Nullable<'_> {
 
     pub fn some(&self) -> Result<TokenStream> {
         let some = match self {
-            Optional::Option(path) => {
+            Nullable::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path::Some }
             }
-            Optional::Default(_) => {
+            Nullable::Default(_) => {
                 TokenStream::new()
             }
         };
@@ -178,11 +182,11 @@ impl Optional<'_> {
 
     pub fn option(&self) -> Result<TokenStream> {
         let option = match self {
-            Optional::Option(path) => {
+            Nullable::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path }
             }
-            Optional::Default(_) => {
+            Nullable::Default(_) => {
                 quote::quote! { ::core::option::Option }
             }
         };
@@ -191,11 +195,11 @@ impl Optional<'_> {
 
     pub fn default(&self) -> Result<TokenStream> {
         let default = match self {
-            Optional::Option(path) => {
+            Nullable::Option(path) => {
                 let path = argone(path);
                 quote::quote! { #path::None }
             }
-            Optional::Default(path) => match &path {
+            Nullable::Default(path) => match &path {
                 Some(path) => quote::quote! { #path() },
                 None => quote::quote! { ::core::default::Default::default() },
             }
@@ -209,14 +213,8 @@ impl Optional<'_> {
 
 impl Construct<'_> {
 
-    #[cfg(feature = "unchecked")]
     pub fn check(&self) -> Result<TokenStream> {
-        Ok(TokenStream::new())
-    }
-
-    #[cfg(not(feature = "unchecked"))]
-    pub fn check(&self) -> Result<TokenStream> {
-        if self.table.attr.unchecked.is_some() {
+        if !self.table.checked() {
             return Ok(TokenStream::new());
         }
 
@@ -257,16 +255,9 @@ both!($table, $field);
 
 impl $table {
 
-    #[cfg(feature = "unchecked")]
-    pub fn checked<F>(&self, _: &[&$field], _: F) -> Result<TokenStream>
+    pub fn checking<F>(&self, args: &[&$field], cb: F) -> Result<TokenStream>
     where F: FnOnce(&[TokenStream]) -> Result<TokenStream> {
-        Ok(TokenStream::new())
-    }
-
-    #[cfg(not(feature = "unchecked"))]
-    pub fn checked<F>(&self, args: &[&$field], cb: F) -> Result<TokenStream>
-    where F: FnOnce(&[TokenStream]) -> Result<TokenStream> {
-        if self.attr.unchecked.is_some() {
+        if !self.checked() {
             return Ok(TokenStream::new());
         }
         let obj = &self.ident;
@@ -286,7 +277,7 @@ impl $table {
     }
 
     pub fn check(&self, query: &str, args: &[&$field]) -> Result<TokenStream> {
-        self.checked(args, |args| Ok(quote::quote! {
+        self.checking(args, |args| Ok(quote::quote! {
             ::sqlx::query!(#query #(, #args)*);
         }))
     }
@@ -302,7 +293,7 @@ macro_rules! both {
 
 impl $table {
 
-    pub fn value(&self, field: &$field, target: Target) -> Result<proc_macro2::TokenStream> {
+    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
         let value = match &field.attr.value {
             Some(value) => {
                 let expr = &value.data.data;

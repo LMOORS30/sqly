@@ -21,16 +21,11 @@ pub use update::*;
 /// This trait serves as an alias to the implementation of other traits
 /// ([`Delete`](Delete), [`Insert`](Insert), [`Select`](Select), [`Update`](Update))
 /// where `<Table = Self>`.
-pub trait Table: From<Self::Flat> {
+pub trait Table {
     /// The sqlx database type for which queries are built.
     /// 
     /// This will be equal to the type defined by the features enabled for this crate (see [Features](https://github.com/LMOORS30/sqly#features)).
     type DB: sqlx::Database;
-
-    /// The flattened row representation of this type.
-    /// 
-    /// This type is not used internally and provided only for convenience.
-    type Flat: for <'r> sqlx::FromRow<'r, <Self::DB as sqlx::Database>::Row>;
 
     /// Returns a table record built from a row returned by the database.
     /// 

@@ -186,8 +186,7 @@ impl<T> Info<T> {
 
 impl<S> safe::Info<S> {
     pub fn sync<T>(&self, data: T) -> syn::Result<Info<T>> {
-        let span = proc_macro2::Span::call_site();
-        Ok(Info { span, data })
+        Ok(Info { span: Span::call_site(), data })
     }
 }
 
@@ -207,8 +206,7 @@ impl<T> Name<T> {
 
 impl<S> safe::Name<S> {
     pub fn sync<T>(&self, data: T) -> syn::Result<Name<T>> {
-        let span = proc_macro2::Span::call_site();
-        Ok(Name { name: self.name, span, data })
+        Ok(Name { name: self.name, span: Span::call_site(), data })
     }
 }
 
@@ -220,7 +218,7 @@ impl<T: quote::ToTokens + syn::parse::Parse + Save> Safe for T {
     }
     fn sync(safe: &Self::Safe) -> Result<Self, Self::Error> {
         syn::parse(safe.parse().map_err(|err| {
-            let span = proc_macro2::Span::call_site();
+            let span = Span::call_site();
             let msg = format!("{}", err);
             syn::Error::new(span, msg)
         })?)
@@ -239,7 +237,7 @@ paste::paste! {
             pub fields: $field [*],
             pub vis: syn::Visibility,
             pub attr: [<$table Attr>],
-            pub generic: syn::Generics,
+            pub generics: syn::Generics,
         }
     }
 
@@ -272,13 +270,13 @@ paste::paste! {
             let data = match data {
                 Some(data) => data,
                 None => {
+                    let span = Span::call_site();
                     let msg = "not a struct with named fields";
-                    let span = proc_macro2::Span::call_site();
                     return Err(syn::Error::new(span, msg));
                 }
             };
 
-            let span = proc_macro2::Span::call_site();
+            let span = Span::call_site();
             let info = crate::parse::rules::Info {
                 data: input.attrs,
                 span,
@@ -291,7 +289,7 @@ paste::paste! {
             Ok(Self {
                 attr,
                 fields,
-                generic: input.generics,
+                generics: input.generics,
                 ident: input.ident,
                 vis: input.vis,
             })
@@ -447,43 +445,28 @@ paste::paste! {
 
 
 macro_rules! vars {
-{ $($vis:vis $e:ident$(: $a:ident)? { $(($($t:tt)*),)* })* } => {
-    $(vari! { $vis $e$(: $a)? { $(($($t)*),)* } })*
+{ $($vis:vis $e:ident$(:)? $($a:ident),* { $(($($t:tt)*),)* })* } => {
+    $(vari! { $vis $e: $($a,)* { $(($($t)*),)* } })*
 } }
 
 macro_rules! vari {
-{ $vis:vis $e:ident$(: $a:ident)? { $(($v:ident = $n:literal),)* } } => {
-    vari! { impl $vis $e $($a)? { $(($v, stringify!($n), $n),)* } true }
+{ $vis:vis $e:ident: $($a:ident,)* { $(($v:ident = $n:literal),)* } } => {
+    vari! { impl $vis $e { $(($v, stringify!($n), $n),)* } true }
+    vari! { $e: $($a,)* = { $($v,)* } }
 };
-{ $vis:vis $e:ident$(: $a:ident)? { $(($v:ident = $n:ident),)* } } => {
-    vari! { impl $vis $e $($a)? { $(($v, stringify!($n), stringify!($n)),)* } false }
+{ $vis:vis $e:ident: $($a:ident,)* { $(($v:ident = $n:ident),)* } } => {
+    vari! { impl $vis $e { $(($v, stringify!($n), stringify!($n)),)* } false }
+    vari! { $e: $($a,)* = { $($v,)* } }
 };
-{ impl $vis:vis $e:ident $($a:ident)? { $(($v:ident, $n:expr, $s:expr),)* } $lit:tt } => {
+{ $e:ident: $($a:ident,)* = $v:tt } => {
+    $(vari! { impl $e: $a $v })*
+};
+{ impl $vis:vis $e:ident { $(($v:ident, $n:expr, $s:expr),)* } $lit:tt } => {
 
-    #[derive(Debug,Clone,Copy,PartialEq,Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     $vis enum $e {
         $($v,)*
     }
-
-    r#some!({ $($a)? } {
-        impl From<$e> for $($a)? {
-            fn from(e: $e) -> Self {
-                match e {
-                    $($e::$v => Self::$v,)*
-                }
-            }
-        }
-        impl TryFrom<$($a)?> for $e {
-            type Error = $($a)?;
-            #[allow(unreachable_patterns)]
-            fn try_from(a: $($a)?) -> core::result::Result<Self, $($a)?> {
-                match a {
-                    $(Self::Error::$v => Ok(Self::$v),)*
-                    _ => Err(a),
-                }
-            }
-        }
-    });
 
     impl syn::parse::Parse for $e {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -530,7 +513,26 @@ macro_rules! vari {
     }
 
 };
-{ $vis:vis $e:ident { $(($v:ident: $($t:tt)*),)* } } => {
+{ impl $e:ident: $a:ident { $($v:ident,)* } } => {
+    impl From<$e> for $a {
+        fn from(e: $e) -> Self {
+            match e {
+                $($e::$v => Self::$v,)*
+            }
+        }
+    }
+    impl TryFrom<$a> for $e {
+        type Error = $a;
+        #[allow(unreachable_patterns)]
+        fn try_from(a: $a) -> core::result::Result<Self, $a> {
+            match a {
+                $(Self::Error::$v => Ok(Self::$v),)*
+                _ => Err(a),
+            }
+        }
+    }
+};
+{ $vis:vis $e:ident: { $(($v:ident: $($t:tt)*),)* } } => {
 paste::paste! {
 
     #[derive(Clone)]
@@ -701,7 +703,6 @@ macro_rules! token {
     (lit(u64) { $($t:tt)* }) => ( $($t)* );
     (lit(i64) { $($t:tt)* }) => ( $($t)* );
     (lit(String) { $($t:tt)* }) => ( $($t)* );
-    (lit(bool) { $($t:tt)* }) => ( $($t)* );
     (lit($($t:tt)+) { $($_:tt)* }) => ();
 }
 
@@ -798,9 +799,4 @@ macro_rules! r#bool {
     }) => ( r#bool!($z, $t, $f) );
     (true, $t:expr, $f:expr) => { $t };
     (false, $t:expr, $f:expr) => { $f };
-}
-
-macro_rules! r#some {
-    ({ $($_:tt)+ } { $($o:tt)* }) => { $($o)* };
-    ({} { $($o:tt)* }) => {};
 }

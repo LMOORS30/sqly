@@ -35,7 +35,7 @@ use super::*;
 /// 
 /// # Example
 /// ```
-/// use sqly::*; // traits
+/// use sqly::derive::*; // traits
 /// # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// 
 /// #[derive(Table)]

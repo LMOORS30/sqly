@@ -11,6 +11,7 @@ pub use syn::Result;
 pub use either::Either;
 pub use either::Either::*;
 
+pub use proc_macro2::Span;
 pub use syn::spanned::Spanned;
 
 

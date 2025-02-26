@@ -1,5 +1,5 @@
 use std::collections::{HashMap as Map};
-use std::fmt::{self, Write, Display};
+use std::fmt::{Write, Display};
 use std::borrow::Borrow;
 
 pub use std::cell::RefCell;
@@ -10,28 +10,29 @@ use crate::parse::*;
 
 
 
-pub enum Index<T> {
-    Value(usize),
-    Unset(T),
+pub struct Index<T> {
+    index: Option<usize>,
+    value: T,
 }
 
-impl<T> Placer for Index<T> {
+impl<T> Index<T> {
+    pub fn unset(value: T) -> Self {
+        Self {
+            index: None,
+            value,
+        }
+    }
+}
+
+impl<T: Copy> Placer for Index<T> {
     type State = Vec<T>;
-    type Item<'c> = usize
-        where Self: 'c;
-    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
-        Ok(match self {
-            Index::Value(i) => *i,
-            Index::Unset(_) => {
-                let i = state.len() + 1;
-                let val = Index::Value(i);
-                match core::mem::replace(self, val) {
-                    Index::Unset(ident) => state.push(ident),
-                    Index::Value(_) => unreachable!(),
-                };
-                i
-            }
-        })
+    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        let i = self.index.get_or_insert_with(|| {
+            state.push(self.value);
+            state.len()
+        });
+        dst.push_arg(i);
+        Ok(())
     }
 }
 
@@ -41,71 +42,70 @@ pub struct Dollar<T>(pub T);
 
 impl<T: Placer> Placer for Dollar<T> {
     type State = T::State;
-    type Item<'c> = Dollar<T::Item<'c>>
-        where Self: 'c;
-    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
-        Ok(Dollar(self.0.place(state)?))
-    }
-}
-
-impl<T: Display> Display for Dollar<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "$")?;
-        write!(f, "{}", self.0)?;
+    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        dst.push_str("$");
+        self.0.place(state, dst)?;
         Ok(())
     }
 }
 
 
 
+impl Displacer for str {}
 impl Displacer for usize {}
 impl Displacer for String {}
-impl<'c> Displacer for &'c str {}
+impl<'c, T: ?Sized + Displacer> Displacer for &'c T {}
 
 pub trait Displacer: Display {}
 
 pub trait Placer {
-    type State;
-    type Item<'c>: Display
-        where Self: 'c;
-    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>>;
+    type State: Default;
+    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()>;
 }
 
 impl<T: Displacer> Placer for T {
     type State = ();
-    type Item<'c> = &'c Self
-        where Self: 'c;
-    fn place(&mut self, _: &mut Self::State) -> Result<Self::Item<'_>> {
-        Ok(self)
+    fn place<W: Write>(&mut self, _: &mut Self::State, dst: &mut W) -> Result<()> {
+        dst.push_arg(self);
+        Ok(())
     }
 }
 
 impl<T: Placer> Placer for Rc<RefCell<T>> {
     type State = T::State;
-    type Item<'c> = String
-        where Self: 'c;
-    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
-        Ok(self.as_ref().borrow_mut().place(state)?.to_string())
+    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        self.as_ref().borrow_mut().place(state, dst)
     }
 }
 
 impl<L: Placer, R: Placer> Placer for Either<L, R> {
     type State = (L::State, R::State);
-    type Item<'c> = Either<L::Item<'c>, R::Item<'c>>
-        where Self: 'c;
-    fn place(&mut self, state: &mut Self::State) -> Result<Self::Item<'_>> {
-        Ok(match self {
-            Left(left) => Left(left.place(&mut state.0)?),
-            Right(right) => Right(right.place(&mut state.1)?),
-        })
+    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        match self {
+            Left(left) => left.place(&mut state.0, dst),
+            Right(right) => right.place(&mut state.1, dst),
+        }
     }
 }
 
 
 
+pub trait Push: Write {
+    fn push_str(&mut self, s: &str) {
+        self.write_str(s).unwrap()
+    }
+    fn push_arg<T: Display>(&mut self, val: T) {
+        write!(self, "{}", val).unwrap()
+    }
+}
+
+impl<T: Write> Push for T {}
+
+
+
 pub struct Params<K, V: Placer> {
     pub state: V::State,
-    map: Map<K, V>,
+    pub map: Map<K, V>,
 }
 
 impl<K, V: Placer> Params<K, V> {
@@ -119,8 +119,7 @@ impl<K, V: Placer> Params<K, V> {
 
 }
 
-impl<K, V: Placer> Default for Params<K, V>
-where V::State: Default {
+impl<K, V: Placer> Default for Params<K, V> {
 
     fn default() -> Self {
         Self {
@@ -145,10 +144,6 @@ impl<K: Hash + Eq, V: Placer> Params<K, V> {
         self.map.insert(key.into(), val)
     }
 
-    pub fn place<'c>(&mut self, val: &'c mut V) -> Result<V::Item<'c>> {
-        val.place(&mut self.state)
-    }
-
 }
 
 impl<V: Placer> Params<String, V> {
@@ -167,18 +162,28 @@ impl<V: Placer> Params<String, V> {
 
 }
 
-impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
+impl<K, V: Placer> Params<K, V> {
 
-    pub fn output(&mut self, input: &[&Info<String>]) -> Result<String> {
-        let output = input.iter().map(|select| {
-            let line = select.data.trim_ascii();
-            self.apply(line, select.span)
-        }).collect::<Result<Vec<_>>>()?;
-        Ok(output.join("\n"))
+    pub fn place<W: Write>(&mut self, dst: &mut W, val: &mut V) -> Result<()> {
+        val.place(&mut self.state, dst)
     }
 
-    pub fn apply(&mut self, src: &str, span: proc_macro2::Span) -> Result<String> {
-        let mut dst = String::new();
+}
+
+impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
+
+    pub fn output<W: Write>(&mut self, dst: &mut W, input: &[&Info<String>]) -> Result<()> {
+        let mut first = true;
+        for info in input {
+            if !first { dst.push_str("\n"); }
+            let line = info.data.trim_ascii();
+            self.apply(dst, line, info.span)?;
+            first = false;
+        }
+        Ok(())
+    }
+
+    pub fn apply<W: Write>(&mut self, dst: &mut W, src: &str, span: Span) -> Result<()> {
         let mut src = src;
 
         while let Some(i) = src.find('$') {
@@ -248,10 +253,7 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
             };
 
             match self.map.get_mut(&ident) {
-                Some(val) => {
-                    let res = val.place(&mut self.state)?;
-                    write!(&mut dst, "{}", res).unwrap()
-                }
+                Some(val) => val.place(&mut self.state, dst)?,
                 None => {
                     let mut params = self.map.keys().map(|key| key.borrow()).collect::<Vec<_>>();
                     params.sort_unstable_by_key(|&params| (params.split("__").count(), params));
@@ -270,7 +272,7 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
         }
 
         dst.push_str(src);
-        Ok(dst)
+        Ok(())
     }
 
 }
@@ -294,69 +296,75 @@ mod tests {
             params.put("INNER", "INNER");
             params.put("table", "elbat");
             params.put("other", "rehto");
-            let span = proc_macro2::Span::call_site();
-            params.apply(src, span)
+            let mut dst = String::new();
+            let span = Span::call_site();
+            params.apply(&mut dst, src, span)?;
+            Ok(dst)
         }
 
-        fn replaced(src: &str) -> String {
-            result(src).unwrap()
+        fn replaced(src: &str, dst: &str) {
+            let res = result(src).map_err(|_| ());
+            assert_eq!(res, Ok(dst.to_string()));
         }
 
         fn errored(err: &str, src: &str) {
-            assert!(result(src).unwrap_err().to_string().contains(err));
+            let res = result(src).map_err(|msg| msg.to_string()).map_err(|msg| {
+                msg.find(err).map_or(msg, |_| err.to_string())
+            });
+            assert_eq!(res, Err(err.to_string()));
         }
 
         #[test]
         fn empty() {
-            assert_eq!(replaced(""), "");
+            replaced("", "");
         }
 
         #[test]
         fn copy() {
-            assert_eq!(replaced("copy"), "copy");
+            replaced("copy", "copy");
         }
 
         #[test]
         fn replace() {
-            assert_eq!(replaced("$one"), "1");
-            assert_eq!(replaced("$two $one"), "2 1");
-            assert_eq!(replaced("$two${ one }$two"), "212");
-            assert_eq!(replaced("${one}$two${one}"), "121");
-            assert_eq!(replaced("r#${r#table}#"), "r#elbat#");
-            assert_eq!(replaced("{$r#other#}"), "{rehto#}");
-            assert_eq!(replaced("{${SELF}}"), "{self}");
-            assert_eq!(replaced("${ r#mod }"), "mod");
-            assert_eq!(replaced("$r#mod"), "mod");
+            replaced("$one", "1");
+            replaced("$two $one", "2 1");
+            replaced("$two${ one }$two", "212");
+            replaced("${one}$two${one}", "121");
+            replaced("r#${r#table}#", "r#elbat#");
+            replaced("{$r#other#}", "{rehto#}");
+            replaced("{${SELF}}", "{self}");
+            replaced("${ r#mod }", "mod");
+            replaced("$r#mod", "mod");
         }
 
         #[test]
         fn escape() {
-            assert_eq!(replaced("$$"), "$");
-            assert_eq!(replaced("$$$$r#"), "$$r#");
-            assert_eq!(replaced("$$table"), "$table");
-            assert_eq!(replaced("$$$table$$"), "$elbat$");
-            assert_eq!(replaced("$one$$one$one"), "1$one1");
-            assert_eq!(replaced("$${ table }"), "${ table }");
-            assert_eq!(replaced("$${ $table }"), "${ elbat }");
-            assert_eq!(replaced("$${ r#$$ "), "${ r#$ ");
-            assert_eq!(replaced("$${"), "${");
+            replaced("$$", "$");
+            replaced("$$$$r#", "$$r#");
+            replaced("$$table", "$table");
+            replaced("$$$table$$", "$elbat$");
+            replaced("$one$$one$one", "1$one1");
+            replaced("$${ table }", "${ table }");
+            replaced("$${ $table }", "${ elbat }");
+            replaced("$${ r#$$ ", "${ r#$ ");
+            replaced("$${", "${");
         }
 
         #[test]
         fn statement() {
-            assert_eq!(replaced(
+            replaced(
                 "$INNER JOIN other AS $other ON $other.id = $table.other_id"
-            ), "INNER JOIN other AS rehto ON rehto.id = elbat.other_id");
-            assert_eq!(replaced(
+            , "INNER JOIN other AS rehto ON rehto.id = elbat.other_id");
+            replaced(
                 r#"$inner JOIN other AS "${other}" ON $other.id="$table".other_id"#
-            ), r#"LEFT JOIN other AS "rehto" ON rehto.id="elbat".other_id"#);
-            assert_eq!(replaced(
+            , r#"LEFT JOIN other AS "rehto" ON rehto.id="elbat".other_id"#);
+            replaced(
                 "$inner JOIN other_a AS ${other}_a ON ${other}_a.id = $table.other_a_id\n\
                 $inner JOIN other_b AS ${other}_b ON ${other}_b.id = $table.other_b_id\n\
                 $INNER JOIN other AS $other ON\n\
                     $other.id_a = ${other}_a.id OR\n\
                     $other.id_b = ${other}_b.id"
-            ), "LEFT JOIN other_a AS rehto_a ON rehto_a.id = elbat.other_a_id\n\
+            , "LEFT JOIN other_a AS rehto_a ON rehto_a.id = elbat.other_a_id\n\
                 LEFT JOIN other_b AS rehto_b ON rehto_b.id = elbat.other_b_id\n\
                 INNER JOIN other AS rehto ON\n\
                     rehto.id_a = rehto_a.id OR\n\

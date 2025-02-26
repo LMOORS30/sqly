@@ -15,14 +15,18 @@ impl QueryTable {
         Ok(types)
     }
 
-    pub fn derives(&self, r#type: Types) -> Result<Vec<&syn::Path>> {
+    pub fn derives(&self, r#type: Structs) -> Result<Vec<&syn::Path>> {
         let typed = match r#type {
-            Types::Delete => &self.attr.delete_derive,
-            Types::Insert => &self.attr.insert_derive,
-            Types::Select => &self.attr.select_derive,
-            Types::Update => &self.attr.update_derive,
+            Structs::Flat => &self.attr.flat_derive,
+            Structs::Delete => &self.attr.delete_derive,
+            Structs::Insert => &self.attr.insert_derive,
+            Structs::Select => &self.attr.select_derive,
+            Structs::Update => &self.attr.update_derive,
         };
-        let query = &self.attr.query_derive;
+        let query = match r#type {
+            Structs::Flat => &[],
+            _ => &*self.attr.query_derive,
+        };
         let derives = [query, typed].into_iter();
         let derives = derives.flatten().flat_map(|derive| {
             derive.data.iter().map(|data| &data.data)
@@ -30,45 +34,43 @@ impl QueryTable {
         Ok(derives)
     }
 
-    pub fn vis(&self, r#type: Types) -> Result<&syn::Visibility> {
+    pub fn vis(&self, r#type: Structs) -> Result<&syn::Visibility> {
         let typed = match r#type {
-            Types::Delete => &self.attr.delete_visibility,
-            Types::Insert => &self.attr.insert_visibility,
-            Types::Select => &self.attr.select_visibility,
-            Types::Update => &self.attr.update_visibility,
+            Structs::Flat => &self.attr.flat_visibility,
+            Structs::Delete => &self.attr.delete_visibility,
+            Structs::Insert => &self.attr.insert_visibility,
+            Structs::Select => &self.attr.select_visibility,
+            Structs::Update => &self.attr.update_visibility,
         };
-        let query = &self.attr.query_visibility;
+        let query = match r#type {
+            Structs::Flat => &None,
+            _ => &self.attr.query_visibility,
+        };
         let vis = typed.as_ref().or(query.as_ref());
         let vis = vis.map(|vis| &vis.data.data);
         let vis = vis.unwrap_or(&self.vis);
         Ok(vis)
     }
 
-    pub fn name(&self, r#type: Types) -> Result<syn::Ident> {
+    pub fn name(&self, r#type: Structs) -> Result<syn::Ident> {
         let typed = match r#type {
-            Types::Delete => &self.attr.delete,
-            Types::Insert => &self.attr.insert,
-            Types::Select => &self.attr.select,
-            Types::Update => &self.attr.update,
+            Structs::Flat => &self.attr.flat,
+            Structs::Delete => &self.attr.delete,
+            Structs::Insert => &self.attr.insert,
+            Structs::Select => &self.attr.select,
+            Structs::Update => &self.attr.update,
         };
         let name = match typed.as_ref().and_then(|typed| typed.data.as_ref()) {
             Some(name) => name.data.clone(),
             None => match r#type {
-                Types::Delete => quote::format_ident!("Delete{}", self.ident),
-                Types::Insert => quote::format_ident!("Insert{}", self.ident),
-                Types::Select => quote::format_ident!("Select{}", self.ident),
-                Types::Update => quote::format_ident!("Update{}", self.ident),
+                Structs::Flat => quote::format_ident!("Flat{}", self.ident),
+                Structs::Delete => quote::format_ident!("Delete{}", self.ident),
+                Structs::Insert => quote::format_ident!("Insert{}", self.ident),
+                Structs::Select => quote::format_ident!("Select{}", self.ident),
+                Structs::Update => quote::format_ident!("Update{}", self.ident),
             }
         };
         Ok(name)
-    }
-
-    pub fn flat(&self) -> Result<syn::Ident> {
-        let row = match &self.attr.flat {
-            Some(row) => row.data.data.clone(),
-            None => quote::format_ident!("Flat{}", self.ident),
-        };
-        Ok(row)
     }
 
 }
@@ -152,8 +154,8 @@ impl QueryTable {
 
 impl Constructed<'_> {
 
-    pub fn optional(&self) -> Result<Option<Optional<'_>>> {
-        self.table.optional(self.field)
+    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
+        self.table.nullable(self.field)
     }
 
 }
@@ -162,12 +164,12 @@ impl Constructed<'_> {
 
 impl Construct<'_> {
 
-    pub fn optional(&self) -> Result<Option<Optional<'_>>> {
-        let optional = match &self.foreign {
-            Some(foreign) => foreign.optional,
+    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
+        let nullable = match &self.foreign {
+            Some(foreign) => foreign.nullable,
             None => None,
         };
-        Ok(optional)
+        Ok(nullable)
     }
 
 }
@@ -192,9 +194,9 @@ impl Construct<'_> {
         match self.unique.get() {
             Some(unique) => Ok(unique.as_str()),
             None => {
+                let span = Span::call_site();
                 let msg = "OnceCell not initialized\n\
                     note: this error should not occur";
-                let span = proc_macro2::Span::call_site();
                 Err(syn::Error::new(span, msg))
             }
         }
@@ -208,9 +210,9 @@ impl Constructed<'_> {
         match self.unique.get() {
             Some(unique) => Ok(unique.as_str()),
             None => {
+                let span = Span::call_site();
                 let msg = "OnceCell not initialized\n\
                     note: this error should not occur";
-                let span = proc_macro2::Span::call_site();
                 Err(syn::Error::new(span, msg))
             }
         }
@@ -277,17 +279,17 @@ impl $table {
         Ok(fields)
     }
 
-    pub fn cells<'c, K, V, F, G, W>(
+    pub fn cells<'c, K, V, F, U, G>(
         &'c self,
-        params: &mut Params<K, W>,
+        params: &mut Params<K, V>,
         mut val: F,
         mut wrap: G,
-    ) -> Result<Vec<(&'c $field, W)>>
+    ) -> Result<Vec<(&'c $field, V)>>
     where
         K: From<String> + Hash + Eq,
-        W: Placer + Clone,
-        F: FnMut(&'c $field) -> V,
-        G: FnMut(Rc<RefCell<V>>) -> W,
+        V: Placer + Clone,
+        F: FnMut(&'c $field) -> U,
+        G: FnMut(Rc<RefCell<U>>) -> V,
     {
         let fields = self.fields.iter().filter_map(|field| {
             let cell = wrap(Rc::new(RefCell::new(val(field))));
@@ -304,18 +306,6 @@ impl $table {
             }
         }).collect();
         Ok(fields)
-    }
-
-}
-
-impl $table {
-
-    pub fn column(&self, field: &$field) -> Result<String> {
-        Ok(self.declaration(field, &field.ident)?.0)
-    }
-    
-    pub fn modifier(&self, field: &$field) -> Result<String> {
-        Ok(self.declaration(field, &field.ident)?.1)
     }
 
 }
@@ -368,6 +358,28 @@ impl $table {
         };
 
         Ok((name, info))
+    }
+
+    pub fn column(&self, field: &$field) -> Result<String> {
+        Ok(self.declaration(field, &field.ident)?.0)
+    }
+    
+    pub fn modifier(&self, field: &$field) -> Result<String> {
+        Ok(self.declaration(field, &field.ident)?.1)
+    }
+
+}
+
+impl $table {
+
+    #[cfg(feature = "unchecked")]
+    pub fn checked(&self) -> bool {
+        false
+    }
+
+    #[cfg(not(feature = "unchecked"))]
+    pub fn checked(&self) -> bool {
+        self.attr.unchecked.is_none()
     }
 
 }

@@ -187,10 +187,10 @@ paste::paste! {
         match self.$lower.get(id) {
             Some(entry) => Ok(entry),
             None => {
+                let span = Span::call_site();
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
-                let span = proc_macro2::Span::call_site();
                 Err(syn::Error::new(span, msg))
             }
         }
@@ -210,10 +210,10 @@ impl Guard<RwLockReadGuard<'static, Store>> {
         match self.0.$lower.get(id) {
             Some(tree) => Ok(&tree.val),
             None => {
+                let span = Span::call_site();
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
-                let span = proc_macro2::Span::call_site();
                 Err(syn::Error::new(span, msg))
             }
         }
@@ -224,10 +224,10 @@ impl Guard<RwLockReadGuard<'static, Store>> {
             $(Key::$upper(id) => match self.0.$lower.get(id) {
                 Some(tree) => tree.val.sync()?.call(),
                 None => {
+                    let span = Span::call_site();
                     let key = Key::$upper(id.clone());
                     let msg = format!("missing definition: {key}\n\
                         note: this error should not occur");
-                    let span = proc_macro2::Span::call_site();
                     Err(syn::Error::new(span, msg))
                 }
             },)*
@@ -298,11 +298,11 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
 
         match self.0.$lower.entry(id) {
             map::Entry::Occupied(entry) => {
+                let span = Span::call_site();
                 let key = Key::$upper(entry.key().clone());
                 let msg = format!("duplicate definition: {key}\n\
                     note: cannot #[derive(sqly::{})] on multiple structs with the same identifier",
                     stringify!($upper));
-                let span = proc_macro2::Span::call_site();
                 return Err(syn::Error::new(span, msg));
             }
             map::Entry::Vacant(entry) => {

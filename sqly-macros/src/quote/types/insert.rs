@@ -57,24 +57,22 @@ impl InsertTable {
 impl InsertTable {
 
     pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
-        let mut params = Params::default();
-        let mut query = String::new();
+        let params = &mut Params::default();
+        let query = &mut String::new();
         let table = self.table()?;
 
-        let fields = self.cells(&mut params, |field| {
-            Dollar(Index::Unset(field))
+        let fields = self.cells(params, |field| {
+            Dollar(Index::unset(field))
         }, |cell| cell)?;
         params.ensure("i");
 
-        write!(&mut query,
+        write!(query,
             "INSERT INTO \"{table}\" AS \"self\" (\n"
         ).unwrap();
 
-        for field in self.fields()? {
+        for (field, _) in &fields {
             let column = self.column(field)?;
-            write!(&mut query,
-                "\t\"{column}\",\n"
-            ).unwrap();
+            write!(query, "\t\"{column}\",\n").unwrap();
         }
         query.truncate(query.len() - 2);
         query.push_str("\n) VALUES (\n");
@@ -83,24 +81,22 @@ impl InsertTable {
             let list = field.attr.insert.infos();
             if !list.is_empty() {
                 params.put("i", cell);
-                let arg = params.output(&list)?;
-                write!(&mut query,
-                    "\t{arg},\n"
-                ).unwrap();
+                query.push_str("\t");
+                params.output(query, &list)?;
+                query.push_str(",\n");
             } else {
-                let arg = params.place(&mut cell)?;
-                write!(&mut query,
-                    "\t{arg},\n"
-                ).unwrap();
+                query.push_str("\t");
+                params.place(query, &mut cell)?;
+                query.push_str(",\n");
             }
         }
         query.truncate(query.len() - 2);
         query.push_str("\n)");
 
-        let args = params.state;
-        self.print(&query, &args)?;
+        let args = &params.state;
+        self.print(query, args)?;
         let run = fun!(self, query, args);
-        let check = self.check(&query, &args)?;
+        let check = self.check(query, args)?;
         Ok((check, run))
     }
 

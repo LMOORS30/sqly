@@ -13,6 +13,13 @@ pub use update::*;
 
 
 vars! {
+    pub Structs {
+        (Flat = flat),
+        (Delete = delete),
+        (Insert = insert),
+        (Select = select),
+        (Update = update),
+    }
     pub Skips {
         (Query = query),
         (Delete = delete),
@@ -20,7 +27,7 @@ vars! {
         (Select = select),
         (Update = update),
     }
-    pub Types: Skips {
+    pub Types: Structs, Skips {
         (Delete = delete),
         (Insert = insert),
         (Select = select),
@@ -53,7 +60,7 @@ parse! {
         ((table)! (= String)!),
         ((rename)? (= Rename)!),
 
-        ((flat)? (= syn::Ident)!),
+        ((flat)? (= syn::Ident)?),
         ((delete)? (= syn::Ident)?),
         ((insert)? (= syn::Ident)?),
         ((select)? (= syn::Ident)?),
