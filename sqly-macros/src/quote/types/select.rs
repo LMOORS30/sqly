@@ -19,7 +19,10 @@ impl Cache for SelectTable {
     fn dep(&self) -> Result<Dep> {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
-        dep.end(Key::Table(table.try_into()?));
+        if let Paved::Path(path) = table {
+            let id = path.try_into()?;
+            dep.end(Key::Table(id));
+        }
         Ok(dep)
     }
 
@@ -32,16 +35,16 @@ impl Cache for SelectTable {
 impl SelectTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let table = &self.attr.table.data.data;
         let (check, query) = self.query()?;
+        let typle = self.typle()?;
         let ident = &self.ident;
-        let res = result!['q, table];
+        let res = result!['q, typle];
 
         Ok(quote::quote! {
             #check
             #[automatically_derived]
             impl ::sqly::Select for #ident {
-                type Table = #table;
+                type Table = #typle;
                 type Query<'q> = #res;
                 fn select(&self) -> Self::Query<'_> {
                     #query
@@ -173,8 +176,16 @@ impl Construct<'_> {
 impl SelectTable {
 
     pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
-        let res = &self.attr.table.data.data;
-        let table = cache::fetch().table(&res.try_into()?)?.sync()?;
+        let path = match &self.attr.table.data.data {
+            Paved::Path(path) => path,
+            _ => {
+                let span = self.attr.table.data.span;
+                let msg = "invalid table identifier: expected path\n\
+                    note: #[derive(Select)] must reference a struct with #[derive(Table)]";
+                return Err(syn::Error::new(span, msg));
+            }
+        };
+        let table = cache::fetch().table(&path.try_into()?)?.sync()?;
 
         let mut local = Local::default();
         let local = table.colocate(&mut local)?;
@@ -232,7 +243,7 @@ impl SelectTable {
             query.push_str(&select);
             match &construct.table.attr.flat {
                 Some(_) => Ok(quote::quote! {
-                    type Flat = <#res as ::sqly::Flat>::Flat;
+                    type Flat = <#path as ::sqly::Flat>::Flat;
                     ::sqlx::query_as!(Flat, #query #(, #args)*);
                 }),
                 None => {
@@ -246,7 +257,7 @@ impl SelectTable {
         })?;
 
         let run = quote::quote! {
-            #run.try_map(<#res as ::sqly::Table>::from_row)
+            #run.try_map(<#path as ::sqly::Table>::from_row)
         };
 
         Ok((check, run))

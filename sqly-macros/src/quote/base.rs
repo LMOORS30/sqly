@@ -255,6 +255,18 @@ both!($table, $field);
 
 impl $table {
 
+    pub fn typle(&self) -> Result<TokenStream> {
+        let typle = match &self.attr.table.data.data {
+            Paved::String(_) => quote::quote! { &'static str },
+            Paved::Path(path) => quote::quote! { #path },
+        };
+        Ok(typle)
+    }
+
+}
+
+impl $table {
+
     pub fn checking<F>(&self, args: &[&$field], cb: F) -> Result<TokenStream>
     where F: FnOnce(&[TokenStream]) -> Result<TokenStream> {
         if !self.checked() {

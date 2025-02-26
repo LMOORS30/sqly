@@ -19,7 +19,10 @@ impl Cache for InsertTable {
     fn dep(&self) -> Result<Dep> {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
-        dep.art(Key::Table(table.try_into()?));
+        if let Paved::Path(path) = table {
+            let id = path.try_into()?;
+            dep.art(Key::Table(id));
+        }
         Ok(dep)
     }
 
@@ -32,8 +35,8 @@ impl Cache for InsertTable {
 impl InsertTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let table = &self.attr.table.data.data;
         let (check, query) = self.query()?;
+        let typle = self.typle()?;
         let ident = &self.ident;
         let res = result!['q];
 
@@ -41,7 +44,7 @@ impl InsertTable {
             #check
             #[automatically_derived]
             impl ::sqly::Insert for #ident {
-                type Table = #table;
+                type Table = #typle;
                 type Query<'q> = #res;
                 fn insert(&self) -> Self::Query<'_> {
                     #query

@@ -12,7 +12,7 @@ use super::*;
 /// ### Attribute Definition&ensp;<sub>(see [Attribute Notation](docs::attr::note) and [Attribute Documentation](docs::attr))</sub>
 /// 
 /// ##### Struct Attributes:
-/// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)`)!)] // required`<br>
+/// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)` | `[`String`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>

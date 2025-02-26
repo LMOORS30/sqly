@@ -4,7 +4,7 @@ use super::*;
 
 parse! {
     pub UpdateTable {
-        ((table)! (= syn::Path)!),
+        ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
         ((filter)* (= String)+),

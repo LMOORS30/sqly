@@ -53,6 +53,10 @@ vars! {
         (String: String),
         (Ident: syn::Ident),
     }
+    pub Paved {
+        (String: String),
+        (Path: syn::Path),
+    }
 }
 
 parse! {

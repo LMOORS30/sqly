@@ -266,7 +266,10 @@ impl $table {
 
     pub fn table(&self) -> Result<String> {
         let guard = cache::fetch();
-        let table = &self.attr.table.data.data;
+        let table = match &self.attr.table.data.data {
+            Paved::String(table) => return Ok(table.clone()),
+            Paved::Path(path) => path,
+        };
         let table = guard.table(&table.try_into()?)?;
         let table = table.attr.table.data.data.clone();
         Ok(table)

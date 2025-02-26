@@ -12,12 +12,12 @@ use super::*;
 pub trait Select {
     /// The type representing the table which this query will operate on.
     /// 
-    /// When generated with [`#[derive(Select)]`](derive@Select) this type is set by the [`#[sqly(table = Ident)]`](docs::attr#table) attribute.
+    /// When generated with [`#[derive(Select)]`](derive@Select) this type is set by the [`#[sqly(table)]`](docs::attr#table) attribute.
     /// 
     /// When generated with [`#[sqly(select)]`](docs::attr#select) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
     /// 
-    /// As this type implements the [`Table`](Table) trait the [`Table::select`](`Table::select`) alias is made available, this type serves no other purpose.
-    type Table: Table;
+    /// When this type implements the [`Table`](Table) trait the [`Table::select`](`Table::select`) alias is made available, this type serves no other purpose.
+    type Table;
 
     /// The query type for the operation to be executed.
     /// 

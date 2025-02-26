@@ -4,7 +4,7 @@ use super::*;
 
 parse! {
     pub InsertTable {
-        ((table)! (= syn::Path)!),
+        ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
         ((unchecked)?),
