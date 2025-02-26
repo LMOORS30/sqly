@@ -227,7 +227,7 @@ impl Constructed<'_> {
     pub fn column(&self) -> Result<String> {
         let table = &self.table;
         let field = &self.field;
-        let named = &self.named()?;
+        let named = &self.renamed()?;
         Ok(table.declaration(field, named)?.0)
     }
 

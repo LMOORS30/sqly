@@ -110,9 +110,10 @@ parse! {
         ((infer)?),
 
         ((foreign)* (= String)*),
-        ((foreign_key)? (= safe::Named)!),
-        ((foreign_named)? (= syn::Ident)!),
-        ((foreign_typed)? (= syn::Type)!),
+        ((target)? (= safe::Named)!),
+
+        ((named)? (= syn::Ident)!),
+        ((typed)? (= syn::Type)!),
 
         ((default)? (= syn::Path)?),
         ((from)? (= syn::Type)!),
@@ -212,8 +213,7 @@ impl QueryTable {
                     }
                 }
                 None => {
-                    let b = &field.attr;
-                    if let Some(span) = spany!(b.foreign_key, b.foreign_named, b.foreign_typed) {
+                    if let Some(span) = field.attr.target.spany() {
                         let msg = "unused attribute: requires #[sqly(foreign)]";
                         return Err(syn::Error::new(span, msg));
                     }

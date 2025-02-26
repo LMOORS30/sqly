@@ -108,8 +108,8 @@ impl Construct<'_> {
         let fields = self.fields.iter().filter(|column| {
             column.table.fielded(column.field, r#type)
         }).map(|column| {
-            let ty = column.typed()?;
-            let ident = column.named()?;
+            let ty = column.retyped()?;
+            let ident = column.renamed()?;
             let vis = &column.field.vis;
             let fttr = column.table.fttr(column.field, r#type)?;
             Ok(quote::quote! { #fttr #vis #ident: #ty })

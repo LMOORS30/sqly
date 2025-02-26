@@ -18,7 +18,7 @@ A singular equals sign is required when the value occurs at least once, otherwis
 
 Multiple values are separated by a comma, a variadic item is parsed to a value if it is not immediately followed by an equals sign and not an identifier while a literal is expected, otherwise it is parsed as the name of the next attribute.
 
-Multiple attributes can appear in the same `#[sqly()]` clause when separated by a comma, or can be split up into separate `#[sqly()]` clauses as desired. This also resolves the ambiguous syntax where both values and attributes are separated by a comma.
+Multiple attributes can appear in the same `#[sqly()]` clause when separated by a comma, or can be split up into separate `#[sqly()]` clauses as desired. This also resolves the possibly ambiguous syntax where both values and attributes are separated by a comma.
 
 Values defined with pipes represent an enum. Quotes are not expected unless for parsing strings.
 

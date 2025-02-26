@@ -130,7 +130,7 @@ impl QueryTable {
             Some(nullable) => {
                 let option = nullable.option()?;
                 quote::quote! { #option<#ty> }
-            },
+            }
             _ => quote::quote! { #ty },
         };
         Ok(typed)

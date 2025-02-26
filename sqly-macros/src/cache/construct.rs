@@ -225,12 +225,12 @@ impl<'c> Construct<'c> {
 
 impl<'c> Constructed<'c> {
 
-    pub fn named(&self) -> Result<syn::Ident> {
-        let named = match &self.code {
-            Code::Foreign(construct) => {
-                match &self.field.attr.foreign_named {
-                    Some(named) => named.data.data.clone(),
-                    None => match &self.field.attr.column {
+    pub fn renamed(&self) -> Result<syn::Ident> {
+        let renamed = match &self.field.attr.named {
+            Some(named) => named.data.data.clone(),
+            None => match &self.code {
+                Code::Foreign(construct) => {
+                    match &self.field.attr.column {
                         Some(column) => {
                             let ident = column.data.data.to_snake_case();
                             let mut ident = quote::format_ident!("r#{ident}");
@@ -241,7 +241,7 @@ impl<'c> Constructed<'c> {
                             let prefix = &self.field.ident;
                             let suffix = match &construct.correlate(self)? {
                                 Resolved::Attr(attr) => attr.column.to_snake_case(),
-                                Resolved::Field(field) => field.named()?.to_string(),
+                                Resolved::Field(field) => field.renamed()?.to_string(),
                             };
                             let mut ident = quote::format_ident!("{prefix}_{suffix}");
                             ident.set_span(prefix.span());
@@ -249,17 +249,17 @@ impl<'c> Constructed<'c> {
                         }
                     }
                 }
+                Code::Query => self.field.ident.clone(),
+                Code::Skip => self.field.ident.clone(),
             }
-            Code::Query => self.field.ident.clone(),
-            Code::Skip => self.field.ident.clone(),
         };
-        Ok(named)
+        Ok(renamed)
     }
 
     pub fn typed(&'c self) -> Result<TokenStream> {
         let typed = match &self.code {
             Code::Foreign(construct) => {
-                match &self.field.attr.foreign_typed {
+                match &self.field.attr.typed {
                     Some(typed) => {
                         let typed = &typed.data.data;
                         quote::quote! { #typed }
@@ -270,7 +270,7 @@ impl<'c> Constructed<'c> {
                             let key = &compromise.column;
                             let ident = &compromise.construct.table.ident;
                             let span = self.field.ident.span();
-                            let msg = format!("missing attribute: #[sqly(foreign_typed)]\n\
+                            let msg = format!("missing attribute: #[sqly(typed)]\n\
                                 note: type unknown since \"{key}\" does not match any columns in {ident}");
                             return Err(syn::Error::new(span, msg));
                         }
@@ -283,6 +283,17 @@ impl<'c> Constructed<'c> {
         Ok(typed)
     }
 
+    pub fn retyped(&'c self) -> Result<TokenStream> {
+        let retyped = match &self.field.attr.typed {
+            Some(typed) => {
+                let typed = &typed.data.data;
+                quote::quote! { #typed }
+            }
+            None => self.typed()?,
+        };
+        Ok(retyped)
+    }
+
 }
 
 
@@ -291,9 +302,8 @@ impl<'c> Construct<'c> {
 
     pub fn correlate(&'c self, foreign: &'c Constructed<'c>) -> Result<Resolved<'c>> {
         let mut fields = self.fields.iter().filter(|column| {
-            let skipped = column.table.skipped(column.field, Skips::Query);
-            !skipped && match &foreign.field.attr.foreign_key {
-                Some(key) => match &key.data.data {
+            match &foreign.field.attr.target {
+                Some(target) => match &target.data.data {
                     Named::Ident(ident) => column.field.ident.eq(ident),
                     Named::String(string) => match column.column() {
                         Ok(column) => string.eq(&column),
@@ -312,8 +322,8 @@ impl<'c> Construct<'c> {
 
         let resolved = match field {
             Some(column) => Some(Resolved::Field(column)),
-            None => match &foreign.field.attr.foreign_key {
-                Some(key) => match &key.data.data {
+            None => match &foreign.field.attr.target {
+                Some(target) => match &target.data.data {
                     Named::String(column) => {
                         let compromise = Compromise {
                             construct: self,
@@ -332,25 +342,25 @@ impl<'c> Construct<'c> {
             Some(resolved) => resolved,
             None => {
                 let ident = &self.table.ident;
-                match &foreign.field.attr.foreign_key {
+                match &foreign.field.attr.target {
                     None => {
                         let span = foreign.field.ident.span();
                         let msg = match first {
-                            None => format!("missing foreign key: no keys in {ident}\n\
-                                help: use #[sqly(foreign_key)] to disambiguate"),
-                            _ => format!("ambiguous foreign key: multiple keys in {ident}\n\
-                                help: use #[sqly(foreign_key)] to disambiguate"),
+                            None => format!("missing target: no keys in {ident}\n\
+                                help: use #[sqly(target)] to disambiguate"),
+                            _ => format!("ambiguous target: multiple keys in {ident}\n\
+                                help: use #[sqly(target)] to disambiguate"),
                         };
                         return Err(syn::Error::new(span, msg));
                     }
-                    Some(key) => {
-                        let span = key.data.span;
-                        let data = &key.data.data;
+                    Some(target) => {
+                        let span = target.data.span;
+                        let data = &target.data.data;
                         let msg = match first {
-                            None => format!("unknown foreign key: {data} has no matches in {ident}\n\
-                                help: use #[sqly(foreign_key = \"column_name\")] to join arbitrary columns"),
-                            _ => format!("ambiguous foreign key: {data} has multiple matches in {ident}\n\
-                                help: use #[sqly(foreign_key = field_ident)] to disambiguate matched fields"),
+                            None => format!("unknown target: {data} has no matches in {ident}\n\
+                                help: use #[sqly(target = \"column_name\")] to join arbitrary columns"),
+                            _ => format!("ambiguous target: {data} has multiple matches in {ident}\n\
+                                help: use #[sqly(target = field_ident)] to disambiguate matched fields"),
                         };
                         return Err(syn::Error::new(span, msg));
                     }

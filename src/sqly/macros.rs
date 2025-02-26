@@ -81,9 +81,10 @@ pub use update::*;
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 
 /// `#[sqly((`[`foreign`](docs::attr#foreign)`)* (= `[`String`](docs::attr#foreign)`)*)]`<br>
-/// `#[sqly((`[`foreign_key`](docs::attr#foreign)`)? (= `[`Ident`](docs::attr#foreign)` | `[`String`](docs::attr#foreign)`)!)]`<br>
-/// `#[sqly((`[`foreign_named`](docs::attr#foreign)`)? (= `[`Ident`](docs::attr#foreign)`)!)]`<br>
-/// `#[sqly((`[`foreign_typed`](docs::attr#foreign)`)? (= `[`Type`](docs::attr#foreign)`)!)]`<br>
+/// `#[sqly((`[`target`](docs::attr#target)`)? (= `[`Ident`](docs::attr#target)` | `[`String`](docs::attr#target)`)!)]`<br>
+/// 
+/// `#[sqly((`[`named`](docs::attr#named)`)? (= `[`Ident`](docs::attr#named)`)!)]`<br>
+/// `#[sqly((`[`typed`](docs::attr#typed)`)? (= `[`Type`](docs::attr#typed)`)!)]`<br>
 /// 
 /// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Path`](docs::attr#default)`)?)]`<br>
 /// `#[sqly((`[`from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
@@ -121,7 +122,7 @@ pub use update::*;
 /// #[derive(Table)]
 /// #[sqly(table = "publishers")]
 /// struct Publisher {
-///     #[sqly(key)] // default foreign key
+///     #[sqly(key)] // default target
 ///     id: i32,
 ///     unique_name: String,
 /// }
@@ -131,12 +132,12 @@ pub use update::*;
 /// #[sqly(select = GetBookPublications)]
 /// struct Publication {
 ///     #[sqly(foreign)] // this will perform a "LEFT JOIN"
-///     #[sqly(foreign_key = unique_name)] // use a different foreign key
+///     #[sqly(target = unique_name)] // use a different target
 ///     #[sqly(column = "publisher_name")] // specify the column name for the key
 ///     publisher: Option<Publisher>,
 ///     #[sqly(key)] // include `book_id` in the select struct
 ///     #[sqly(foreign)] // foreign joins are recursive
-///     #[sqly(foreign_key = id)] // required
+///     #[sqly(target = id)] // required
 ///     book: Book,
 /// }
 /// 
