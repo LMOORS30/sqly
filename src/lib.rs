@@ -10,7 +10,7 @@
 //! 
 //! # Example
 //! ```
-//! use sqly::*;
+//! use sqly::derive::*;
 //! # type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 //! 
 //! #[derive(Table)]

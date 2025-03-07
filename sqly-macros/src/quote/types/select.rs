@@ -35,21 +35,51 @@ impl Cache for SelectTable {
 impl SelectTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let (check, query) = self.query()?;
-        let typle = self.typle()?;
-        let ident = &self.ident;
-        let res = result!['q, typle];
+        let path = match &self.attr.table.data.data {
+            Paved::Path(path) => path,
+            _ => {
+                let span = self.attr.table.data.span;
+                let msg = "invalid table identifier: expected path\n\
+                    note: #[derive(Select)] must reference a struct with #[derive(Table)]";
+                return Err(syn::Error::new(span, msg));
+            }
+        };
+        let table = cache::fetch().table(&path.try_into()?)?.sync()?;
+
+        let mut local = Local::default();
+        let local = table.colocate(&mut local)?;
+        let construct = table.construct(local)?;
+
+        let mut query = construct.query(Target::Function, Scope::Global)?;
+        let (filter, args) = self.query(construct.unique()?)?;
+        query.push_str(&filter);
+
+        self.print(&query, &args)?;
+        let blanket = self.blanket()?;
+        let select = self.select(&query, &args, Some(path))?;
+
+        let check = self.checking(&args, |args| {
+            let mut query = construct.query(Target::Macro, Scope::Global)?;
+            query.push_str(&filter);
+            match &construct.table.attr.flat {
+                Some(_) => Ok(quote::quote! {
+                    type Flat = <#path as ::sqly::Flat>::Flat;
+                    ::sqlx::query_as!(Flat, #query #(, #args)*);
+                }),
+                None => {
+                    let flats = construct.flats()?;
+                    Ok(quote::quote! {
+                        struct Flat { #(#flats,)* }
+                        ::sqlx::query_as!(Flat, #query #(, #args)*);
+                    })
+                }
+            }
+        })?;
 
         Ok(quote::quote! {
             #check
-            #[automatically_derived]
-            impl ::sqly::Select for #ident {
-                type Table = #typle;
-                type Query<'q> = #res;
-                fn select(&self) -> Self::Query<'_> {
-                    #query
-                }
-            }
+            #select
+            #blanket
         })
     }
 
@@ -175,28 +205,12 @@ impl Construct<'_> {
 
 impl SelectTable {
 
-    pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
-        let path = match &self.attr.table.data.data {
-            Paved::Path(path) => path,
-            _ => {
-                let span = self.attr.table.data.span;
-                let msg = "invalid table identifier: expected path\n\
-                    note: #[derive(Select)] must reference a struct with #[derive(Table)]";
-                return Err(syn::Error::new(span, msg));
-            }
-        };
-        let table = cache::fetch().table(&path.try_into()?)?.sync()?;
+    pub fn query(&self, table: &str) -> Result<(String, Vec<&SelectField>)> {
+        let mut params = Params::default();
+        let mut string = String::new();
 
-        let mut local = Local::default();
-        let local = table.colocate(&mut local)?;
-        let construct = table.construct(local)?;
-        let table = construct.unique()?;
-
-        let mut query = construct.query(Target::Function, Scope::Global)?;
-        let params = &mut Params::default();
-        let select = &mut String::new();
-
-        let fields = self.cells(params, |field| {
+        let select = &mut string;
+        let fields = self.cells(&mut params, |field| {
             Dollar(Index::unset(field))
         }, Either::<_, String>::Left)?;
         params.ensure("column");
@@ -232,35 +246,9 @@ impl SelectTable {
             select.truncate(select.len() - 2);
         }
         select.truncate(select.len() - 5);
-        query.push_str(&select);
 
-        let args = &params.state.0;
-        self.print(&query, args)?;
-        let run = fun!(self, query, args);
-
-        let check = self.checking(args, |args| {
-            let mut query = construct.query(Target::Macro, Scope::Global)?;
-            query.push_str(&select);
-            match &construct.table.attr.flat {
-                Some(_) => Ok(quote::quote! {
-                    type Flat = <#path as ::sqly::Flat>::Flat;
-                    ::sqlx::query_as!(Flat, #query #(, #args)*);
-                }),
-                None => {
-                    let flats = construct.flats()?;
-                    Ok(quote::quote! {
-                        struct Flat { #(#flats,)* }
-                        ::sqlx::query_as!(Flat, #query #(, #args)*);
-                    })
-                }
-            }
-        })?;
-
-        let run = quote::quote! {
-            #run.try_map(<#path as ::sqly::Table>::from_row)
-        };
-
-        Ok((check, run))
+        let args = params.state.0;
+        Ok((string, args))
     }
 
 }

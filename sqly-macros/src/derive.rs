@@ -1,5 +1,5 @@
-use syn::{DeriveInput, Result};
 use proc_macro2::TokenStream;
+use syn::DeriveInput;
 
 use crate::parse::*;
 

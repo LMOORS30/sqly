@@ -467,11 +467,10 @@ impl<'c> Path<'c> {
             let end = &src[i..];
             let seg = &src[i - 1];
             let mut dup = list.iter().filter(|path| {
-                let x = match path.segments.len().checked_sub(end.len() + 1) {
+                (match path.segments.len().checked_sub(end.len() + 1) {
                     Some(i) => path.segments[i].ne(seg),
                     None => true,
-                };
-                x && path.segments.ends_with(end)
+                }) && path.segments.ends_with(end)
             });
             if dup.next().is_some() {
                 dst.push(seg.clone());

@@ -46,7 +46,7 @@ Generate the flattened struct representation of this table.
 
 This excludes all skipped fields and matches the SQL `SELECT` list.
 
-Implements the [`sqly::Flat`](Flat), [`sqlx::FromRow`](https://docs.rs/sqlx/0.8.0/sqlx/trait.FromRow.html) and `From<Flat>` traits.
+Implements the [`sqly::Flat`](Flat), [`sqlx::FromRow`] and `From<Flat>` traits.
 
 The struct is named by `format_ident!("Flat{}", self.ident)`.
 

@@ -56,10 +56,9 @@ impl QueryTable {
             Structs::Insert => quote::quote_spanned! { span => ::sqly::Insert },
             Structs::Select => quote::quote_spanned! { span => ::sqly::Select },
             Structs::Update => quote::quote_spanned! { span => ::sqly::Update },
-            Structs::Flat => return Ok(match derives.len() {
-                0 => TokenStream::new(),
-                _ => quote::quote! { #[derive(#(#derives,)*)] },
-            }),
+            Structs::Flat => return Ok((!derives.is_empty()).then(|| {
+                quote::quote! { #[derive(#(#derives,)*)] }
+            }).unwrap_or_default()),
         };
         Ok(quote::quote! { #[derive(#derive #(, #derives)*)] })
     }
@@ -234,7 +233,7 @@ impl Construct<'_> {
         let query = self.query(Target::Macro, Scope::Local)?;
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::Checked for #name {
+            impl ::sqly::Check for #name {
                 #[allow(unused)]
                 fn check(&self) {
                     #[allow(non_snake_case)]
@@ -250,20 +249,10 @@ impl Construct<'_> {
 
 
 macro_rules! base {
-($table:ty, $field:ty) => {
+($table:ty, $field:ty, $upper:ident, $lower:ident) => {
 both!($table, $field);
 
-impl $table {
-
-    pub fn typle(&self) -> Result<TokenStream> {
-        let typle = match &self.attr.table.data.data {
-            Paved::String(_) => quote::quote! { &'static str },
-            Paved::Path(path) => quote::quote! { #path },
-        };
-        Ok(typle)
-    }
-
-}
+paste::paste! {
 
 impl $table {
 
@@ -279,9 +268,9 @@ impl $table {
         let check = cb(&args)?;
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::Checked for #obj {
+            impl ::sqly::[<$upper Check>] for #obj {
                 #[allow(unused)]
-                fn check(&self) {
+                fn [<$lower _check>](&self) {
                     #check
                 }
             }
@@ -294,9 +283,93 @@ impl $table {
         }))
     }
 
+    pub fn blanket(&self) -> Result<TokenStream> {
+        let obj = &self.ident;
+        Ok(quote::quote! {
+            #[automatically_derived]
+            impl ::sqly::$upper for #obj {
+                type Table = <Self as ::sqly::[<$upper Impl>]>::Table;
+                type Query<'a> = <Self as ::sqly::[<$upper Impl>]>::Query<'static, 'a>
+                    where Self: 'a;
+                fn $lower(&self) -> Self::Query<'_> {
+                    <Self as ::sqly::[<$upper Impl>]>::[<$lower _from>](
+                        <Self as ::sqly::[<$upper Impl>]>::[<$lower _sql>](self)
+                    )
+                }
+            }
+        })
+    }
+
+    pub fn [<$lower>](&self, string: &str, args: &[&$field], map: Option<&syn::Path>) -> Result<TokenStream> {
+        let db = db![];
+        let obj = &self.ident;
+        let res = quote::quote! { ::core::result::Result };
+        let err = quote::quote! { ::sqlx::error::BoxDynError };
+        let row = quote::quote! { <#db as ::sqlx::Database>::Row };
+        let arg = quote::quote! { <#db as ::sqlx::Database>::Arguments };
+
+        let typle = match &self.attr.table.data.data {
+            Paved::String(_) => quote::quote! { &'static str },
+            Paved::Path(path) => quote::quote! { #path },
+        };
+        let query = match map {
+            None => quote::quote! { ::sqlx::query::Query<'q, #db, #arg<'a>> },
+            Some(path) => quote::quote! {
+                ::sqlx::query::Map<'q, #db, fn(#row) -> ::sqlx::Result<#path>, #arg<'a>>
+            }
+        };
+        let from = match args.len() {
+            0 => quote::quote! { &'q str },
+            _ => quote::quote! { (&'q str, #res<#arg<'a>, #err>) }
+        };
+        let sql = match args.len() {
+            0 => quote::quote! { &'static str },
+            _ => quote::quote! { (&'static str, #res<#arg<'a>, #err>) }
+        };
+        let with = match args.len() {
+            0 => quote::quote! { query, #res::Ok(#arg::default()) },
+            _ => quote::quote! { query.0, query.1 },
+        };
+        let map = map.map(|path| quote::quote! {
+            .try_map(<#path as ::sqly::Table>::from_row)
+        });
+
+        let len = args.len();
+        let bind = (0..len).map(|i| {
+            let i = syn::Index::from(i);
+            quote::quote! { arg.#i }
+        }).collect::<Vec<_>>();
+        let expr = args.iter().map(|field| {
+            self.value(field, Target::Function)
+        }).collect::<Result<Vec<_>>>()?;
+        let run = (!args.is_empty()).then(|| quote::quote! {
+                let arg = (#(&(#expr),)*);
+                use ::sqlx::Arguments as _;
+                let mut args = #arg::default();
+                args.reserve(#len, 0 #(+ ::sqlx::Encode::<#db>::size_hint(#bind))*);
+                let args = #res::Ok(args)
+                #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
+                (#string, args)
+        }).unwrap_or_else(|| quote::quote! { #string });
+
+        Ok(quote::quote! {
+            #[automatically_derived]
+            impl ::sqly::[<$upper Impl>] for #obj {
+                type Table = #typle;
+                type Query<'q, 'a> = #query;
+                type From<'q, 'a> = #from;
+                type Sql<'a> = #sql;
+                fn [<$lower _sql>](&self) -> Self::Sql<'_> { #run }
+                fn [<$lower _from>]<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
+                    ::sqlx::__query_with_result(#with)#map
+                }
+            }
+        })
+    }
+
 }
 
-} }
+} } }
 
 
 
@@ -377,7 +450,7 @@ impl $table {
 
 
 both!(QueryTable, QueryField);
-base!(DeleteTable, DeleteField);
-base!(InsertTable, InsertField);
-base!(SelectTable, SelectField);
-base!(UpdateTable, UpdateField);
+base!(DeleteTable, DeleteField, Delete, delete);
+base!(InsertTable, InsertField, Insert, insert);
+base!(SelectTable, SelectField, Select, select);
+base!(UpdateTable, UpdateField, Update, update);

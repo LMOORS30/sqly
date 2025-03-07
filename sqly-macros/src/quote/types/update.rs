@@ -35,21 +35,17 @@ impl Cache for UpdateTable {
 impl UpdateTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let (check, query) = self.query()?;
-        let typle = self.typle()?;
-        let ident = &self.ident;
-        let res = result!['q];
+        let (query, args) = self.query()?;
+
+        self.print(&query, &args)?;
+        let check = self.check(&query, &args)?;
+        let update = self.update(&query, &args, None)?;
+        let blanket = self.blanket()?;
 
         Ok(quote::quote! {
             #check
-            #[automatically_derived]
-            impl ::sqly::Update for #ident {
-                type Table = #typle;
-                type Query<'q> = #res;
-                fn update(&self) -> Self::Query<'_> {
-                    #query
-                }
-            }
+            #update
+            #blanket
         })
     }
 
@@ -59,12 +55,13 @@ impl UpdateTable {
 
 impl UpdateTable {
 
-    pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
-        let params = &mut Params::default();
-        let query = &mut String::new();
+    pub fn query(&self) -> Result<(String, Vec<&UpdateField>)> {
+        let mut params = Params::default();
+        let mut string = String::new();
         let table = self.table()?;
 
-        let mut fields = self.cells(params, |field| {
+        let query = &mut string;
+        let mut fields = self.cells(&mut params, |field| {
             Dollar(Index::unset(field))
         }, Either::<_, String>::Left)?;
         params.ensure("column");
@@ -124,11 +121,8 @@ impl UpdateTable {
         }
         query.truncate(query.len() - 5);
 
-        let args = &params.state.0;
-        self.print(query, args)?;
-        let run = fun!(self, query, args);
-        let check = self.check(query, args)?;
-        Ok((check, run))
+        let args = params.state.0;
+        Ok((string, args))
     }
 
 }

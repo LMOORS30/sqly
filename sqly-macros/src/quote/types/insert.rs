@@ -35,21 +35,17 @@ impl Cache for InsertTable {
 impl InsertTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let (check, query) = self.query()?;
-        let typle = self.typle()?;
-        let ident = &self.ident;
-        let res = result!['q];
+        let (query, args) = self.query()?;
+
+        self.print(&query, &args)?;
+        let check = self.check(&query, &args)?;
+        let insert = self.insert(&query, &args, None)?;
+        let blanket = self.blanket()?;
 
         Ok(quote::quote! {
             #check
-            #[automatically_derived]
-            impl ::sqly::Insert for #ident {
-                type Table = #typle;
-                type Query<'q> = #res;
-                fn insert(&self) -> Self::Query<'_> {
-                    #query
-                }
-            }
+            #insert
+            #blanket
         })
     }
 
@@ -59,12 +55,13 @@ impl InsertTable {
 
 impl InsertTable {
 
-    pub fn query(&self) -> Result<(TokenStream, TokenStream)> {
-        let params = &mut Params::default();
-        let query = &mut String::new();
+    pub fn query(&self) -> Result<(String, Vec<&InsertField>)> {
+        let mut params = Params::default();
+        let mut string = String::new();
         let table = self.table()?;
 
-        let fields = self.cells(params, |field| {
+        let query = &mut string;
+        let fields = self.cells(&mut params, |field| {
             Dollar(Index::unset(field))
         }, |cell| cell)?;
         params.ensure("i");
@@ -96,11 +93,8 @@ impl InsertTable {
         query.truncate(query.len() - 2);
         query.push_str("\n)");
 
-        let args = &params.state;
-        self.print(query, args)?;
-        let run = fun!(self, query, args);
-        let check = self.check(query, args)?;
-        Ok((check, run))
+        let args = params.state;
+        Ok((string, args))
     }
 
 }
