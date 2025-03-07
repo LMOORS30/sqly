@@ -9,6 +9,7 @@ impl QueryTable {
         let mut attrs = vectok![
             quote::quote! { table = #ident },
             self.attr.rename,
+            self.attr.krate,
             self.attr.unchecked,
             self.attr.print,
             self.attr.debug,
@@ -51,15 +52,16 @@ impl QueryTable {
         }.map(|attr| attr.span).unwrap_or_else(|| {
             Span::call_site()
         });
-        let derive = match r#type {
-            Structs::Delete => quote::quote_spanned! { span => ::sqly::Delete },
-            Structs::Insert => quote::quote_spanned! { span => ::sqly::Insert },
-            Structs::Select => quote::quote_spanned! { span => ::sqly::Select },
-            Structs::Update => quote::quote_spanned! { span => ::sqly::Update },
+        let krate = self.krate()?;
+        let derive = respanned(span, match r#type {
+            Structs::Delete => quote::quote! { #krate::Delete },
+            Structs::Insert => quote::quote! { #krate::Insert },
+            Structs::Select => quote::quote! { #krate::Select },
+            Structs::Update => quote::quote! { #krate::Update },
             Structs::Flat => return Ok((!derives.is_empty()).then(|| {
                 quote::quote! { #[derive(#(#derives,)*)] }
             }).unwrap_or_default()),
-        };
+        });
         Ok(quote::quote! { #[derive(#derive #(, #derives)*)] })
     }
 
@@ -83,7 +85,7 @@ impl QueryTable {
                         r#type == val.data.into()
                     }).map_or(key.span, |val| val.span)
                 }).unwrap_or_else(|| Span::call_site());
-                let key = quote::quote_spanned! { span => key };
+                let key = quote::quote_spanned!(span => key);
                 fttrs.push(key);
             }
         }
@@ -231,14 +233,15 @@ impl Construct<'_> {
 
         if fields.is_empty() { return Ok(TokenStream::new()); }
         let query = self.query(Target::Macro, Scope::Local)?;
+        let krate = self.table.krate()?;
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::Check for #name {
+            impl #krate::Check for #name {
                 #[allow(unused)]
                 fn check(&self) {
                     #[allow(non_snake_case)]
                     struct #name { #(#fields,)* }
-                    ::sqlx::query_as!(#name, #query);
+                    #krate::sqlx::query_as!(#name, #query);
                 }
             }
         })
@@ -262,13 +265,14 @@ impl $table {
             return Ok(TokenStream::new());
         }
         let obj = &self.ident;
+        let krate = self.krate()?;
         let args = args.iter().map(|field| {
             self.value(field, Target::Macro)
         }).collect::<Result<Vec<_>>>()?;
         let check = cb(&args)?;
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::[<$upper Check>] for #obj {
+            impl #krate::[<$upper Check>] for #obj {
                 #[allow(unused)]
                 fn [<$lower _check>](&self) {
                     #check
@@ -278,22 +282,24 @@ impl $table {
     }
 
     pub fn check(&self, query: &str, args: &[&$field]) -> Result<TokenStream> {
-        self.checking(args, |args| Ok(quote::quote! {
-            ::sqlx::query!(#query #(, #args)*);
-        }))
+        self.checking(args, |args| {
+            let krate = self.krate()?;
+            Ok(quote::quote! { #krate::sqlx::query!(#query #(, #args)*); })
+        })
     }
 
     pub fn blanket(&self) -> Result<TokenStream> {
         let obj = &self.ident;
+        let krate = self.krate()?;
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::$upper for #obj {
-                type Table = <Self as ::sqly::[<$upper Impl>]>::Table;
-                type Query<'a> = <Self as ::sqly::[<$upper Impl>]>::Query<'static, 'a>
+            impl #krate::$upper for #obj {
+                type Table = <Self as #krate::[<$upper Impl>]>::Table;
+                type Query<'a> = <Self as #krate::[<$upper Impl>]>::Query<'static, 'a>
                     where Self: 'a;
                 fn $lower(&self) -> Self::Query<'_> {
-                    <Self as ::sqly::[<$upper Impl>]>::[<$lower _from>](
-                        <Self as ::sqly::[<$upper Impl>]>::[<$lower _sql>](self)
+                    <Self as #krate::[<$upper Impl>]>::[<$lower _from>](
+                        <Self as #krate::[<$upper Impl>]>::[<$lower _sql>](self)
                     )
                 }
             }
@@ -303,19 +309,20 @@ impl $table {
     pub fn [<$lower>](&self, string: &str, args: &[&$field], map: Option<&syn::Path>) -> Result<TokenStream> {
         let db = db![];
         let obj = &self.ident;
+        let krate = self.krate()?;
         let res = quote::quote! { ::core::result::Result };
-        let err = quote::quote! { ::sqlx::error::BoxDynError };
-        let row = quote::quote! { <#db as ::sqlx::Database>::Row };
-        let arg = quote::quote! { <#db as ::sqlx::Database>::Arguments };
+        let err = quote::quote! { #krate::sqlx::error::BoxDynError };
+        let row = quote::quote! { <#krate #db as #krate::sqlx::Database>::Row };
+        let arg = quote::quote! { <#krate #db as #krate::sqlx::Database>::Arguments };
 
         let typle = match &self.attr.table.data.data {
             Paved::String(_) => quote::quote! { &'static str },
             Paved::Path(path) => quote::quote! { #path },
         };
         let query = match map {
-            None => quote::quote! { ::sqlx::query::Query<'q, #db, #arg<'a>> },
+            None => quote::quote! { #krate::sqlx::query::Query<'q, #krate #db, #arg<'a>> },
             Some(path) => quote::quote! {
-                ::sqlx::query::Map<'q, #db, fn(#row) -> ::sqlx::Result<#path>, #arg<'a>>
+                #krate::sqlx::query::Map<'q, #krate #db, fn(#row) -> #krate::sqlx::Result<#path>, #arg<'a>>
             }
         };
         let from = match args.len() {
@@ -331,7 +338,7 @@ impl $table {
             _ => quote::quote! { query.0, query.1 },
         };
         let map = map.map(|path| quote::quote! {
-            .try_map(<#path as ::sqly::Table>::from_row)
+            .try_map(<#path as #krate::Table>::from_row)
         });
 
         let len = args.len();
@@ -344,9 +351,9 @@ impl $table {
         }).collect::<Result<Vec<_>>>()?;
         let run = (!args.is_empty()).then(|| quote::quote! {
                 let arg = (#(&(#expr),)*);
-                use ::sqlx::Arguments as _;
+                use #krate::sqlx::Arguments as _;
                 let mut args = #arg::default();
-                args.reserve(#len, 0 #(+ ::sqlx::Encode::<#db>::size_hint(#bind))*);
+                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#bind))*);
                 let args = #res::Ok(args)
                 #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
                 (#string, args)
@@ -354,14 +361,14 @@ impl $table {
 
         Ok(quote::quote! {
             #[automatically_derived]
-            impl ::sqly::[<$upper Impl>] for #obj {
+            impl #krate::[<$upper Impl>] for #obj {
                 type Table = #typle;
                 type Query<'q, 'a> = #query;
                 type From<'q, 'a> = #from;
                 type Sql<'a> = #sql;
                 fn [<$lower _sql>](&self) -> Self::Sql<'_> { #run }
                 fn [<$lower _from>]<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
-                    ::sqlx::__query_with_result(#with)#map
+                    #krate::sqlx::__query_with_result(#with)#map
                 }
             }
         })
@@ -406,6 +413,17 @@ impl $table {
 }
 
 impl $table {
+
+    pub fn krate(&self) -> Result<TokenStream> {
+        let krate = match &self.attr.krate {
+            None => quote::quote! { ::sqly },
+            Some(krate) => {
+                let path = &krate.data.data;
+                quote::quote! { #path }
+            }
+        };
+        Ok(krate)
+    }
 
     pub fn print(&self, query: &str, args: &[&$field])  -> Result<()> {
         if self.attr.print.is_some() {

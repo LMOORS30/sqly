@@ -61,16 +61,17 @@ impl SelectTable {
         let check = self.checking(&args, |args| {
             let mut query = construct.query(Target::Macro, Scope::Global)?;
             query.push_str(&filter);
+            let krate = self.krate()?;
             match &construct.table.attr.flat {
                 Some(_) => Ok(quote::quote! {
-                    type Flat = <#path as ::sqly::Flat>::Flat;
-                    ::sqlx::query_as!(Flat, #query #(, #args)*);
+                    type Flat = <#path as #krate::Flat>::Flat;
+                    #krate::sqlx::query_as!(Flat, #query #(, #args)*);
                 }),
                 None => {
                     let flats = construct.flats()?;
                     Ok(quote::quote! {
                         struct Flat { #(#flats,)* }
-                        ::sqlx::query_as!(Flat, #query #(, #args)*);
+                        #krate::sqlx::query_as!(Flat, #query #(, #args)*);
                     })
                 }
             }

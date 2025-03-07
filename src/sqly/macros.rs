@@ -60,6 +60,7 @@ pub use update::*;
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// 
+/// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`debug`](docs::attr#dev-attributes)`)?)]`<br>

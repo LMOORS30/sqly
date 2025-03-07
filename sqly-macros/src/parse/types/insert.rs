@@ -7,6 +7,7 @@ parse! {
         ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
+        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
         ((print)?),
         ((debug)?),

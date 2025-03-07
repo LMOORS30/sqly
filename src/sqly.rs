@@ -30,3 +30,5 @@ pub mod docs {
 
 pub use macros::*;
 pub use traits::*;
+
+pub use sqlx;

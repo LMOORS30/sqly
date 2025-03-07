@@ -72,7 +72,7 @@ pub trait Table {
 
 
 
-/// A table which has its columns checked at compile time.
+/// A [`Table`](Table) which has its columns checked at compile time.
 /// 
 /// This will be generated unless
 /// [`#[sqly(unchecked)]`](docs::attr#dev-attributes) is specified or

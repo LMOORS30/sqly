@@ -89,6 +89,7 @@ parse! {
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
 
+        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
         ((print)?),
         ((debug)?),

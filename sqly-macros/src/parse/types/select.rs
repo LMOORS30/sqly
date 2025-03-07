@@ -9,6 +9,7 @@ parse! {
 
         ((filter)* (= String)+),
 
+        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
         ((print)?),
         ((debug)?),

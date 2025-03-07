@@ -61,8 +61,9 @@ impl Cache for QueryTable {
 impl QueryTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let ident = &self.ident;
         let db = db![];
+        let ident = &self.ident;
+        let krate = self.krate()?;
 
         let mut local = Local::default();
         let local = self.colocate(&mut local)?;
@@ -83,9 +84,9 @@ impl QueryTable {
             #flat
             #check
             #[automatically_derived]
-            impl ::sqly::Table for #ident {
-                type DB = #db;
-                fn from_row(row: <Self::DB as ::sqlx::Database>::Row) -> ::sqlx::Result<Self> {
+            impl #krate::Table for #ident {
+                type DB = #krate #db;
+                fn from_row(row: <Self::DB as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
                     #form
                 }
             }
@@ -155,8 +156,9 @@ impl Construct<'_> {
     }
 
     pub fn flat(&self) -> Result<TokenStream> {
-        let ident = &self.table.ident;
         let db = db![];
+        let ident = &self.table.ident;
+        let krate = self.table.krate()?;
 
         let derive = self.table.derive(Structs::Flat)?;
         let flat = self.table.name(Structs::Flat)?;
@@ -183,20 +185,20 @@ impl Construct<'_> {
                 #(#flats,)*
             }
             #[automatically_derived]
-            impl<'r> ::sqlx::FromRow<'r, <#db as ::sqlx::Database>::Row> for #flat {
-                fn from_row(row: &'r <#db as ::sqlx::Database>::Row) -> ::sqlx::Result<Self> {
-                    use ::sqlx::Row as _;
+            impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #flat {
+                fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
+                    use #krate::sqlx::Row as _;
                     Ok(#flat { #(#sets,)* })
                 }
             }
             #[automatically_derived]
-            impl From<#flat> for #ident {
+            impl ::core::convert::From<#flat> for #ident {
                 fn from(row: #flat) -> Self {
                     #form
                 }
             }
             #[automatically_derived]
-            impl ::sqly::Flat for #ident {
+            impl #krate::Flat for #ident {
                 type Flat = #flat;
             }
         })
@@ -225,8 +227,9 @@ impl Construct<'_> {
                 })
             }
             Source::Column => {
+                let krate = self.table.krate()?;
                 Ok(quote::quote! {
-                    use ::sqlx::Row as _;
+                    use #krate::sqlx::Row as _;
                     Ok(#formed)
                 })
             }

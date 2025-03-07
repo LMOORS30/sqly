@@ -86,6 +86,10 @@ macro_rules! spany {
 
 
 
+pub fn respanned(span: Span, stream: TokenStream) -> TokenStream {
+    respan(stream, span).collect()
+}
+
 fn respan(stream: TokenStream, span: Span) -> impl Iterator<Item = TokenTree> {
     fn respanned(mut token: TokenTree, span: Span) -> TokenTree {
         if let TokenTree::Group(g) = &mut token {
@@ -323,7 +327,7 @@ paste::paste! {
 
 
 macro_rules! attr {
-($vis:vis $i:ident { $((($n:ident)$r:tt $($t:tt)*),)* }) => {
+($vis:vis $i:ident { $((($n:ident $(as $s:literal)?)$r:tt $($t:tt)*),)* }) => {
 paste::paste! {
 
     #[allow(non_camel_case_types)]
@@ -342,9 +346,9 @@ paste::paste! {
     impl syn::parse::Parse for [<$i Enum>] {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
             let span = input.span();
-            match &*input.parse::<syn::Ident>()?.to_string() {
-                $(stringify!($n) => token!(input, $($t)*).map(|v| (
-                    [<$i Enum>]::$n(crate::parse::rules::Name::new(v, span, stringify!($n)))
+            match &*input.call(<syn::Ident as syn::ext::IdentExt>::parse_any)?.to_string() {
+                $(named!($n $($s)?) => token!(input, $($t)*).map(|v| (
+                    [<$i Enum>]::$n(crate::parse::rules::Name::new(v, span, named!($n $($s)?)))
                 )),)*
                 n => Err(syn::Error::new(span, format!(
                     "unknown attribute: #[sqly({})]", n
@@ -375,7 +379,7 @@ paste::paste! {
                         r#match!({ $r } {
                             ! => match $n { None => $n = Some(v), Some(_) => {
                                 return Err(syn::Error::new(v.span, format!(
-                                    "duplicate attribute: #[sqly({})]", stringify!($n)
+                                    "duplicate attribute: #[sqly({})]", named!($n $($s)?)
                                 )));
                             } },
                             ? => ~ !,
@@ -386,7 +390,7 @@ paste::paste! {
                                     let first: Option<&crate::parse::rules::Name<Vec<_>>> = $n.first();
                                     if first.map_or(false, |w| w.data.is_empty() || v.data.is_empty()) {
                                         return Err(syn::Error::new(v.span, format!(
-                                            "duplicate attribute: #[sqly({})]", stringify!($n)
+                                            "duplicate attribute: #[sqly({})]", named!($n $($s)?)
                                         )));
                                     }
                                     $n.push(v);
@@ -409,7 +413,7 @@ paste::paste! {
             $(let $n = r#match!({ $r } {
                 ! => match $n { Some(n) => n, None => {
                     return Err(syn::Error::new(info.span, format!(
-                        "missing attribute: #[sqly({})]", stringify!($n)
+                        "missing attribute: #[sqly({})]", named!($n $($s)?)
                     )));
                 } },
                 ? => $n,
@@ -472,7 +476,7 @@ macro_rules! vari {
         fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
             let span = input.span();
             let input = r#bool!({ $lit } {
-                false => input.parse::<syn::Ident>()?.to_string(),
+                false => input.call(<syn::Ident as syn::ext::IdentExt>::parse_any)?.to_string(),
                 true => input.parse().map(|s: syn::LitStr| s.value())?,
             });
             match input.as_str() {
@@ -663,8 +667,7 @@ macro_rules! token {
                 break;
             }
             token!(lit($($t)*) {
-                use syn::ext::IdentExt as _;
-                if $i.peek2(syn::Ident::peek_any) {
+                if $i.peek2(<syn::Ident as syn::ext::IdentExt>::peek_any) {
                     break;
                 }
             });
@@ -799,4 +802,9 @@ macro_rules! r#bool {
     }) => ( r#bool!($z, $t, $f) );
     (true, $t:expr, $f:expr) => { $t };
     (false, $t:expr, $f:expr) => { $f };
+}
+
+macro_rules! named {
+    ($n:ident) => ( stringify!($n) );
+    ($n:ident $s:literal) => ( $s );
 }
