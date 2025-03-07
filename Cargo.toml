@@ -24,10 +24,11 @@ postgres = ["sqlx/postgres", "sqly-macros/postgres"]
 mariadb = ["sqlx/mysql", "sqly-macros/mariadb"]
 sqlite = ["sqlx/sqlite", "sqly-macros/sqlite"]
 mysql = ["sqlx/mysql","sqly-macros/mysql"]
-unchecked = ["sqly-macros/unchecked"]
+checked = ["sqlx/macros", "sqly-macros/checked"]
+default = ["checked"]
 
 [workspace.dependencies]
-sqly-macros = { version = "=0.3.1", path = "sqly-macros" }
+sqly-macros = { version = "=0.3.1", path = "sqly-macros", default-features = false }
 
 [dependencies]
 sqlx = { version = "0.8.0", default-features = false }

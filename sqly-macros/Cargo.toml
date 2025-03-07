@@ -15,14 +15,15 @@ postgres = []
 mariadb = []
 sqlite = []
 mysql = []
-unchecked = []
+checked = []
+default = ["checked"]
 
 [dependencies]
-either = "1.13.0"
-heck = "0.5"
-paste = "1.0"
-prettyplease = "0.2"
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = "2.0"
-unicode-ident = "1.0"
+either = { version = "1.13.0", default-features = false }
+heck = { version = "0.5", default-features = false }
+paste = { version = "1.0", default-features = false }
+prettyplease = { version = "0.2", default-features = false }
+proc-macro2 = { version = "1.0", default-features = false }
+quote = { version = "1.0", default-features = false }
+syn = { version = "2.0", default-features = true }
+unicode-ident = { version = "1.0", default-features = false }

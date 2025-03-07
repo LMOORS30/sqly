@@ -76,12 +76,11 @@ pub trait Table {
 /// 
 /// This will be generated unless
 /// [`#[sqly(unchecked)]`](docs::attr#dev-attributes) is specified or
-/// the `unchecked` [feature](https://github.com/LMOORS30/sqly#features) is enabled.
+/// the default [`checked`](https://github.com/LMOORS30/sqly#features) feature is disabled.
 /// 
 /// This trait serves no further purpose.
 pub trait Check {
-    /// Calls the [`sqlx::query_as!`](https://docs.rs/sqlx/0.8.0/sqlx/macro.query_as.html)
-    /// macro to perform the compile time check.
+    /// Calls the [`sqlx::query_as!`] macro to perform the compile time check.
     /// 
     /// The result is not returned, this function is not meant to be called.
     fn check(&self);

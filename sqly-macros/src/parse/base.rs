@@ -375,12 +375,12 @@ impl $table {
 
 impl $table {
 
-    #[cfg(feature = "unchecked")]
+    #[cfg(not(feature = "checked"))]
     pub fn checked(&self) -> bool {
         false
     }
 
-    #[cfg(not(feature = "unchecked"))]
+    #[cfg(feature = "checked")]
     pub fn checked(&self) -> bool {
         self.attr.unchecked.is_none()
     }

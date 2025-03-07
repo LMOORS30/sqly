@@ -282,7 +282,7 @@ If not specified this defaults to the ident of the field.
 
 All uses of the column name will be enclosed in quotes.
 
-Includes support for the sqlx&ensp;`?`&ensp;`!`&ensp;`: _`&ensp;and&ensp;`: T`&ensp;[type overrides](https://docs.rs/sqlx/0.8.0/sqlx/macro.query.html#type-overrides-output-columns).
+Includes support for the sqlx&ensp;`?`&ensp;`!`&ensp;`: _`&ensp;and&ensp;`: T`&ensp;[type overrides](sqlx::query!#type-overrides-output-columns).
 
 <br>
 
@@ -430,7 +430,7 @@ The Rust expression to bind this field as a parameter.
 
 A reference to the instance of this object is assigned to `self`.
 
-Includes support for the sqlx&ensp;`as _`&ensp;[type override](https://docs.rs/sqlx/0.8.0/sqlx/macro.query.html#type-overrides-bind-parameters-postgres-only).
+Includes support for the sqlx&ensp;`as _`&ensp;[type override](sqlx::query!#type-overrides-bind-parameters-postgres-only).
 
 <br>
 

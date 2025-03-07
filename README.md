@@ -22,7 +22,6 @@ features = ["postgres"]
 [dependencies.sqlx]
 version = "0.8.0"
 default-features = false
-features = ["postgres", "macros"]
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
@@ -32,11 +31,11 @@ opt-level = 3
 ```
 
 ##### Features
-`unchecked`&ensp;—&ensp;disable compile-time checking<br>
-` postgres`&ensp;—&ensp;generate queries for PostgreSQL<br>
-`  mariadb`&ensp;—&ensp;generate queries for MariaDB (not supported)<br>
-`   sqlite`&ensp;—&ensp;generate queries for SQLite (not supported)<br>
-`    mysql`&ensp;—&ensp;generate queries for MySQL (not supported)
+`postgres`&ensp;—&ensp;generate queries for PostgreSQL<br>
+` mariadb`&ensp;—&ensp;generate queries for MariaDB (not supported)<br>
+`  sqlite`&ensp;—&ensp;generate queries for SQLite (not supported)<br>
+`   mysql`&ensp;—&ensp;generate queries for MySQL (not supported)<br>
+` checked`&ensp;—&ensp;enable compile-time checking (default)
 
 Currently only postgres is supported.
 
