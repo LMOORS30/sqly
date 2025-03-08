@@ -113,7 +113,7 @@ impl QueryTable {
     pub fn coded<'c>(&'c self) -> Result<impl Iterator<Item = Result<Column<'c, Foreign<'c>>>>> {
         let coded = self.fields.iter().map(move |field| {
             let code = {
-                if self.skipped(field, Skips::Query) { Code::Skip }
+                if self.skipped(field, Skips::FromRow) { Code::Skip }
                 else if let Some(foreign) = self.foreign(field)? {
                     Code::Foreign(foreign)
                 }

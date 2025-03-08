@@ -94,7 +94,7 @@ pub use update::*;
 /// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Path`](docs::attr#default)`)?)]`<br>
 /// `#[sqly((`[`from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
 /// 
-/// `#[sqly((`[`skip`](docs::attr#skip)`)? (= `[`delete`](docs::attr#skip)` | `[`insert`](docs::attr#skip)` | `[`select`](docs::attr#skip)` | `[`update`](docs::attr#skip)` | `[`query`](docs::attr#skip)`)*)]`<br>
+/// `#[sqly((`[`skip`](docs::attr#skip)`)? (= `[`delete`](docs::attr#skip)` | `[`insert`](docs::attr#skip)` | `[`select`](docs::attr#skip)` | `[`update`](docs::attr#skip)` | `[`from_row`](docs::attr#skip)`)*)]`<br>
 /// `#[sqly((`[`key`](docs::attr#key)`)? (= `[`delete`](docs::attr#key)` | `[`select`](docs::attr#key)` | `[`update`](docs::attr#key)`)*)]`
 /// 
 /// <br>

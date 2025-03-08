@@ -21,11 +21,11 @@ vars! {
         (Update = update),
     }
     pub Skips {
-        (Query = query),
         (Delete = delete),
         (Insert = insert),
         (Select = select),
         (Update = update),
+        (FromRow = from_row),
     }
     pub Types: Structs, Skips {
         (Delete = delete),
@@ -214,7 +214,7 @@ impl QueryTable {
                             let msg = "conflicting attributes: #[sqly(skip, foreign)]";
                             return Err(syn::Error::new(skips.span, msg));
                         }
-                        if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::Query) {
+                        if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::FromRow) {
                             let msg = "conflicting attributes: #[sqly(skip, foreign)]";
                             return Err(syn::Error::new(skip.span, msg));
                         }

@@ -685,14 +685,14 @@ This will replace the type of this field when included in generated [`Delete`](d
 ```
 Do not include this field when generating queries or structs.
 
-When skipped for `query` in [`#[derive(Table)]`](derive@Table) the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) must be specified.
+When this table is included in any [`sqlx::FromRow`] or [`From<Self::Flat>`](Flat::Flat) definitions the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) function must be specified.
 
 ---
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "", delete, insert, select, update)]
 # struct T {
-#[sqly(skip = query, delete, insert, select, update)]
+#[sqly(skip = from_row, delete, insert, select, update)]
 # t: i32,
 # #[sqly(key)]
 # k: i32,
