@@ -26,11 +26,27 @@ All uses of the table name will be enclosed in quotes.
 # }
 # #[derive(sqly::Delete)]
 #[sqly(table = path::Type)]
-# struct D { d: i32 }
+# struct T { t: i32 }
 ```
 The path to the type representing the table to be operated on.
 
 This type is required to have [`#[derive(Table)]`](derive@Table).
+
+<br>
+
+#### from_row
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(from_row)]
+# struct T;
+```
+Implements [`sqlx::FromRow`] for the table.
+
+This is the default behavior if [`#[sqly(select)]`](#select) is specified.
+
+Required to use this table with [`#[derive(Select)]`](derive@Select) queries.
 
 <br>
 
@@ -40,13 +56,11 @@ This type is required to have [`#[derive(Table)]`](derive@Table).
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 #[sqly(flat)]
-# struct T { #[sqly(key)] t: i32 };
+# struct T;
 ```
 Generate the flattened struct representation of this table.
 
 This excludes all skipped fields and matches the SQL `SELECT` list.
-
-Implements the [`sqly::Flat`](Flat), [`sqlx::FromRow`] and `From<Flat>` traits.
 
 The struct is named by `format_ident!("Flat{}", self.ident)`.
 
@@ -55,9 +69,29 @@ The struct is named by `format_ident!("Flat{}", self.ident)`.
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 #[sqly(flat = Ident)]
-# struct T { #[sqly(key)] t: i32 };
+# struct T;
 ```
 Same as above, except the struct is named by the given `Ident`.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", flat)]
+#[sqly(from_flat)]
+# struct T;
+```
+Implements [`From<Self::Flat>`](Flat::Flat) for the table.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", flat)]
+#[sqly(flat_row)]
+# struct T;
+```
+Implements [`sqlx::FromRow`] for the flattened struct.
+
+This can also be done with [`#[sqly(flat_derive = sqlx::FromRow)]`](#derive), but this will generate `non_snake_case` warnings due to a different implementation of the function body.
 
 <br>
 
@@ -117,7 +151,7 @@ Same as above, except the struct is named by the given `Ident`.
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 #[sqly(select)]
-# struct T { #[sqly(key)] t: i32 };
+# struct T;
 ```
 Generate a select struct with [`#[derive(Select)]`](derive@Select) applied.
 
@@ -130,7 +164,7 @@ The struct is named by `format_ident!("Select{}", self.ident)`.
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 #[sqly(select = Ident)]
-# struct T { #[sqly(key)] t: i32 };
+# struct T;
 ```
 Same as above, except the struct is named by the given `Ident`.
 
@@ -389,7 +423,7 @@ Any field can be referenced any amount of times, including skipped and keyed fie
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 # struct Table;
-# #[derive(sqly::Select)]
+# #[derive(sqly::Delete)]
 # #[sqly(table = Table)]
 # struct T {
 #[sqly(filter = "$column = $i")]
@@ -475,7 +509,7 @@ Mark this field as a foreign table.
 
 This attribute has several implications:
 
-When generating `SELECT` queries an SQL `JOIN` expression is added for the foreign table. Additionally, all columns needed for the [`Table::from_row`](Table::from_row) implementation of the foreign struct are selected. This works recursively and for any amount of foreign tables. Joined tables and selected columns are renamed in order to avoid name conflicts.
+When generating `SELECT` queries an SQL `JOIN` expression is added for the foreign table. Additionally, all columns needed for the [`sqlx::FromRow`] implementation of the foreign struct are selected. This works recursively and for any amount of foreign tables. Joined tables and selected columns are renamed in order to avoid name conflicts.
 
 The type of this field is required to have [`#[derive(Table)]`](derive@Table) and must be a path without any generics. The only exception is `Option<T>`, where the same restrictions apply to `T` and the identifier of `Option` must not be renamed. This prompts the generated expression to perform a `LEFT JOIN` instead of an `INNER JOIN`.
 

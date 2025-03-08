@@ -35,6 +35,10 @@ pub use update::*;
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`String`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
+/// `#[sqly((`[`from_row`](docs::attr#from_row)`)?)]`<br>
+/// `#[sqly((`[`from_flat`](docs::attr#flat)`)?)]`<br>
+/// `#[sqly((`[`flat_row`](docs::attr#flat)`)?)]`<br>
+/// 
 /// `#[sqly((`[`flat`](docs::attr#flat)`)? (= `[`Ident`](docs::attr#flat)`)?)]`<br>
 /// `#[sqly((`[`delete`](docs::attr#delete)`)? (= `[`Ident`](docs::attr#delete)`)?)]`<br>
 /// `#[sqly((`[`insert`](docs::attr#insert)`)? (= `[`Ident`](docs::attr#insert)`)?)]`<br>

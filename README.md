@@ -48,9 +48,9 @@ Currently only postgres is supported.
 
 ### Roadmap
 **Major**
-- [x] Basic `DELETE` queries
-- [x] Basic `INSERT` queries
-- [x] Basic `UPDATE` queries
+- [X] Basic `DELETE` queries
+- [X] Basic `INSERT` queries
+- [X] Basic `UPDATE` queries
 - [X] Basic `SELECT` queries
     - [X] Storing information across separate `#[derive]` invocations
     - [ ] Optional outer macro pattern for better compiler support
@@ -62,8 +62,7 @@ Currently only postgres is supported.
 - [ ] `sqly::query!` macros to extend generated queries
 
 **Minor**
-- [X] `Table::Flat` type for convenience
-    - [ ] `#[derive(Flat)]` for flexibility
+- [X] `Flat::Flat` type for flexibility
 - [X] `#[sqly(infer)]` for custom sqlx types
 - [X] `#[sqly(value)]` for custom parameter binding
 - [X] `#[sqly(select)]` for custom SQL select expressions

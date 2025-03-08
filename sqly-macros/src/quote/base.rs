@@ -231,7 +231,6 @@ impl Construct<'_> {
             }
         }
 
-        if fields.is_empty() { return Ok(TokenStream::new()); }
         let query = self.query(Target::Macro, Scope::Local)?;
         let krate = self.table.krate()?;
         Ok(quote::quote! {
@@ -338,7 +337,7 @@ impl $table {
             _ => quote::quote! { query.0, query.1 },
         };
         let map = map.map(|path| quote::quote! {
-            .try_map(<#path as #krate::Table>::from_row)
+            .try_map(|row| <#path as #krate::sqlx::FromRow<_>>::from_row(&row))
         });
 
         let len = args.len();

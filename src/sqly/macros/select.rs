@@ -41,6 +41,7 @@ use super::*;
 /// 
 /// #[derive(Table)]
 /// #[sqly(table = "books")]
+/// #[sqly(from_row)] // required
 /// struct Book {
 ///     // ...
 ///     // these fields will be selected

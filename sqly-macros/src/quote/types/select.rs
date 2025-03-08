@@ -45,6 +45,12 @@ impl SelectTable {
             }
         };
         let table = cache::fetch().table(&path.try_into()?)?.sync()?;
+        if spany!(table.attr.select, table.attr.from_row).is_none() {
+            let span = self.attr.table.data.span;
+            let msg = "missing attribute: the referenced table must have #[sqly(from_row)]\n\
+                note: #[derive(Select)] uses the sqlx::FromRow definition for its query";
+            return Err(syn::Error::new(span, msg));
+        };
 
         let mut local = Local::default();
         let local = table.colocate(&mut local)?;
@@ -129,7 +135,6 @@ impl Construct<'_> {
             "SELECT\n"
         ).unwrap();
 
-        let mut i = 1;
         for flattened in self.flatten()? {
             let flattened = flattened?;
             match (&flattened.column.code, flattened.level, scope) {
@@ -160,7 +165,6 @@ impl Construct<'_> {
                             "\t\"{table}\".\"{column}\" AS \"{alias}\",\n"
                         ).unwrap();
                     }
-                    i += 1;
                 }
                 (Code::Foreign(construct), _, Scope::Global) => {
                     let list = flattened.column.field.attr.foreign.infos();
@@ -189,8 +193,9 @@ impl Construct<'_> {
                 _ => {}
             }
         }
-        let trunc = if i > 1 { 2 } else { 1 };
-        query.truncate(query.len() - trunc);
+        if query.ends_with(",\n") {
+            query.truncate(query.len() - 2);
+        }
 
         write!(&mut query,
             "\nFROM \"{table}\" AS \"{unique}\""

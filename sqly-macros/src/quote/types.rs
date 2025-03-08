@@ -69,12 +69,25 @@ impl QueryTable {
         let local = self.colocate(&mut local)?;
         let construct = self.construct(local)?;
 
-        let form = construct.form(Source::Column)?;
         let check = construct.check()?;
         let flat = match &self.attr.flat {
             Some(_) => Some(construct.flat()?),
             None => None,
         };
+        let form = match spany!(self.attr.from_row, self.attr.select) {
+            Some(_) => Some(construct.form(Source::Column)?),
+            None => None,
+        };
+
+        let from_row = form.map(|form| quote::quote! {
+            #[automatically_derived]
+            impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #ident {
+                fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
+                    use #krate::sqlx::Row as _;
+                    #krate::sqlx::Result::Ok(#form)
+                }
+            }
+        });
 
         let types = self.types()?;
         let types = types.map(|r#type| construct.build(r#type));
@@ -83,13 +96,9 @@ impl QueryTable {
         Ok(quote::quote! {
             #flat
             #check
+            #from_row
             #[automatically_derived]
-            impl #krate::Table for #ident {
-                type DB = #krate #db;
-                fn from_row(row: <Self::DB as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
-                    #form
-                }
-            }
+            impl #krate::Table for #ident {}
             #(#types)*
         })
     }
@@ -163,40 +172,56 @@ impl Construct<'_> {
         let derive = self.table.derive(Structs::Flat)?;
         let flat = self.table.name(Structs::Flat)?;
         let vis = self.table.vis(Structs::Flat)?;
-        let form = self.form(Source::Field)?;
         let flats = self.flats()?;
 
-        let mut sets = Vec::new();
-        for flattened in self.flatten()? {
-            let flattened = flattened?;
-            let column = flattened.column;
-            if let Code::Query = column.code {
-                let alias = column.alias()?;
-                let ident = column.ident()?;
-                sets.push(quote::quote! {
-                    #ident: row.try_get(#alias)?
-                });
+        let sets = match &self.table.attr.flat_row {
+            None => None,
+            Some(_) => {
+                let mut sets = Vec::new();
+                for flattened in self.flatten()? {
+                    let flattened = flattened?;
+                    let column = flattened.column;
+                    if let Code::Query = column.code {
+                        let alias = column.alias()?;
+                        let ident = column.ident()?;
+                        sets.push(quote::quote! {
+                            #ident: row.try_get(#alias)?
+                        });
+                    }
+                }
+                Some(sets)
             }
-        }
-
-        Ok(quote::quote! {
-            #[allow(non_snake_case)]
-            #derive #vis struct #flat {
-                #(#flats,)*
-            }
+        };
+        let flat_row = sets.map(|sets| quote::quote! {
             #[automatically_derived]
             impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #flat {
                 fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
                     use #krate::sqlx::Row as _;
-                    Ok(#flat { #(#sets,)* })
+                    #krate::sqlx::Result::Ok(#flat { #(#sets,)* })
                 }
             }
+        });
+
+        let form = match &self.table.attr.from_flat {
+            Some(_) => Some(self.form(Source::Field)?),
+            None => None,
+        };
+        let from_flat = form.map(|form| quote::quote! {
             #[automatically_derived]
             impl ::core::convert::From<#flat> for #ident {
                 fn from(row: #flat) -> Self {
                     #form
                 }
             }
+        });
+
+        Ok(quote::quote! {
+            #[allow(non_snake_case)]
+            #derive #vis struct #flat {
+                #(#flats,)*
+            }
+            #flat_row
+            #from_flat
             #[automatically_derived]
             impl #krate::Flat for #ident {
                 type Flat = #flat;
@@ -218,22 +243,7 @@ struct Former<'c> {
 impl Construct<'_> {
 
     pub fn form(&self, source: Source) -> Result<TokenStream> {
-        let formed = self.formed(None, source)?;
-
-        match source {
-            Source::Field => {
-                Ok(quote::quote! {
-                    #formed
-                })
-            }
-            Source::Column => {
-                let krate = self.table.krate()?;
-                Ok(quote::quote! {
-                    use #krate::sqlx::Row as _;
-                    Ok(#formed)
-                })
-            }
-        }
+        self.formed(None, source)
     }
 
     fn formed(&self, former: Option<&Former<'_>>, source: Source) -> Result<TokenStream> {

@@ -64,6 +64,10 @@ parse! {
         ((table)! (= String)!),
         ((rename)? (= Rename)!),
 
+        ((from_row)?),
+        ((from_flat)?),
+        ((flat_row)?),
+
         ((flat)? (= syn::Ident)?),
         ((delete)? (= syn::Ident)?),
         ((insert)? (= syn::Ident)?),
@@ -141,6 +145,13 @@ impl QueryTable {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
+            }
+        }
+
+        if self.attr.flat.is_none() {
+            if let Some(span) = spany!(a.from_flat, a.flat_row) {
+                let msg = "unused attribute: requires #[sqly(flat)]";
+                return Err(syn::Error::new(span, msg));
             }
         }
 
