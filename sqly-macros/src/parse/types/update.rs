@@ -7,6 +7,8 @@ parse! {
         ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
+        ((dynamic)?),
+        ((optional)?),
         ((filter)* (= String)+),
 
         ((krate as "crate")? (= syn::Path)!),
@@ -20,6 +22,7 @@ parse! {
 
         ((update)* (= String)+),
         ((filter)* (= String)+),
+        ((optional)? (= bool)?),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -57,7 +60,7 @@ impl UpdateTable {
             }
         }
 
-        if self.fields()?.all(|field| {
+        if self.fields().all(|field| {
             field.attr.key.is_some()
         }) {
             let span = Span::call_site();
@@ -66,7 +69,7 @@ impl UpdateTable {
         }
 
         if self.attr.filter.is_empty() && (
-            self.fields()?.all(|field| {
+            self.fields().all(|field| {
                 field.attr.key.is_none()
             })
         ) {
@@ -74,6 +77,8 @@ impl UpdateTable {
             let msg = "incomplete query: missing update key";
             return Err(syn::Error::new(span, msg));
         }
+
+        self.r#static()?;
 
         Ok(self)
     }

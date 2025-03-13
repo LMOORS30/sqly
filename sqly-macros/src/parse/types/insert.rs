@@ -7,6 +7,9 @@ parse! {
         ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
+        ((dynamic)?),
+        ((optional)?),
+
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
         ((print)?),
@@ -17,6 +20,7 @@ parse! {
         ((rename)? (= Rename)!),
 
         ((insert)* (= String)+),
+        ((optional)? (= bool)?),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -38,11 +42,13 @@ impl InsertTable {
             }
         }
 
-        if self.fields()?.next().is_none() {
+        if self.fields().next().is_none() {
             let span = Span::call_site();
             let msg = "incomplete query: missing insert value";
             return Err(syn::Error::new(span, msg));
         }
+
+        self.r#static()?;
 
         Ok(self)
     }

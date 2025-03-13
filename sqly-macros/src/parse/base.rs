@@ -79,6 +79,32 @@ impl QueryTable {
 
 impl QueryTable {
 
+    pub fn optional(&self, field: &QueryField, r#type: Types) -> Option<Span> {
+        let optional = match r#type {
+            Types::Delete => &field.attr.delete_optional,
+            Types::Insert => &field.attr.insert_optional,
+            Types::Select => &field.attr.select_optional,
+            Types::Update => &field.attr.update_optional,
+        }.as_ref().or(field.attr.optional.as_ref());
+        if let Some(opt) = optional {
+            return opt.data.as_ref().map_or(true, |opt| opt.data).then(|| opt.span);
+        }
+        let optional = match r#type {
+            Types::Delete => &self.attr.delete_optional,
+            Types::Insert => &self.attr.insert_optional,
+            Types::Select => &self.attr.select_optional,
+            Types::Update => &self.attr.update_optional,
+        }.as_ref().or(self.attr.optional.as_ref());
+        if let Some(opt) = optional {
+            return match &opt.data.as_ref().map(|opt| opt.data) {
+                Some(Optionals::Values) => !self.keyed(field, r#type),
+                Some(Optionals::Keys) => self.keyed(field, r#type),
+                None => true,
+            }.then(|| opt.span);
+        }
+        None
+    }
+
     pub fn fielded(&self, field: &QueryField, r#type: Types) -> bool {
         !self.skipped(field, r#type.into()) && match r#type {
             Types::Delete => self.keyed(field, r#type),
@@ -245,8 +271,8 @@ impl Constructed<'_> {
 
     pub fn ident(&self) -> Result<syn::Ident> {
         let alias = self.alias()?;
-        let mut ident = quote::format_ident!("r#{}", alias);
-        ident.set_span(self.field.ident.span());
+        let span = self.field.ident.span();
+        let ident = syn::Ident::new(alias, span);
         Ok(ident)
     }
 
@@ -275,22 +301,15 @@ impl $table {
         Ok(table)
     }
 
-    pub fn fields(&self) -> Result<impl Iterator<Item = &$field>> {
-        let fields = self.fields.iter().filter(|field| {
-            field.attr.skip.is_none()
-        });
-        Ok(fields)
-    }
-
     pub fn cells<'c, K, V, F, U, G>(
         &'c self,
-        params: &mut Params<K, V>,
+        params: &mut Params<K, V, &'c $field>,
         mut val: F,
         mut wrap: G,
     ) -> Result<Vec<(&'c $field, V)>>
     where
         K: From<String> + Hash + Eq,
-        V: Placer + Clone,
+        V: Placer<&'c $field> + Clone,
         F: FnMut(&'c $field) -> U,
         G: FnMut(Rc<RefCell<U>>) -> V,
     {
@@ -311,9 +330,63 @@ impl $table {
         Ok(fields)
     }
 
+    pub fn fields(&self) -> impl Iterator<Item = &$field> {
+        self.fields.iter().filter(|field| {
+            field.attr.skip.is_none()
+        })
+    }
+
+    pub fn optional(&self, field: &$field) -> Option<Span> {
+        match &field.attr.optional {
+            Some(opt) => match &opt.data {
+                Some(data) => data.data,
+                None => true,
+            }.then(|| opt.span),
+            None => self.attr.optional.as_ref().and_then(|opt| {
+                optype(&field.ty).map(|_| opt.span)
+            }),
+        }
+    }
+
+    pub fn dynamic(&self) -> Option<Span> {
+        self.attr.dynamic.spany()
+    }
+
+    pub fn r#static(&self) -> Result<()> {
+        let opt = self.fields.iter().find_map(|field| {
+            self.optional(field)
+        });
+        self.verify(opt)
+    }
+
 }
 
 } }
+
+impl DeleteTable {
+    pub fn certain(&self) -> bool {
+        self.fields().any(|field| self.optional(field).is_none())
+    }
+}
+
+impl InsertTable {
+    pub fn certain(&self) -> bool {
+        self.fields().any(|field| self.optional(field).is_none())
+    }
+}
+
+impl SelectTable {
+    pub fn certain(&self) -> bool { true }
+}
+
+impl UpdateTable {
+    pub fn certain(&self) -> bool {
+        let mut keys = self.fields().filter(|field| field.attr.key.is_some());
+        let mut values = self.fields().filter(|field| field.attr.key.is_none());
+        values.any(|field| self.optional(field).is_none()) &&
+        keys.any(|field| self.optional(field).is_none())
+    }
+}
 
 
 
@@ -321,6 +394,23 @@ macro_rules! both {
 ($table:ty, $field:ty) => {
 
 impl $table {
+
+    pub fn verify(&self, opt: Option<Span>) -> Result<()> {
+        match self.attr.dynamic.spany() {
+            Some(span) => if opt.is_none() {
+                let msg = "unused attribute: queries do not need to be generated at runtime\
+                    \nnote: remove #[sqly(dynamic)] to indicate static queries are generated";
+                return Err(syn::Error::new(span, msg));
+            }
+            None => if let Some(span) = opt {
+                let msg = "unused attribute: requires #[sqly(dynamic)] on struct\
+                    \nnote: due to #[sqly(optional)] queries must be generated at runtime,\
+                    \n      use #[sqly(dynamic)] to explicitly opt-in for this behavior";
+                return Err(syn::Error::new(span, msg));
+            }
+        }
+        Ok(())
+    }
 
     pub fn rename(&self, field: &$field, string: &str) -> Result<String> {
         let all = &self.attr.rename;

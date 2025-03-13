@@ -7,6 +7,8 @@ parse! {
         ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
+        ((dynamic)?),
+        ((optional)?),
         ((filter)* (= String)+),
 
         ((krate as "crate")? (= syn::Path)!),
@@ -19,6 +21,7 @@ parse! {
         ((rename)? (= Rename)!),
 
         ((filter)* (= String)+),
+        ((optional)? (= bool)?),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -39,6 +42,8 @@ impl SelectTable {
                 }
             }
         }
+
+        self.r#static()?;
 
         Ok(self)
     }

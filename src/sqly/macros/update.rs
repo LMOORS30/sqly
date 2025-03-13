@@ -5,7 +5,7 @@ use super::*;
 
 /// Applied to types which are defined to update rows in a table.
 /// 
-/// Implements [`Update`](Update).
+/// Implements [`UpdateImpl`](UpdateImpl). Might also implement [`UpdateCheck`](UpdateCheck) and [`Update`](Update).
 /// 
 /// <br>
 /// 
@@ -15,6 +15,8 @@ use super::*;
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)` | `[`String`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
+/// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
+/// `#[sqly((`[`optional`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// 
 /// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
@@ -28,6 +30,7 @@ use super::*;
 /// 
 /// `#[sqly((`[`update`](docs::attr#update-1)`)* (= `[`String`](docs::attr#update-1)`)+)]`<br>
 /// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 

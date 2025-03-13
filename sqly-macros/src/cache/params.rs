@@ -1,7 +1,8 @@
+use std::collections::{BTreeMap as BTree};
 use std::collections::{HashMap as Map};
 use std::fmt::{Write, Display};
-use std::borrow::Borrow;
 
+pub use std::borrow::Borrow;
 pub use std::cell::RefCell;
 pub use std::hash::Hash;
 pub use std::rc::Rc;
@@ -24,28 +25,74 @@ impl<T> Index<T> {
     }
 }
 
-impl<T: Copy> Placer for Index<T> {
-    type State = Vec<T>;
-    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
-        let i = self.index.get_or_insert_with(|| {
-            state.push(self.value);
-            state.len()
-        });
-        dst.push_arg(i);
+impl<'c, T: Field> Placer<&'c T> for Index<&'c T> {
+    type State = Vec<&'c T>;
+    fn place<W: Wrapper<&'c T>>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        if dst.outer() {
+            dst.state(self.value);
+            let dst = dst.inner();
+            dst.push_str("{");
+            dst.push_arg(self.value.ident().unraw());
+            dst.push_str("}");
+            Ok(())
+        } else {
+            let i = self.index.get_or_insert_with(|| {
+                state.push(self.value);
+                state.len()
+            });
+            dst.push_arg(i);
+            Ok(())
+        }
+    }
+}
+
+
+
+pub struct Dollar<V>(pub V);
+
+impl<V: Placer<T>, T> Placer<T> for Dollar<V> {
+    type State = V::State;
+    fn place<W: Wrapper<T>>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+        dst.push_str("$");
+        self.0.place(state, dst)?;
         Ok(())
     }
 }
 
 
 
-pub struct Dollar<T>(pub T);
+pub struct Format<'c, T> {
+    escape: Escape<String>,
+    state: BTree<&'c syn::Ident, &'c T>,
+}
 
-impl<T: Placer> Placer for Dollar<T> {
-    type State = T::State;
-    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
-        dst.push_str("$");
-        self.0.place(state, dst)?;
-        Ok(())
+impl<'c, T> Default for Format<'c, T> {
+    fn default() -> Self {
+        Self {
+            escape: Escape(String::new()),
+            state: BTree::new(),
+        }
+    }
+}
+
+impl<'c, T> Format<'c, T> {
+    pub fn into_inner(self) -> (String, BTree<&'c syn::Ident, &'c T>) {
+        (self.escape.0, self.state)
+    }
+}
+
+impl<'c, T> Write for Format<'c, T> {
+    fn write_str(&mut self, str: &str) -> std::fmt::Result {
+        self.escape.write_str(str)
+    }
+}
+
+impl<'c, T: Field> Wrapper<&'c T> for Format<'c, T> {
+    type Inner = String;
+    fn inner(&mut self) -> &mut Self::Inner { &mut self.escape.0 }
+    fn outer(&self) -> bool { true }
+    fn state(&mut self, value: &'c T) {
+        self.state.insert(value.ident(), value);
     }
 }
 
@@ -58,29 +105,29 @@ impl<'c, T: ?Sized + Displacer> Displacer for &'c T {}
 
 pub trait Displacer: Display {}
 
-pub trait Placer {
+pub trait Placer<T> {
     type State: Default;
-    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()>;
+    fn place<W: Wrapper<T>>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()>;
 }
 
-impl<T: Displacer> Placer for T {
+impl<V: Displacer, T> Placer<T> for V {
     type State = ();
-    fn place<W: Write>(&mut self, _: &mut Self::State, dst: &mut W) -> Result<()> {
+    fn place<W: Wrapper<T>>(&mut self, _: &mut Self::State, dst: &mut W) -> Result<()> {
         dst.push_arg(self);
         Ok(())
     }
 }
 
-impl<T: Placer> Placer for Rc<RefCell<T>> {
-    type State = T::State;
-    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+impl<V: Placer<T>, T> Placer<T> for Rc<RefCell<V>> {
+    type State = V::State;
+    fn place<W: Wrapper<T>>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
         self.as_ref().borrow_mut().place(state, dst)
     }
 }
 
-impl<L: Placer, R: Placer> Placer for Either<L, R> {
+impl<L: Placer<T>, R: Placer<T>, T> Placer<T> for Either<L, R> {
     type State = (L::State, R::State);
-    fn place<W: Write>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
+    fn place<W: Wrapper<T>>(&mut self, state: &mut Self::State, dst: &mut W) -> Result<()> {
         match self {
             Left(left) => left.place(&mut state.0, dst),
             Right(right) => right.place(&mut state.1, dst),
@@ -89,6 +136,54 @@ impl<L: Placer, R: Placer> Placer for Either<L, R> {
 }
 
 
+
+pub struct Drain;
+
+pub struct Escape<W>(W);
+
+impl Unwrapper for Drain {}
+impl Unwrapper for String {}
+
+pub trait Unwrapper: Write {}
+
+pub trait Wrapper<V>: Write {
+    type Inner: Wrapper<V>;
+    fn inner(&mut self) -> &mut Self::Inner;
+    fn state(&mut self, value: V);
+    fn outer(&self) -> bool;
+}
+
+impl<W: Unwrapper, T> Wrapper<T> for W {
+    type Inner = Self;
+    fn inner(&mut self) -> &mut Self::Inner { self }
+    fn outer(&self) -> bool { false }
+    fn state(&mut self, _: T) {}
+}
+
+impl<W: Wrapper<T>, T> Wrapper<T> for Escape<W> {
+    type Inner = W;
+    fn inner(&mut self) -> &mut Self::Inner { &mut self.0 }
+    fn outer(&self) -> bool { self.0.outer() }
+    fn state(&mut self, value: T) {
+        self.0.state(value);
+    }
+}
+
+impl Write for Drain {
+    fn write_str(&mut self, _: &str) -> std::fmt::Result { Ok(()) }
+}
+
+impl<W: Write> Write for Escape<W> {
+    fn write_str(&mut self, mut str: &str) -> std::fmt::Result {
+        while let Some(i) = str.find(['{', '}']) {
+            self.0.write_str(&str[..=i])?;
+            self.0.write_str(&str[i..=i])?;
+            str = &str[i + 1..];
+        }
+        self.0.write_str(str)?;
+        Ok(())
+    }
+}
 
 pub trait Push: Write {
     fn push_str(&mut self, s: &str) {
@@ -99,16 +194,16 @@ pub trait Push: Write {
     }
 }
 
-impl<T: Write> Push for T {}
+impl<W: Write> Push for W {}
 
 
 
-pub struct Params<K, V: Placer> {
+pub struct Params<K, V: Placer<T>, T = ()> {
     pub state: V::State,
     pub map: Map<K, V>,
 }
 
-impl<K, V: Placer> Params<K, V> {
+impl<K, V: Placer<T>, T> Params<K, V, T> {
 
     pub fn state(state: V::State) -> Self {
         Self {
@@ -119,7 +214,7 @@ impl<K, V: Placer> Params<K, V> {
 
 }
 
-impl<K, V: Placer> Default for Params<K, V> {
+impl<K, V: Placer<T>, T> Default for Params<K, V, T> {
 
     fn default() -> Self {
         Self {
@@ -130,7 +225,7 @@ impl<K, V: Placer> Default for Params<K, V> {
 
 }
 
-impl<K: Hash + Eq, V: Placer> Params<K, V> {
+impl<K: Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
 
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
     where
@@ -146,7 +241,7 @@ impl<K: Hash + Eq, V: Placer> Params<K, V> {
 
 }
 
-impl<V: Placer> Params<String, V> {
+impl<V: Placer<T>, T> Params<String, V, T> {
 
     pub fn ensure<K: AsRef<str>>(&mut self, key: K) {
         if let Some(res) = self.map.remove(key.as_ref()) {
@@ -162,17 +257,33 @@ impl<V: Placer> Params<String, V> {
 
 }
 
-impl<K, V: Placer> Params<K, V> {
+impl<K, V: Placer<T>, T> Params<K, V, T> {
 
-    pub fn place<W: Write>(&mut self, dst: &mut W, val: &mut V) -> Result<()> {
+    pub fn place<W: Wrapper<T>>(&mut self, dst: &mut W, val: &mut V) -> Result<()> {
         val.place(&mut self.state, dst)
+    }
+
+    pub fn drain<'c, I, J: 'c>(&mut self, i: I) -> Result<()>
+    where
+        V: 'c,
+        I: IntoIterator<Item = &'c mut (J, V)>,
+    {
+        let drain = &mut Drain;
+        for (_, val) in i.into_iter() {
+            val.place(&mut self.state, drain)?;
+        }
+        Ok(())
+    }
+
+    pub fn take(&mut self) -> V::State {
+        std::mem::take(&mut self.state)
     }
 
 }
 
-impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
+impl<K: Borrow<str> + Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
 
-    pub fn output<W: Write>(&mut self, dst: &mut W, input: &[&Info<String>]) -> Result<()> {
+    pub fn output<W: Wrapper<T>>(&mut self, dst: &mut W, input: &[&Info<String>]) -> Result<()> {
         let mut first = true;
         for info in input {
             if !first { dst.push_str("\n"); }
@@ -183,7 +294,7 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer> Params<K, V> {
         Ok(())
     }
 
-    pub fn apply<W: Write>(&mut self, dst: &mut W, src: &str, span: Span) -> Result<()> {
+    pub fn apply<W: Wrapper<T>>(&mut self, dst: &mut W, src: &str, span: Span) -> Result<()> {
         let mut src = src;
 
         while let Some(i) = src.find('$') {
@@ -426,6 +537,55 @@ mod tests {
             errored(err, "$Table");
             errored(err, "$elbat");
             errored(err, "${__}");
+        }
+
+    }
+
+    mod escape {
+        use super::*;
+
+        fn escaped(src: &str, dst: &str) {
+            let mut esc = Escape(String::new());
+            esc.write_str(src).unwrap();
+            let res: String = esc.into();
+            assert_eq!(res, dst);
+        }
+
+        #[test]
+        fn empty() {
+            escaped("", "");
+        }
+        
+        #[test]
+        fn copy() {
+            escaped("copy", "copy");
+        }
+
+        #[test]
+        fn left() {
+            escaped("{", "{{");
+            escaped("{{", "{{{{");
+            escaped(" { ", " {{ ");
+            escaped("{  {", "{{  {{");
+            escaped("  { {{ ", "  {{ {{{{ ");
+        }
+
+        #[test]
+        fn right() {
+            escaped("}", "}}");
+            escaped("}}", "}}}}");
+            escaped(" } ", " }} ");
+            escaped("}  }", "}}  }}");
+            escaped("  } }} ", "  }} }}}} ");
+        }
+
+        #[test]
+        fn both() {
+            escaped("{}", "{{}}");
+            escaped("}{", "}}{{");
+            escaped(" { } ", " {{ }} ");
+            escaped(" } { ", " }} {{ ");
+            escaped("}{}}{{}{", "}}{{}}}}{{{{}}{{");
         }
 
     }

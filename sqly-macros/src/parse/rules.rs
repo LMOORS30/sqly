@@ -231,6 +231,24 @@ impl<T: quote::ToTokens + syn::parse::Parse + Save> Safe for T {
 
 
 
+#[allow(unused)]
+pub trait Table {
+    type Field: Field;
+    fn ident(&self) -> &syn::Ident;
+    fn fields(&self) -> &Vec<Self::Field>;
+    fn vis(&self) -> &syn::Visibility;
+    fn generics(&self) -> &syn::Generics;
+}
+
+#[allow(unused)]
+pub trait Field {
+    fn ty(&self) -> &syn::Type;
+    fn ident(&self) -> &syn::Ident;
+    fn vis(&self) -> &syn::Visibility;
+}
+
+
+
 macro_rules! parse {
 { $t:vis $table:ident { $(($($a:tt)*),)* } $f:vis $field:ident { $(($($b:tt)*),)* } } => {
 paste::paste! {
@@ -252,6 +270,20 @@ paste::paste! {
             pub vis: syn::Visibility,
             pub attr: [<$field Attr>],
         }
+    }
+
+    impl Table for $table {
+        type Field = $field;
+        fn ident(&self) -> &syn::Ident { &self.ident }
+        fn fields(&self) -> &Vec<Self::Field> { &self.fields }
+        fn vis(&self) -> &syn::Visibility { &self.vis }
+        fn generics(&self) -> &syn::Generics { &self.generics }
+    }
+
+    impl Field for $field {
+        fn ty(&self) -> &syn::Type { &self.ty }
+        fn ident(&self) -> &syn::Ident { &self.ident }
+        fn vis(&self) -> &syn::Visibility { &self.vis }
     }
 
     attr!($t [<$table Attr>] { $(($($a)*),)* });
@@ -632,8 +664,9 @@ macro_rules! safe {
             }
         }
     } };
-    ({ (= $($t:tt)*)$_:tt }: $data:expr, $spec:path) => ( specd!($($t)*, &$data, $spec) );
     ({ }: $data:expr, $spec:path) => ( crate::parse::rules::safe::Void );
+    ({ (= $($t:tt)*)$_:tt }: $data:expr, $spec:path) => ( specd!($($t)*, &$data, $spec) );
+    ({ = }, $val:expr, $_:expr) => { core::result::Result::<_, Self::Error>::Ok($val) };
     ({ $($t:tt)* }, $val:expr, $fun:expr) => {
         r#match!({ $($t)* } {
             ! => $fun(&$val),

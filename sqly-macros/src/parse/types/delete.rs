@@ -7,6 +7,8 @@ parse! {
         ((table)! (= safe::Paved)!),
         ((rename)? (= Rename)!),
 
+        ((dynamic)?),
+        ((optional)?),
         ((filter)* (= String)+),
 
         ((krate as "crate")? (= syn::Path)!),
@@ -19,6 +21,7 @@ parse! {
         ((rename)? (= Rename)!),
 
         ((filter)* (= String)+),
+        ((optional)? (= bool)?),
         ((value)? (= syn::Expr)!),
         ((infer)?),
 
@@ -41,12 +44,14 @@ impl DeleteTable {
         }
 
         if self.attr.filter.is_empty() {
-            if self.fields()?.next().is_none() {
+            if self.fields().next().is_none() {
                 let span = Span::call_site();
                 let msg = "incomplete query: missing delete key";
                 return Err(syn::Error::new(span, msg));
             }
         }
+
+        self.r#static()?;
 
         Ok(self)
     }

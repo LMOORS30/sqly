@@ -15,17 +15,11 @@ pub use update::*;
 
 /// Applied to types which are defined to represent a database table.
 /// 
-/// Implements [`Table`](Table).
+/// Implements [`Table`](Table). Might also implement [`Check`](Check), [`Flat`](Flat), [`From<Self::Flat>`](Flat::Flat) and [`sqlx::FromRow`].
 /// 
 /// <br>
 /// 
-/// This macro can also be used to generate definitions for [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) structs along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
-/// 
-/// See:<br>
-/// [`#[derive(Delete)]`](derive@Delete)<br>
-/// [`#[derive(Insert)]`](derive@Insert)<br>
-/// [`#[derive(Select)]`](derive@Select)<br>
-/// [`#[derive(Update)]`](derive@Update)
+/// This macro can also be used to generate definitions for [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs along with their appropriate derives. However, this functionality is strictly optional and can be substituted by manual definitions and derives.
 /// 
 /// <br>
 /// 
@@ -64,6 +58,14 @@ pub use update::*;
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// 
+/// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
+/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`delete_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`insert_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`select_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`update_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`serde_double_option`](docs::attr#serde_double_option)`)?)]`<br>
+/// 
 /// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
@@ -81,6 +83,12 @@ pub use update::*;
 /// `#[sqly((`[`delete_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// 
+/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`delete_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`insert_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`select_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`update_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// 
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>

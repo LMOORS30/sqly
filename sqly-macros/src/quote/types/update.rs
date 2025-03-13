@@ -35,11 +35,11 @@ impl Cache for UpdateTable {
 impl UpdateTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let (query, args) = self.query()?;
+        let done = self.query()?;
 
-        self.print(&query, &args)?;
-        let check = self.check(&query, &args)?;
-        let update = self.update(&query, &args, None)?;
+        self.print(&done.query, &done.args)?;
+        let check = self.check(&done.query, &done.args)?;
+        let update = self.update(&done)?;
         let blanket = self.blanket()?;
 
         Ok(quote::quote! {
@@ -55,74 +55,80 @@ impl UpdateTable {
 
 impl UpdateTable {
 
-    pub fn query(&self) -> Result<(String, Vec<&UpdateField>)> {
+    pub fn query(&self) -> Result<Done<UpdateTable>> {
         let mut params = Params::default();
-        let mut string = String::new();
+        let mut build = Build::new(self)?;
         let table = self.table()?;
 
-        let query = &mut string;
-        let mut fields = self.cells(&mut params, |field| {
+        let map = &mut params;
+        let mut fields = self.cells(map, |field| {
             Dollar(Index::unset(field))
         }, Either::<_, String>::Left)?;
-        params.ensure("column");
-        params.ensure("i");
+        map.ensure("column");
+        map.ensure("i");
 
-        write!(query,
+        build.str(&format!(
             "UPDATE \"{table}\" AS \"self\"\nSET\n",
-        ).unwrap();
+        ))?;
 
         for (field, cell) in &mut fields {
             if field.attr.key.is_none() {
-                let column = self.column(field)?;
-                let list = field.attr.update.infos();
-                write!(query, "\t\"{column}\" = ").unwrap();
-                if !list.is_empty() {
-                    params.put("i", cell.clone());
-                    params.put("column", Right(column));
-                    params.output(query, &list)?;
-                    query.push_str(",\n");
-                } else {
-                    params.place(query, cell)?;
-                    query.push_str(",\n");
-                }
+                build.opt(field, |build| {
+                    let column = self.column(field)?;
+                    let list = field.attr.update.infos();
+                    build.str(&format!("\t\"{column}\" = "))?;
+                    if !list.is_empty() {
+                        map.put("i", cell.clone());
+                        map.put("column", Right(column));
+                    }
+                    build.arg(map, &list, Some(cell))?;
+                    build.str(",\n")
+                })?;
             }
         }
-        query.truncate(query.len() - 2);
-        query.push_str("\nWHERE\n");
+        if !build.cut(&[",\n"])? {
+            let span = Span::call_site();
+            let msg = "incomplete query: missing update column";
+            return Err(syn::Error::new(span, msg));
+        }
+        build.str("\nWHERE\n")?;
 
         let list = self.attr.filter.infos();
         if !list.is_empty() {
-            query.push_str("\t(");
-            params.output(query, &list)?;
-            query.push_str(") AND\n");
+            build.str("\t(")?;
+            build.arg(map, &list, None)?;
+            build.str(") AND\n")?;
         }
 
-        for (field, mut cell) in fields {
+        for (field, cell) in &mut fields {
             if field.attr.key.is_some() {
-                let column = self.column(field)?;
-                let list = field.attr.filter.infos();
-                if !list.is_empty() {
-                    params.put("i", cell);
-                    params.put("column", Right(column));
-                    query.push_str("\t(");
-                    params.output(query, &list)?;
-                    query.push_str(") AND\n");
-                } else {
-                    write!(query, "\t(\"{column}\" = ").unwrap();
-                    params.place(query, &mut cell)?;
-                    query.push_str(") AND\n");
-                }
+                build.opt(field, |build| {
+                    let column = self.column(field)?;
+                    let list = field.attr.filter.infos();
+                    if !list.is_empty() {
+                        map.put("i", cell.clone());
+                        map.put("column", Right(column));
+                        build.str("\t(")?;
+                        build.arg(map, &list, None)?;
+                        build.str(") AND\n")
+                    } else {
+                        build.str(&format!("\t(\"{column}\" = "))?;
+                        build.arg(map, &[], Some(cell))?;
+                        build.str(") AND\n")
+                    }
+                })?;
             }
         }
-        if !query.ends_with(" AND\n") {
+        if !build.cut(&[" AND\n"])? {
             let span = Span::call_site();
             let msg = "incomplete query: missing update filter";
             return Err(syn::Error::new(span, msg));
         }
-        query.truncate(query.len() - 5);
 
-        let args = params.state.0;
-        Ok((string, args))
+        let args = params.take();
+        params.drain(&mut fields)?;
+        let rest = params.state.0;
+        build.done(args.0, rest)
     }
 
 }

@@ -69,7 +69,7 @@ Currently only postgres is supported.
 - [X] `#[sqly(default, from)]` for decoding table fields
 - [X] `#[sqly(insert, update)]` for custom SQL value expressions
 - [X] `#[sqly(filter)]` for custom SQL filter expressions
-- [ ] `#[sqly(optional)]` for optional update and insert fields
+- [X] `#[sqly(optional)]` for dynamic SQL through optional fields
 - [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
 - [ ] Implementation of bulk operations for `&[T]`
 

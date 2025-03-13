@@ -56,17 +56,17 @@ impl SelectTable {
         let local = table.colocate(&mut local)?;
         let construct = table.construct(local)?;
 
-        let mut query = construct.query(Target::Function, Scope::Global)?;
-        let (filter, args) = self.query(construct.unique()?)?;
-        query.push_str(&filter);
+        let query = construct.query(Target::Function, Scope::Global)?;
+        let done = self.query(&query, construct.unique()?)?.map(path);
+        let filter = done.query.strip_prefix(&query).unwrap_or("");
 
-        self.print(&query, &args)?;
+        self.print(&done.query, &done.args)?;
+        let select = self.select(&done)?;
         let blanket = self.blanket()?;
-        let select = self.select(&query, &args, Some(path))?;
 
-        let check = self.checking(&args, |args| {
+        let check = self.checking(&done.args, |args| {
             let mut query = construct.query(Target::Macro, Scope::Global)?;
-            query.push_str(&filter);
+            query.push_str(filter);
             let krate = self.krate()?;
             match &construct.table.attr.flat {
                 Some(_) => Ok(quote::quote! {
@@ -211,50 +211,54 @@ impl Construct<'_> {
 
 impl SelectTable {
 
-    pub fn query(&self, table: &str) -> Result<(String, Vec<&SelectField>)> {
+    pub fn query(&self, query: &str, table: &str) -> Result<Done<SelectTable>> {
         let mut params = Params::default();
-        let mut string = String::new();
+        let mut build = Build::new(self)?;
 
-        let select = &mut string;
-        let fields = self.cells(&mut params, |field| {
+        let map = &mut params;
+        let mut fields = self.cells(map, |field| {
             Dollar(Index::unset(field))
         }, Either::<_, String>::Left)?;
-        params.ensure("column");
-        params.ensure("i");
+        map.ensure("column");
+        map.ensure("i");
 
-        write!(select,
-            "\nWHERE\n"
-        ).unwrap();
+        build.str(query)?;
+        build.str("\nWHERE\n")?;
 
         let list = self.attr.filter.infos();
         if !list.is_empty() {
-            select.push_str("\t(");
-            params.output(select, &list)?;
-            select.push_str(") AND\n");
+            build.str("\t(")?;
+            build.arg(map, &list, None)?;
+            build.str(") AND\n")?;
         }
 
-        for (field, mut cell) in fields {
-            let column = self.column(field)?;
-            let list = field.attr.filter.infos();
-            if !list.is_empty() {
-                params.put("i", cell);
-                params.put("column", Right(column));
-                select.push_str("\t(");
-                params.output(select, &list)?;
-                select.push_str(") AND\n");
-            } else {
-                write!(select, "\t(\"{table}\".\"{column}\" = ").unwrap();
-                params.place(select, &mut cell)?;
-                select.push_str(") AND\n");
-            }
+        for (field, cell) in &mut fields {
+            build.opt(field, |build| {
+                let column = self.column(field)?;
+                let list = field.attr.filter.infos();
+                if !list.is_empty() {
+                    map.put("i", cell.clone());
+                    map.put("column", Right(column));
+                    build.str("\t(")?;
+                    build.arg(map, &list, None)?;
+                    build.str(") AND\n")
+                } else {
+                    build.str(&format!("\t(\"{table}\".\"{column}\" = "))?;
+                    build.arg(map, &[], Some(cell))?;
+                    build.str(") AND\n")
+                }
+            })?;
         }
-        if !select.ends_with(" AND\n") {
-            select.truncate(select.len() - 2);
+        if !build.cut(&[" AND\n", "\nWHERE\n"])? {
+            let span = Span::call_site();
+            let msg = "incomplete query: missing select filter";
+            return Err(syn::Error::new(span, msg));
         }
-        select.truncate(select.len() - 5);
 
-        let args = params.state.0;
-        Ok((string, args))
+        let args = params.take();
+        params.drain(&mut fields)?;
+        let rest = params.state.0;
+        build.done(args.0, rest)
     }
 
 }

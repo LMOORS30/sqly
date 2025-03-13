@@ -83,6 +83,7 @@ impl QueryTable {
             #[automatically_derived]
             impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #ident {
                 fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
+                    #![allow(non_snake_case)]
                     use #krate::sqlx::Row as _;
                     #krate::sqlx::Result::Ok(#form)
                 }
@@ -118,10 +119,23 @@ impl Construct<'_> {
         let fields = self.fields.iter().filter(|column| {
             column.table.fielded(column.field, r#type)
         }).map(|column| {
-            let ty = column.retyped()?;
+            let ty = column.retyped(r#type)?;
             let ident = column.renamed()?;
             let vis = &column.field.vis;
-            let fttr = column.table.fttr(column.field, r#type)?;
+            let mut fttr = column.table.fttr(column.field, r#type)?;
+            if let Some(span) = column.table.attr.serde_double_option.spany() {
+                if optype(&syn::parse2(ty.clone())?).and_then(|(_, ty)| optype(ty)).is_some() {
+                    let with = format!("{}::double_option", self.table.krate()?);
+                    fttr = quote::quote_spanned!(span =>
+                        #[serde(
+                            default,
+                            with = #with,
+                            skip_serializing_if = "::core::option::Option::is_none"
+                        )]
+                        #fttr
+                    );
+                }
+            }
             Ok(quote::quote! { #fttr #vis #ident: #ty })
         }).collect::<Result<Vec<_>>>()?;
 

@@ -283,13 +283,19 @@ impl<'c> Constructed<'c> {
         Ok(typed)
     }
 
-    pub fn retyped(&'c self) -> Result<TokenStream> {
+    pub fn retyped(&'c self, r#type: Types) -> Result<TokenStream> {
         let retyped = match &self.field.attr.typed {
             Some(typed) => {
                 let typed = &typed.data.data;
                 quote::quote! { #typed }
             }
-            None => self.typed()?,
+            None => {
+                let mut retyped = self.typed()?;
+                if self.table.optional(self.field, r#type).is_some() {
+                    retyped = quote::quote! { ::core::option::Option<#retyped> };
+                }
+                retyped
+            }
         };
         Ok(retyped)
     }

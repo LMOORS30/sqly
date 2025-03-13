@@ -14,6 +14,16 @@ impl QueryTable {
             self.attr.print,
             self.attr.debug,
         ];
+        if let Some(dynamic) = &self.attr.dynamic {
+            for field in &self.fields {
+                if self.fielded(field, r#type) {
+                    if self.optional(field, r#type).is_some() {
+                        attrs.push(quote::quote! { #dynamic });
+                        break;
+                    }
+                }
+            }
+        }
         let a = &self.attr;
         match r#type {
             Types::Delete => args!(attrs, [
@@ -88,6 +98,9 @@ impl QueryTable {
                 let key = quote::quote_spanned!(span => key);
                 fttrs.push(key);
             }
+        }
+        if let Some(span) = self.optional(field, r#type) {
+            fttrs.push(quote::quote_spanned!(span => optional));
         }
         let a = &field.attr;
         match r#type {
@@ -237,10 +250,11 @@ impl Construct<'_> {
             #[automatically_derived]
             impl #krate::Check for #name {
                 #[allow(unused)]
-                fn check(&self) {
+                fn check(&self) -> ! {
                     #[allow(non_snake_case)]
                     struct #name { #(#fields,)* }
                     #krate::sqlx::query_as!(#name, #query);
+                    ::core::panic!()
                 }
             }
         })
@@ -258,6 +272,33 @@ paste::paste! {
 
 impl $table {
 
+    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
+        let rip = self.optional(field).map(|_| quote::quote! { .rip() });
+        let value = match &field.attr.value {
+            Some(value) => {
+                let expr = &value.data.data;
+                let span = value.data.span;
+                let unfer = unfer(expr);
+                let unfer = unfer.as_ref().unwrap_or(expr);
+                match (target, &field.attr.infer) {
+                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => (#unfer) #rip as _),
+                    (Target::Macro, None) => quote::quote_spanned!(span => (#expr) #rip),
+                    (Target::Function, _) => quote::quote_spanned!(span => #unfer),
+                }
+            }
+            None => {
+                let ident = &field.ident;
+                let span = field.ty.span();
+                match (target, &field.attr.infer) {
+                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => self.#ident #rip as _),
+                    (Target::Macro, None) => quote::quote_spanned!(span => self.#ident #rip),
+                    (Target::Function, _) => quote::quote_spanned!(span => self.#ident),
+                }
+            }
+        };
+        Ok(value)
+    }
+
     pub fn checking<F>(&self, args: &[&$field], cb: F) -> Result<TokenStream>
     where F: FnOnce(&[TokenStream]) -> Result<TokenStream> {
         if !self.checked() {
@@ -269,12 +310,17 @@ impl $table {
             self.value(field, Target::Macro)
         }).collect::<Result<Vec<_>>>()?;
         let check = cb(&args)?;
+        let rip = self.dynamic().map(|_| {
+            quote::quote! { use #krate::dynamic::Rip as _; }
+        });
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::[<$upper Check>] for #obj {
                 #[allow(unused)]
-                fn [<$lower _check>](&self) {
+                fn [<$lower _check>](&self) -> ! {
+                    #rip
                     #check
+                    ::core::panic!()
                 }
             }
         })
@@ -288,6 +334,9 @@ impl $table {
     }
 
     pub fn blanket(&self) -> Result<TokenStream> {
+        if self.dynamic().is_some() {
+            return Ok(TokenStream::new());
+        }
         let obj = &self.ident;
         let krate = self.krate()?;
         Ok(quote::quote! {
@@ -305,7 +354,7 @@ impl $table {
         })
     }
 
-    pub fn [<$lower>](&self, string: &str, args: &[&$field], map: Option<&syn::Path>) -> Result<TokenStream> {
+    pub fn [<$lower>](&self, done: &Done<$table>) -> Result<TokenStream> {
         let db = db![];
         let obj = &self.ident;
         let krate = self.krate()?;
@@ -318,45 +367,36 @@ impl $table {
             Paved::String(_) => quote::quote! { &'static str },
             Paved::Path(path) => quote::quote! { #path },
         };
-        let query = match map {
+        let query = match &done.map {
             None => quote::quote! { #krate::sqlx::query::Query<'q, #krate #db, #arg<'a>> },
             Some(path) => quote::quote! {
                 #krate::sqlx::query::Map<'q, #krate #db, fn(#row) -> #krate::sqlx::Result<#path>, #arg<'a>>
             }
         };
-        let from = match args.len() {
+        let sql = match self.dynamic() {
+            Some(_) => quote::quote! { String },
+            None => quote::quote! { &'static str },
+        };
+        let sql = match done.args.len() {
+            0 => quote::quote! { #sql },
+            _ => quote::quote! { (#sql, #res<#arg<'a>, #err>) },
+        };
+        let sql = match self.certain() {
+            false => quote::quote! { ::core::option::Option<#sql> },
+            true => quote::quote! { #sql },
+        };
+        let from = match done.args.len() {
             0 => quote::quote! { &'q str },
-            _ => quote::quote! { (&'q str, #res<#arg<'a>, #err>) }
+            _ => quote::quote! { (&'q str, #res<#arg<'a>, #err>) },
         };
-        let sql = match args.len() {
-            0 => quote::quote! { &'static str },
-            _ => quote::quote! { (&'static str, #res<#arg<'a>, #err>) }
-        };
-        let with = match args.len() {
+        let with = match done.args.len() {
             0 => quote::quote! { query, #res::Ok(#arg::default()) },
             _ => quote::quote! { query.0, query.1 },
         };
-        let map = map.map(|path| quote::quote! {
+        let map = done.map.map(|path| quote::quote! {
             .try_map(|row| <#path as #krate::sqlx::FromRow<_>>::from_row(&row))
         });
-
-        let len = args.len();
-        let bind = (0..len).map(|i| {
-            let i = syn::Index::from(i);
-            quote::quote! { arg.#i }
-        }).collect::<Vec<_>>();
-        let expr = args.iter().map(|field| {
-            self.value(field, Target::Function)
-        }).collect::<Result<Vec<_>>>()?;
-        let run = (!args.is_empty()).then(|| quote::quote! {
-                let arg = (#(&(#expr),)*);
-                use #krate::sqlx::Arguments as _;
-                let mut args = #arg::default();
-                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#bind))*);
-                let args = #res::Ok(args)
-                #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
-                (#string, args)
-        }).unwrap_or_else(|| quote::quote! { #string });
+        let run = &done.stream;
 
         Ok(quote::quote! {
             #[automatically_derived]
@@ -371,57 +411,6 @@ impl $table {
                 }
             }
         })
-    }
-
-}
-
-} } }
-
-
-
-macro_rules! both {
-($table:ty, $field:ty) => {
-
-impl $table {
-
-    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
-        let value = match &field.attr.value {
-            Some(value) => {
-                let expr = &value.data.data;
-                let span = value.data.span;
-                let unfer = unfer(expr);
-                let unfer = unfer.as_ref().unwrap_or(expr);
-                match (target, &field.attr.infer) {
-                    (Target::Macro, None) => quote::quote_spanned!(span => #expr),
-                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => (#unfer) as _),
-                    (Target::Function, _) => quote::quote_spanned!(span => #unfer),
-                }
-            }
-            None => {
-                let ident = &field.ident;
-                let span = field.ty.span();
-                match &field.attr.infer.as_ref().map(|_| target) {
-                    Some(Target::Macro) => quote::quote_spanned!(span => self.#ident as _),
-                    Some(Target::Function) | None => quote::quote_spanned!(span => self.#ident),
-                }
-            }
-        };
-        Ok(value)
-    }
-
-}
-
-impl $table {
-
-    pub fn krate(&self) -> Result<TokenStream> {
-        let krate = match &self.attr.krate {
-            None => quote::quote! { ::sqly },
-            Some(krate) => {
-                let path = &krate.data.data;
-                quote::quote! { #path }
-            }
-        };
-        Ok(krate)
     }
 
     pub fn print(&self, query: &str, args: &[&$field])  -> Result<()> {
@@ -440,6 +429,28 @@ impl $table {
             println!("{}::query!(\n\tr#\"{}\n\t\"#{}\n)", self.ident, tabs, vals);
         }
         Ok(())
+    }
+
+}
+
+} } }
+
+
+
+macro_rules! both {
+($table:ty, $field:ty) => {
+
+impl $table {
+
+    pub fn krate(&self) -> Result<TokenStream> {
+        let krate = match &self.attr.krate {
+            None => quote::quote! { ::sqly },
+            Some(krate) => {
+                let path = &krate.data.data;
+                quote::quote! { #path }
+            }
+        };
+        Ok(krate)
     }
 
     pub fn debug(&self, res: TokenStream) -> Result<TokenStream> {

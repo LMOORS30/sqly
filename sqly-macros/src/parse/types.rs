@@ -38,6 +38,10 @@ vars! {
         (Select = select),
         (Update = update),
     }
+    pub Optionals {
+        (Keys = keys),
+        (Values = values),
+    }
     pub Rename {
         (None = "none"),
         (LowerCase = "lowercase"),
@@ -93,6 +97,14 @@ parse! {
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
 
+        ((dynamic)?),
+        ((optional)? (= Optionals)?),
+        ((delete_optional)? (= Optionals)?),
+        ((insert_optional)? (= Optionals)?),
+        ((select_optional)? (= Optionals)?),
+        ((update_optional)? (= Optionals)?),
+        ((serde_double_option)?),
+
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
         ((print)?),
@@ -110,6 +122,12 @@ parse! {
         ((delete_filter)* (= String)+),
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
+
+        ((optional)? (= bool)?),
+        ((delete_optional)? (= bool)?),
+        ((insert_optional)? (= bool)?),
+        ((select_optional)? (= bool)?),
+        ((update_optional)? (= bool)?),
 
         ((value)? (= syn::Expr)!),
         ((infer)?),
@@ -134,14 +152,14 @@ impl QueryTable {
 
     pub fn init(self) -> Result<Self> {
         let a = &self.attr;
-        for (r#type, attr, derive, visibility, filter) in [
-            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter),
-            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![],        ),
-            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter),
-            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter),
+        for (r#type, attr, derive, visibility, filter, optional) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &a.delete_optional),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_optional),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &a.select_optional),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_optional),
         ] {
             if attr.is_none() {
-                if let Some(span) = spany!(derive, visibility, filter) {
+                if let Some(span) = spany!(derive, visibility, filter, optional) {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
@@ -181,13 +199,13 @@ impl QueryTable {
 
         for field in &self.fields {
             let b = &field.attr;
-            for (r#type, attr, value, filter) in [
-                (Types::Delete, &a.delete, &vec![],   &b.delete_filter),
-                (Types::Insert, &a.insert, &b.insert, &vec![],        ),
-                (Types::Select, &a.select, &vec![],   &b.select_filter),
-                (Types::Update, &a.update, &b.update, &b.update_filter),
+            for (r#type, attr, value, filter, optional) in [
+                (Types::Delete, &a.delete, &vec![],   &b.delete_filter, &b.delete_optional),
+                (Types::Insert, &a.insert, &b.insert, &vec![]         , &b.insert_optional),
+                (Types::Select, &a.select, &vec![],   &b.select_filter, &b.select_optional),
+                (Types::Update, &a.update, &b.update, &b.update_filter, &b.update_optional),
             ] {
-                if let Some(span) = spany!(value, filter) {
+                if let Some(span) = spany!(value, filter, optional) {
                     if attr.is_none() {
                         let msg = format!("unused attribute: requires #[sqly({})] on struct", r#type);
                         return Err(syn::Error::new(span, msg));
@@ -207,31 +225,38 @@ impl QueryTable {
         }
 
         for field in &self.fields {
-            match self.foreign(field)? {
-                Some(_) => {
-                    if let Some(skips) = &field.attr.skip {
-                        if skips.data.is_empty() {
-                            let msg = "conflicting attributes: #[sqly(skip, foreign)]";
-                            return Err(syn::Error::new(skips.span, msg));
-                        }
-                        if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::FromRow) {
-                            let msg = "conflicting attributes: #[sqly(skip, foreign)]";
-                            return Err(syn::Error::new(skip.span, msg));
-                        }
+            if self.foreign(field)?.is_some() {
+                if let Some(skips) = &field.attr.skip {
+                    if skips.data.is_empty() {
+                        let msg = "conflicting attributes: #[sqly(skip, foreign)]";
+                        return Err(syn::Error::new(skips.span, msg));
                     }
-                    if let Some(select) = field.attr.select.first() {
-                        let msg = "conflicting attributes: #[sqly(foreign, select)]";
-                        return Err(syn::Error::new(select.span, msg));
+                    if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::FromRow) {
+                        let msg = "conflicting attributes: #[sqly(skip, foreign)]";
+                        return Err(syn::Error::new(skip.span, msg));
                     }
                 }
-                None => {
-                    if let Some(span) = field.attr.target.spany() {
-                        let msg = "unused attribute: requires #[sqly(foreign)]";
-                        return Err(syn::Error::new(span, msg));
-                    }
+                if let Some(select) = field.attr.select.first() {
+                    let msg = "conflicting attributes: #[sqly(foreign, select)]";
+                    return Err(syn::Error::new(select.span, msg));
+                }
+            } else {
+                if let Some(span) = field.attr.target.spany() {
+                    let msg = "unused attribute: requires #[sqly(foreign)]";
+                    return Err(syn::Error::new(span, msg));
                 }
             }
         }
+
+        let opt = [
+            (Types::Delete, &a.delete),
+            (Types::Insert, &a.insert),
+            (Types::Select, &a.select),
+            (Types::Update, &a.update),
+        ].iter().filter(|(_, attr)| attr.is_some()).map(|(r#type, _)| {
+            self.fields.iter().filter(|f| self.fielded(f, *r#type)).map(|f| (f, *r#type))
+        }).flatten().filter_map(|(field, r#type)| self.optional(field, r#type)).next();
+        self.verify(opt)?;
 
         Ok(self)
     }

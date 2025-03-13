@@ -5,7 +5,7 @@ use super::*;
 
 /// Applied to types which are defined to insert rows into a table.
 /// 
-/// Implements [`Insert`](Insert).
+/// Implements [`InsertImpl`](InsertImpl). Might also implement [`InsertCheck`](InsertCheck) and [`Insert`](Insert).
 /// 
 /// <br>
 /// 
@@ -14,6 +14,9 @@ use super::*;
 /// ##### Struct Attributes:
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)` | `[`String`](docs::attr#table)`)!)] // required`<br>
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
+/// 
+/// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
+/// `#[sqly((`[`optional`](docs::attr#optional)`)?)]`<br>
 /// 
 /// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
@@ -25,6 +28,7 @@ use super::*;
 /// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
 /// `#[sqly((`[`insert`](docs::attr#insert-1)`)* (= `[`String`](docs::attr#insert-1)`)+)]`<br>
+/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
 /// `#[sqly((`[`infer`](docs::attr#infer)`)?)]`<br>
 /// 

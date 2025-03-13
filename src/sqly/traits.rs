@@ -70,8 +70,8 @@ pub trait Table {
 pub trait Check {
     /// Calls the [`sqlx::query_as!`] macro to perform the compile time check.
     /// 
-    /// The result is not returned, this function is not meant to be called.
-    fn check(&self);
+    /// This function is not meant to be called and will panic if attempted.
+    fn check(&self) -> !;
 }
 
 

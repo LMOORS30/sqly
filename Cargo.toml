@@ -31,6 +31,7 @@ default = ["checked"]
 sqly-macros = { version = "=0.3.1", path = "sqly-macros", default-features = false }
 
 [dependencies]
+serde = { version = "1.0", default-features = false }
 sqlx = { version = "0.8.0", default-features = false }
 sqly-macros = { workspace = true }
 
