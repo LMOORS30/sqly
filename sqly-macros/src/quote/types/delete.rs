@@ -23,6 +23,12 @@ impl Cache for DeleteTable {
             let id = path.try_into()?;
             dep.art(Key::Table(id));
         }
+        if let Some(returning) = self.returning()? {
+            if let Some(table) = &returning.table {
+                let id = table.try_into()?;
+                dep.art(Key::Table(id));
+            }
+        }
         Ok(dep)
     }
 
@@ -35,11 +41,15 @@ impl Cache for DeleteTable {
 impl DeleteTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let done = self.query()?;
+        let mut local = Local::default();
+        let returnable = self.returnable()?;
+        let local = returnable.colocate(&mut local)?;
+        let returns = returnable.returns(local)?;
+        let done = self.query(&returns)?;
 
-        self.print(&done.query, &done.args)?;
-        let check = self.check(&done.query, &done.args)?;
-        let delete = self.delete(&done)?;
+        self.print(&done)?;
+        let check = self.check(&done, &returns)?;
+        let delete = self.delete(&done, &returns)?;
         let blanket = self.blanket()?;
 
         Ok(quote::quote! {
@@ -55,7 +65,7 @@ impl DeleteTable {
 
 impl DeleteTable {
 
-    pub fn query(&self) -> Result<Done<DeleteTable>> {
+    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<DeleteTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;
@@ -63,7 +73,7 @@ impl DeleteTable {
         let map = &mut params;
         let mut fields = self.cells(map, |field| {
             Dollar(Index::unset(field))
-        }, Either::<_, String>::Left)?;
+        }, Either::<_, Cow<str>>::Left)?;
         map.ensure("column");
         map.ensure("i");
 
@@ -100,6 +110,8 @@ impl DeleteTable {
             let msg = "incomplete query: missing delete filter";
             return Err(syn::Error::new(span, msg));
         }
+
+        build.duo(|target| returns.returns(target))?;
 
         let args = params.take();
         params.drain(&mut fields)?;

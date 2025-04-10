@@ -10,6 +10,7 @@ parse! {
         ((dynamic)?),
         ((optional)?),
         ((filter)* (= String)+),
+        ((returning)? (= safe::Returning)?),
 
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
@@ -52,7 +53,6 @@ impl DeleteTable {
         }
 
         self.r#static()?;
-
         Ok(self)
     }
 

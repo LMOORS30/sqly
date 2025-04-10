@@ -19,12 +19,6 @@ pub enum Source {
     Field,
 }
 
-#[derive(Clone, Copy)]
-pub enum Scope {
-    Global,
-    Local,
-}
-
 
 
 impl TryFrom<QueryTable> for TokenStream {
@@ -74,9 +68,9 @@ impl QueryTable {
             Some(_) => Some(construct.flat()?),
             None => None,
         };
-        let form = match spany!(self.attr.from_row, self.attr.select) {
-            Some(_) => Some(construct.form(Source::Column)?),
-            None => None,
+        let form = match self.formable() {
+            true => Some(construct.form(Source::Column)?),
+            false => None,
         };
 
         let from_row = form.map(|form| quote::quote! {
@@ -124,32 +118,55 @@ impl Construct<'_> {
             let vis = &column.field.vis;
             let mut fttr = column.table.fttr(column.field, r#type)?;
             if let Some(span) = column.table.attr.serde_double_option.spany() {
-                if optype(&syn::parse2(ty.clone())?).and_then(|(_, ty)| optype(ty)).is_some() {
-                    let with = format!("{}::double_option", self.table.krate()?);
-                    fttr = quote::quote_spanned!(span =>
-                        #[serde(
-                            default,
-                            with = #with,
-                            skip_serializing_if = "::core::option::Option::is_none"
-                        )]
+                let opt = optype(&ty).and_then(|(op, ty)| optype(ty).map(|_| op));
+                if let Some(option) = opt {
+                    let option = argone(option);
+                    let krate = self.table.krate()?;
+                    let skip = quote::quote! { #option::is_none }.to_string();
+                    let with = quote::quote! { #krate::double_option }.to_string();
+                    fttr = respanned(span, quote::quote! {
+                        #[serde(default, with = #with, skip_serializing_if = #skip)]
                         #fttr
-                    );
+                    });
                 }
             }
             Ok(quote::quote! { #fttr #vis #ident: #ty })
         }).collect::<Result<Vec<_>>>()?;
 
-        Ok(quote::quote! {
-            #derive #attr
-            #vis struct #name {
+        let body = match fields.len() {
+            0 => quote::quote! { ; },
+            _ => quote::quote! { {
                 #(#fields,)*
-            }
+            } }
+        };
+
+        Ok(quote::quote! {
+            #derive #attr #vis struct #name #body
         })
     }
 
 }
 
 
+
+impl QueryTable {
+
+    pub fn flats(&self) -> Result<Vec<TokenStream>> {
+        let mut flats = Vec::new();
+        for column in self.coded()? {
+            let column = column?;
+            if let Code::Query = column.code {
+                let ty = self.typed(column.field)?;
+                let ident = &column.field.ident;
+                flats.push(quote::quote! {
+                    #ident: #ty
+                });
+            }
+        }
+        Ok(flats)
+    }
+
+}
 
 impl Construct<'_> {
 
@@ -187,6 +204,13 @@ impl Construct<'_> {
         let flat = self.table.name(Structs::Flat)?;
         let vis = self.table.vis(Structs::Flat)?;
         let flats = self.flats()?;
+
+        let body = match flats.len() {
+            0 => quote::quote! { ; },
+            _ => quote::quote! { {
+                #(#flats,)*
+            } }
+        };
 
         let sets = match &self.table.attr.flat_row {
             None => None,
@@ -231,9 +255,7 @@ impl Construct<'_> {
 
         Ok(quote::quote! {
             #[allow(non_snake_case)]
-            #derive #vis struct #flat {
-                #(#flats,)*
-            }
+            #derive #vis struct #flat #body
             #flat_row
             #from_flat
             #[automatically_derived]
@@ -251,7 +273,7 @@ struct Former<'c> {
     target: &'c Constructed<'c>,
     source: &'c Constructed<'c>,
     option: Nullable<'c>,
-    ident: syn::Ident,
+    ident: Cow<'c, syn::Ident>,
 }
 
 impl Construct<'_> {
@@ -260,14 +282,14 @@ impl Construct<'_> {
         self.formed(None, source)
     }
 
-    fn formed(&self, former: Option<&Former<'_>>, source: Source) -> Result<TokenStream> {
+    fn formed(&self, former: Option<&Former>, source: Source) -> Result<TokenStream> {
         let fields = self.fields.iter().map(|column| {
             let value = match &column.code {
                 Code::Skip => {
-                    let default = column.field.attr.default.as_ref();
-                    match default.and_then(|data| data.data.as_ref()) {
-                        None => quote::quote! { ::core::default::Default::default() },
-                        Some(default) => quote::quote! { #default() },
+                    let span = column.field.attr.skip.spany().unwrap_or_else(Span::call_site);
+                    match column.field.attr.default.as_ref().and_then(|data| data.data.as_ref()) {
+                        None => quote::quote_spanned!(span => ::core::default::Default::default()),
+                        Some(default) => quote::quote_spanned!(span => #default()),
                     }
                 }
                 Code::Query => match source {
@@ -286,8 +308,8 @@ impl Construct<'_> {
                                 }
                             }
                         }
-                        (_, Some(Nullable::Default(path))) => {
-                            let nullable = Nullable::Default(path);
+                        (_, Some(Nullable::Default(span, path))) => {
+                            let nullable = Nullable::Default(span, path);
                             let from = column.from()?;
                             let ident = column.ident()?;
                             let option = nullable.option()?;
@@ -319,8 +341,8 @@ impl Construct<'_> {
                                 quote::quote! { #from(#param) }
                             }
                             None => match column.nullable()? {
-                                Some(Nullable::Default(path)) => {
-                                    let nullable = Nullable::Default(path);
+                                Some(Nullable::Default(span, path)) => {
+                                    let nullable = Nullable::Default(span, path);
                                     let ty = column.typed()?;
                                     let from = column.from()?;
                                     let alias = column.alias()?;
@@ -347,19 +369,18 @@ impl Construct<'_> {
                     let nullable = match construct.nullable()? {
                         None => None,
                         Some(option) => {
-                            let field = match construct.constitute()? {
+                            let target = match construct.constitute()? {
                                 Some(field) => field,
                                 None => {
                                     let ident = &construct.table.ident;
-                                    let span = column.table.ty(column.field)?.span();
+                                    let span = column.table.ty(column.field)?.spanned();
                                     let msg = format!("ambiguous left join on {ident}: \
                                         all fetched fields are nullable");
                                     return Err(syn::Error::new(span, msg));
                                 }
                             };
-                            let target = &field;
                             let source = &column;
-                            let ident = field.ident()?;
+                            let ident = target.ident()?;
                             Some(Former { option, source, target, ident })
                         }
                     };

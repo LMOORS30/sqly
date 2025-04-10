@@ -9,6 +9,7 @@ parse! {
 
         ((dynamic)?),
         ((optional)?),
+        ((returning)? (= safe::Returning)?),
 
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
@@ -49,7 +50,6 @@ impl InsertTable {
         }
 
         self.r#static()?;
-
         Ok(self)
     }
 

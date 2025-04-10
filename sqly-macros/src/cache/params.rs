@@ -77,7 +77,7 @@ impl<'c, T> Default for Format<'c, T> {
 
 impl<'c, T> Format<'c, T> {
     pub fn into_inner(self) -> (String, BTree<&'c syn::Ident, &'c T>) {
-        (self.escape.0, self.state)
+        (self.escape.into_inner(), self.state)
     }
 }
 
@@ -101,7 +101,8 @@ impl<'c, T: Field> Wrapper<&'c T> for Format<'c, T> {
 impl Displacer for str {}
 impl Displacer for usize {}
 impl Displacer for String {}
-impl<'c, T: ?Sized + Displacer> Displacer for &'c T {}
+impl Displacer for Cow<'_, str> {}
+impl<T: ?Sized + Displacer> Displacer for &T {}
 
 pub trait Displacer: Display {}
 
@@ -183,6 +184,10 @@ impl<W: Write> Write for Escape<W> {
         self.0.write_str(str)?;
         Ok(())
     }
+}
+
+impl<W> Escape<W> {
+    pub fn into_inner(self) -> W { self.0 }
 }
 
 pub trait Push: Write {
@@ -286,9 +291,11 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
     pub fn output<W: Wrapper<T>>(&mut self, dst: &mut W, input: &[&Info<String>]) -> Result<()> {
         let mut first = true;
         for info in input {
-            if !first { dst.push_str("\n"); }
-            let line = info.data.trim_ascii();
-            self.apply(dst, line, info.span)?;
+            if !first { dst.push_str("\n\t"); }
+            let line = info.data.trim_matches(|c: char| {
+                c.is_ascii_whitespace()
+            });
+            self.apply(dst, line, info.span())?;
             first = false;
         }
         Ok(())
@@ -370,11 +377,11 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
                     params.sort_unstable_by_key(|&params| (params.split("__").count(), params));
                     let params = params.join(", ");
                     let msg = match next.unwrap_or('\0') {
-                        '{' => format!("unknown parameter: {var}\n \
-                            known parameters: {params}\n\
+                        '{' => format!("unknown parameter: {var}\
+                                      \n known parameters: {params}\n\
                             help: use \"$${{{var}}}\" to escape and resolve to the literal \"${{{var}}}\""),
-                        _ => format!("unknown parameter: {var}\n \
-                            known parameters: {params}\n\
+                        _ => format!("unknown parameter: {var}\
+                                    \n known parameters: {params}\n\
                             help: use \"$${var}\" to escape and resolve to the literal \"${var}\""),
                     };
                     return Err(syn::Error::new(span, msg));
@@ -547,7 +554,7 @@ mod tests {
         fn escaped(src: &str, dst: &str) {
             let mut esc = Escape(String::new());
             esc.write_str(src).unwrap();
-            let res: String = esc.into();
+            let res = esc.into_inner();
             assert_eq!(res, dst);
         }
 
@@ -555,7 +562,7 @@ mod tests {
         fn empty() {
             escaped("", "");
         }
-        
+
         #[test]
         fn copy() {
             escaped("copy", "copy");

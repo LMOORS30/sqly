@@ -53,16 +53,22 @@ impl TryFrom<&syn::Path> for Id {
     fn try_from(path: &syn::Path) -> Result<Self> {
         match path.segments.last() {
             None => {
-                let span = path.span();
+                let span = path.spanned();
                 let msg = "invalid path: no segments\n\
                     note: required by sqly internals";
                 return Err(syn::Error::new(span, msg));
             }
             Some(segment) => {
                 if !segment.arguments.is_none() {
-                    let span = path.span();
+                    let span = path.spanned();
                     let msg = "invalid path: generics not supported\n\
                         note: required by sqly internals";
+                    return Err(syn::Error::new(span, msg));
+                }
+                if path.is_ident("Self") {
+                    let span = path.spanned();
+                    let msg = "invalid path: Self\n\
+                        note: enforced by sqly internals";
                     return Err(syn::Error::new(span, msg));
                 }
                 Id::try_from(&segment.ident)
@@ -72,13 +78,13 @@ impl TryFrom<&syn::Path> for Id {
 }
 
 impl std::fmt::Display for Id {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.ident)
     }
 }
 
 impl std::fmt::Display for Key {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             $(Self::$upper(id) => {
                 write!(f, "#[derive({})] {}", stringify!($upper), id)
@@ -196,9 +202,26 @@ paste::paste! {
         }
     })*
 
+    $(pub fn [<pop_ $lower>](&mut self, id: &Id) -> Result<(Id, $table)> {
+        match self.$lower.remove_entry(id) {
+            Some(entry) => Ok(entry),
+            None => {
+                let span = Span::call_site();
+                let key = Key::$upper(id.clone());
+                let msg = format!("missing definition: {key}\n\
+                    note: this error should not occur");
+                Err(syn::Error::new(span, msg))
+            }
+        }
+    })*
+
     $(pub fn [<put_ $lower>](&mut self, id: Id, table: $table) -> Result<()> {
         self.$lower.insert(id, table);
         Ok(())
+    })*
+
+    $(pub fn [<has_ $lower>](&self, id: &Id) -> bool {
+        self.$lower.contains_key(id)
     })*
 
 } }

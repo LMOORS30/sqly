@@ -26,43 +26,47 @@ macro_rules! args {
 
 use super::*;
 
-pub struct Build<'c, B> {
-    table: &'c B,
-    string: String,
+pub struct Build<'c, T> {
+    table: &'c T,
+    string: Option<String>,
+    pending: Option<String>,
+    checking: Option<String>,
     stream: Option<TokenStream>,
-    pending: String,
     optional: bool,
 }
 
-impl<'c, B: Builder> Build<'c, B> {
-    pub fn new(table: &'c B) -> Result<Self> {
+impl<'c, T: Builder> Build<'c, T> {
+    pub fn new(table: &'c T) -> Result<Self> {
         let dynamic = table.dynamic().is_some();
+        let checked = table.checked();
         let certain = table.certain();
         Ok(Self {
             table,
-            string: String::new(),
+            pending: dynamic.then(String::new),
+            checking: checked.then(String::new),
+            string: (!dynamic).then(String::new),
             stream: dynamic.then(TokenStream::new),
-            pending: String::new(),
             optional: !certain,
         })
     }
 }
 
-impl<'c, B: Builder> Build<'c, B> {
+impl<'c, T: Builder> Build<'c, T> {
 
-    fn idx(field: &B::Field) -> syn::Ident {
+    fn idx(field: &T::Field) -> syn::Ident {
         quote::format_ident!("_{}", field.ident())
     }
 
     fn put(&mut self) -> Result<()> {
-        if !self.pending.is_empty() {
+        if let Some(pending) = &mut self.pending {
             if let Some(stream) = &mut self.stream {
-                let str = &self.pending;
-                stream.extend(quote::quote! {
-                    query.push_str(#str);
-                });
+                if !pending.is_empty() {
+                    stream.extend(quote::quote! {
+                        query.push_str(#pending);
+                    });
+                }
             }
-            self.pending.drain(..);
+            pending.drain(..);
         }
         Ok(())
     }
@@ -75,18 +79,47 @@ impl<'c, B: Builder> Build<'c, B> {
         Ok(())
     }
 
+}
+
+impl<'c, T: Builder> Build<'c, T> {
+
     pub fn str(&mut self, str: &str) -> Result<()> {
-        self.pending.push_str(str);
-        self.string.push_str(str);
+        if let Some(checking) = &mut self.checking {
+            checking.push_str(str);
+        }
+        if let Some(pending) = &mut self.pending {
+            pending.push_str(str);
+        }
+        if let Some(string) = &mut self.string {
+            string.push_str(str);
+        }
+        Ok(())
+    }
+
+    pub fn duo<F>(&mut self, mut f: F) -> Result<()>
+    where
+        F: FnMut(Target) -> Result<String>
+    {
+        if let Some(checking) = &mut self.checking {
+            let mac = f(Target::Macro)?;
+            checking.push_str(&mac);
+        }
+        let fun = f(Target::Function)?;
+        if let Some(pending) = &mut self.pending {
+            pending.push_str(&fun);
+        }
+        if let Some(string) = &mut self.string {
+            string.push_str(&fun);
+        }
         Ok(())
     }
 
     pub fn cut(&mut self, str: &[&str]) -> Result<bool> {
-        if self.stream.is_some() {
+        if let Some(pending) = &mut self.pending {
             let mut cut = false;
             for str in str {
-                if self.pending.ends_with(str) {
-                    self.pending.truncate(self.pending.len() - str.len());
+                if pending.ends_with(str) {
+                    pending.truncate(pending.len() - str.len());
                     cut = true;
                     break;
                 }
@@ -103,16 +136,33 @@ impl<'c, B: Builder> Build<'c, B> {
                 })?;
             }
         }
-        for str in str {
-            if self.string.ends_with(str) {
-                self.string.truncate(self.string.len() - str.len());
-                return Ok(true);
+        let mut res = true;
+        if let Some(checking) = &mut self.checking {
+            let mut cut = false;
+            for str in str {
+                if checking.ends_with(str) {
+                    checking.truncate(checking.len() - str.len());
+                    cut = true;
+                    break;
+                }
             }
+            res = res && cut;
         }
-        Ok(false)
+        if let Some(string) = &mut self.string {
+            let mut cut = false;
+            for str in str {
+                if string.ends_with(str) {
+                    string.truncate(string.len() - str.len());
+                    cut = true;
+                    break;
+                }
+            }
+            res = res && cut;
+        }
+        Ok(res)
     }
 
-    pub fn opt<F>(&mut self, field: &B::Field, f: F) -> Result<()>
+    pub fn opt<F>(&mut self, field: &T::Field, f: F) -> Result<()>
     where
         F: FnOnce(&mut Self) -> Result<()>,
     {
@@ -141,19 +191,26 @@ impl<'c, B: Builder> Build<'c, B> {
 
     pub fn arg<K, V>(
         &mut self,
-        params: &mut Params<K, V, &'c B::Field>,
+        params: &mut Params<K, V, &'c T::Field>,
         list: &[&Info<String>],
         mut cell: Option<&mut V>,
     ) -> Result<()>
     where
         K: Borrow<str> + Hash + Eq,
-        V: Placer<&'c B::Field>,
+        V: Placer<&'c T::Field>,
     {
+        let mut dst = String::new();
         if !list.is_empty() {
-            params.output(&mut self.string, list)?;
+            params.output(&mut dst, list)?;
         } else if let Some(cell) = &mut cell {
-            params.place(&mut self.string, cell)?;
+            params.place(&mut dst, cell)?;
         } else { return Ok(()); }
+        if let Some(checking) = &mut self.checking {
+            checking.push_str(&dst);
+        }
+        if let Some(string) = &mut self.string {
+            string.push_str(&dst);
+        }
         if self.stream.is_some() {
             let mut fmt = Format::default();
             if !list.is_empty() {
@@ -179,72 +236,70 @@ impl<'c, B: Builder> Build<'c, B> {
 
 }
 
-impl<'c, B: Builder> Build<'c, B> {
+impl<'c, T: Builder> Build<'c, T> {
 
-    pub fn done(mut self, args: Vec<&'c B::Field>, rest: Vec<&'c B::Field>) -> Result<Done<'c, B>> {
+    pub fn done(mut self, args: Vec<&'c T::Field>, rest: Vec<&'c T::Field>) -> Result<Done<'c, T>> {
         self.put()?;
-        let stream = match self.stream {
-            Some(stream) => {
-                let db = db![];
-                let krate = self.table.krate()?;
-                let option = self.optional.then(|| {
-                    quote::quote! { ::core::option::Option::Some }
-                });
-                let tuple = match args.len() {
-                    0 => quote::quote! { query },
-                    _ => quote::quote! { (query, args) },
-                };
-                let mut full = args.clone();
-                full.extend(rest.iter().filter(|field| {
-                    self.table.optional(field).is_some()
-                }));
-                let expr = full.iter().map(|field| {
-                    self.table.value(field, Target::Function)
-                }).collect::<Result<Vec<_>>>()?;
-                let ident = full.iter().map(|field| Self::idx(field));
-                let bind = (0..full.len()).map(|i| syn::Index::from(i));
-                let args = (!args.is_empty()).then(|| quote::quote! {
-                    use ::core::fmt::Write as _;
-                    let args = <#db as #krate::sqlx::Database>::Arguments::default();
-                    let mut args = ::core::result::Result::Ok(args);
-                });
-                let arg = (!full.is_empty()).then(|| quote::quote! {
-                    let arg = (#(&(#expr),)*);
-                    #args
-                    #(let mut #ident = #krate::dynamic::Bind::new(arg.#bind);)*
-                });
-                quote::quote! {
-                    #arg
-                    let mut query = ::std::string::String::new();
-                    #stream
-                    #option(#tuple)
-                }
+        let stream = if let Some(stream) = &mut self.stream {
+            let db = db![];
+            let krate = self.table.krate()?;
+            let option = self.optional.then(|| {
+                quote::quote! { ::core::option::Option::Some }
+            });
+            let tuple = match args.len() {
+                0 => quote::quote! { query },
+                _ => quote::quote! { (query, args) },
+            };
+            let mut full = args.clone();
+            full.extend(rest.iter().filter(|field| {
+                self.table.optional(field).is_some()
+            }));
+            let expr = full.iter().map(|field| {
+                self.table.value(field, Target::Function)
+            }).collect::<Result<Vec<_>>>()?;
+            let ident = full.iter().map(|field| Self::idx(field));
+            let bind = (0..full.len()).map(|i| syn::Index::from(i));
+            let args = (!args.is_empty()).then(|| quote::quote! {
+                use ::core::fmt::Write as _;
+                let args = <#db as #krate::sqlx::Database>::Arguments::default();
+                let mut args = ::core::result::Result::Ok(args);
+            });
+            let arg = (!full.is_empty()).then(|| quote::quote! {
+                let arg = (#(&(#expr),)*);
+                #args
+                #(let mut #ident = #krate::dynamic::Bind::new(arg.#bind);)*
+            });
+            quote::quote! {
+                #arg
+                let mut query = ::std::string::String::new();
+                #stream
+                #option(#tuple)
             }
-            None => {
-                let db = db![];
-                let krate = self.table.krate()?;
-                let query = &self.string;
-                let len = args.len();
-                let bind = (0..len).map(|i| {
-                    let i = syn::Index::from(i);
-                    quote::quote! { arg.#i }
-                }).collect::<Vec<_>>();
-                let expr = args.iter().map(|field| {
-                    self.table.value(field, Target::Function)
-                }).collect::<Result<Vec<_>>>()?;
-                (!args.is_empty()).then(|| quote::quote! {
-                    let arg = (#(&(#expr),)*);
-                    use #krate::sqlx::Arguments as _;
-                    let mut args = <#krate #db as #krate::sqlx::Database>::Arguments::default();
-                    args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#bind))*);
-                    let args = ::core::result::Result::Ok(args)
-                    #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
-                    (#query, args)
-                }).unwrap_or_else(|| quote::quote! { #query })
-            }
-        };
+        } else if let Some(string) = &mut self.string {
+            let db = db![];
+            let len = args.len();
+            let krate = self.table.krate()?;
+            let bind = (0..len).map(|i| {
+                let i = syn::Index::from(i);
+                quote::quote! { arg.#i }
+            }).collect::<Vec<_>>();
+            let expr = args.iter().map(|field| {
+                self.table.value(field, Target::Function)
+            }).collect::<Result<Vec<_>>>()?;
+            (!args.is_empty()).then(|| quote::quote! {
+                let arg = (#(&(#expr),)*);
+                use #krate::sqlx::Arguments as _;
+                let mut args = <#krate #db as #krate::sqlx::Database>::Arguments::default();
+                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#bind))*);
+                let args = ::core::result::Result::Ok(args)
+                #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
+                (#string, args)
+            }).unwrap_or_else(|| quote::quote! { #string })
+        } else { TokenStream::new() };
+
         Ok(Done {
             query: self.string,
+            check: self.checking,
             map: None,
             stream,
             args,
@@ -254,19 +309,13 @@ impl<'c, B: Builder> Build<'c, B> {
 
 }
 
-pub struct Done<'c, T: Table> {
+pub struct Done<'c, T: Struct> {
     pub stream: TokenStream,
-    pub query: String,
+    pub query: Option<String>,
+    pub check: Option<String>,
     pub args: Vec<&'c T::Field>,
     pub rest: Vec<&'c T::Field>,
     pub map: Option<&'c syn::Path>,
-}
-
-impl<'c, T: Table> Done<'c, T> {
-    pub fn map(mut self, map: &'c syn::Path) -> Self {
-        self.map = Some(map);
-        self
-    }
 }
 
 
@@ -276,7 +325,7 @@ macro_rules! build {
         impl Builder for $table { $(fn $f(&self$(, $v: $t)*) -> $r { self.$f($($v),*) })* }
     };
     ($($t:tt)*) => {
-        pub trait Builder: Table { $($t)* }
+        pub trait Builder: Struct { $($t)* }
         build!(DeleteTable { $($t)* });
         build!(InsertTable { $($t)* });
         build!(SelectTable { $($t)* });
@@ -285,9 +334,10 @@ macro_rules! build {
 }
 
 build! {
+    fn checked(&self) -> bool;
     fn certain(&self) -> bool;
     fn dynamic(&self) -> Option<Span>;
     fn optional(&self, field: &Self::Field) -> Option<Span>;
     fn value(&self, field: &Self::Field, target: Target) -> Result<TokenStream>;
-    fn krate(&self) -> Result<TokenStream>;
+    fn krate(&self) -> Result<Cow<syn::Path>>;
 }

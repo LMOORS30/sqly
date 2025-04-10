@@ -20,12 +20,12 @@ Multiple values are separated by a comma, a variadic item is parsed to a value i
 
 Multiple attributes can appear in the same `#[sqly()]` clause when separated by a comma, or can be split up into separate `#[sqly()]` clauses as desired. This also resolves the possibly ambiguous syntax where both values and attributes are separated by a comma.
 
-Values defined with pipes represent an enum. Quotes are not expected unless for parsing strings.
+The same repetition operators may occur within the value definition to better indicate how the input is parsed. Values defined with pipes represent an enum. Quotes are not expected unless for parsing strings.
 
 <br>
 
 ### String Placeholders
-Some attributes allow for writing arbitrary SQL strings which will appear verbatim in generated queries. This causes issues for certain parts of the query, such as table names and parameter bindings, as these will be automatically generated as needed. String placeholders can be used in order to reference these unknown values, they will be replaced by the correct value before being included in the generated query. 
+Some attributes allow for writing arbitrary SQL strings which will appear verbatim in generated queries. This causes issues for certain parts of the query, such as table names and parameter bindings, as these will be automatically generated as needed. String placeholders can be used in order to reference these unknown values, they will be replaced by the correct value before being included in the generated query.
 
 String placeholders start with a `$` sign and can appear anywhere in the SQL string.
 
@@ -44,4 +44,4 @@ The relevant attributes mention which variables are available to them.
 ### Variadic Attributes
 Variadic attributes can be specified any amount of times with any amount of values, this is intended purely for flexibility, the parameters are treated as a single list or string.
 
-When a variadic attribute is considered as a single string the individual strings have their leading and trailing whitespace removed and are joined with newlines.
+When a variadic attribute is considered as a single string the individual strings have their leading and trailing whitespace removed and are joined with a newline and tab.

@@ -18,6 +18,7 @@ use super::*;
 /// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
 /// `#[sqly((`[`optional`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
 /// 
 /// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>

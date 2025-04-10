@@ -1,5 +1,21 @@
 # Attribute Documentation
 
+##### Struct Attributes:
+`#[sqly(`[`table`](#table)`,`[`rename`](#rename)`)]`<br>
+`#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
+`#[sqly(`[`flat`](#flat)`,`[`delete`](#delete)`,`[`insert`](#insert)`,`[`select`](#select)`,`[`update`](#update)`,`[`derive`](#derive)`,`[`visibility`](#visibility)`)]`<br>
+`#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`returning`](#returning)`)]`<br>
+`#[sqly(`[`crate`](#dev-attributes)`,`[`unchecked`](#dev-attributes)`,`[`print`](#dev-attributes)`,`[`debug`](#dev-attributes)`)]`<br>
+
+##### Field Attributes:
+`#[sqly(`[`column`](#column)`,`[`rename`](#rename)`)]`<br>
+`#[sqly(`[`select`](#select-1)`,`[`insert`](#insert-1)`,`[`update`](#update-1)`)]`<br>
+`#[sqly(`[`optional`](#optional)`,`[`filter`](#filter)`,`[`value`](#value)`,`[`infer`](#infer)`)]`<br>
+`#[sqly(`[`foreign`](#foreign)`,`[`target`](#target)`,`[`named`](#named)`,`[`typed`](#typed)`)]`<br>
+`#[sqly(`[`default`](#default)`,`[`from`](#from)`)]`<br>
+`#[sqly(`[`skip`](#skip)`,`[`key`](#key)`)]`<br>
+
+
 <br>
 
 ## Struct Attributes
@@ -46,7 +62,7 @@ Implements [`sqlx::FromRow`] for the table.
 
 This is the default behavior if [`#[sqly(select)]`](#select) is specified.
 
-Required to use this table with [`#[derive(Select)]`](derive@Select) queries.
+Required to use this table with [`#[derive(Select)]`](derive@Select) or [`#[sqly(returning)]`](#returning) queries.
 
 <br>
 
@@ -250,6 +266,69 @@ Set the visbility of the specified generated struct.
 This overrides the value set with `query_visibility`.
 
 Use `visibility = ,` to set an inherited (private) visibility.
+
+<br>
+
+#### returning
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(returning)]
+# struct T;
+```
+Returns this table through the SQL `RETURNING` clause in generated queries.
+
+Generates the same output list and uses the same [`sqlx::FromRow`] definition as [`#[derive(Select)]`](#derive@Select).
+
+When not applied to [`#[derive(Table)]`](derive@Table) the type specified with [`#[sqly(table)]`](#table) will be returned instead.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(returning = Table)]
+# struct T;
+```
+Same as above, except the path to the table to be returned is specified.
+
+This type is required to have [`#[derive(Table)]`](derive@Table).
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(returning = { field, other })]
+# struct T;
+```
+Returns the specified fields as a scalar or tuple through the SQL `RETURNING` clause in generated queries.
+
+The fields must match an identifier of the fields in either this struct or the type specified with [`#[sqly(table)]`](#table).
+
+Unlike [`#[sqly(returning)]`](#returning) for tables, the [`#[sqly(default)]`](#default) and [`#[sqly(from)]`](#from) attributes are not applied.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(returning = Table { field, other })]
+# struct T;
+```
+Same as above, except the path to the table with the fields is specified.
+
+This type is required to have [`#[derive(Table)]`](derive@Table).
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", insert, update, from_row)]
+#[sqly(insert_returning = { field })]
+#[sqly(update_returning = Self)]
+# struct T { #[sqly(key)] k: i32, field: i32 }
+```
+Same as all of the above, except only for the operations specified.
+
+This overrides the value set with `returning`.
 
 <br>
 
@@ -504,7 +583,7 @@ Declares a field or set of fields as optional.
 
 An optional field will only be included in the generated query if its runtime value resolves to an `Option::Some`, otherwise it will behave as if it was skipped. Will generate type errors if the value bound does not resolve to an `Option`. Does not affect the SQL `SELECT` list, [`sqlx::FromRow`] definition and [`Flat`](#flat) struct, as these do not involve runtime values before execution.
 
-Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter), among others. The value to be bound by this field determines whether the part of the query relevant to this field is included. This check happens regardless of whether the field binds its own value (e.g. [`#[sqly(insert = "default")]`](#insert-1)) or others (e.g. [`#[sqly(update = "COALESCE($i, $j)")]`](#update-1)). 
+Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter), among others. The value to be bound by this field determines whether the part of the query relevant to this field is included. This check happens regardless of whether the field binds its own value (e.g. [`#[sqly(insert = "default")]`](#insert-1)) or others (e.g. [`#[sqly(update = "COALESCE($i, $j)")]`](#update-1)).
 
 This attribute can be applied to both the struct and its fields. When applied to the struct its behavior is different depening on the derive. [`#[derive(Table)]`](derive@Table) will set all fields as optional, additionally, it will wrap all optional fields in an `Option` when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs. Other derives will only set fields whose type is already wrapped in an `Option` as optional, but fields can be individually specified as optional regardless of their type.
 
@@ -834,7 +913,7 @@ Different operations regard this attribute differently:
 
 [`#[derive(Update)]`](derive@Update) uses the key fields to filter while using the other fields to set values.
 
-[`#[derive(Table)]`](derive@Table) uses the key attribute to determine which fields to include in generated structs: 
+[`#[derive(Table)]`](derive@Table) uses the key attribute to determine which fields to include in generated structs:
 
 When generating [`#[sqly(delete)]`](#delete) and [`#[sqly(select)]`](#select) structs only key fields are included.
 

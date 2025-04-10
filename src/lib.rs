@@ -95,7 +95,7 @@
 //!     })
 //!     .execute(db)
 //!     .await?;
-//!
+//! 
 //!     let pages = Page::select(&GetBookPages { // get all pages from the book
 //!         book_id: page.book.id,
 //!     })

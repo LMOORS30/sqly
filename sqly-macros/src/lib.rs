@@ -1,7 +1,6 @@
 #![cfg(feature = "postgres")]
 
 mod cache;
-#[macro_use]
 mod parse;
 mod quote;
 mod derive;

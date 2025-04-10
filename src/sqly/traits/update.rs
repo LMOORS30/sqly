@@ -46,7 +46,7 @@ pub trait Update {
 /// 
 /// This trait serves no further purpose.
 pub trait UpdateCheck {
-    /// Calls the [`sqlx::query!`] macro to perform the compile time check.
+    /// Calls the [`sqlx::query_as!`] macro to perform the compile time check.
     /// 
     /// This function is not meant to be called and will panic if attempted.
     fn update_check(&self) -> !;

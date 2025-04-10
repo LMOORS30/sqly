@@ -70,14 +70,13 @@ Currently only postgres is supported.
 - [X] `#[sqly(insert, update)]` for custom SQL value expressions
 - [X] `#[sqly(filter)]` for custom SQL filter expressions
 - [X] `#[sqly(optional)]` for dynamic SQL through optional fields
-- [ ] `#[sqly(returning)]` for SQL `RETURNING` clause
-- [ ] Implementation of bulk operations for `&[T]`
+- [X] `#[sqly(returning)]` for SQL `RETURNING` clause
 
 **Draft**
 - [ ] `#[sqly(group)]` for SQL `GROUP BY` clause
-- [ ] `#[sqly(distinct)]` for SQL `DISTINCT` clause
+- [ ] `#[sqly(distinct, order, limit, offset)]` clauses
 - [ ] Decoding database rows unchecked or by index
-- [ ] Custom macro attributes in generated structs
+- [ ] Custom attributes in generated structs
 - [ ] Support for generic structs
 - [ ] ... ?
 

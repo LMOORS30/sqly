@@ -63,6 +63,13 @@ vars! {
     }
 }
 
+safe! {
+    pub struct Returning {
+        pub table: syn::Path [?],
+        pub fields: syn::Ident [*],
+    }
+}
+
 parse! {
     pub QueryTable {
         ((table)! (= String)!),
@@ -104,6 +111,11 @@ parse! {
         ((select_optional)? (= Optionals)?),
         ((update_optional)? (= Optionals)?),
         ((serde_double_option)?),
+
+        ((returning)? (= safe::Returning)?),
+        ((delete_returning)? (= safe::Returning)?),
+        ((insert_returning)? (= safe::Returning)?),
+        ((update_returning)? (= safe::Returning)?),
 
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
@@ -150,16 +162,16 @@ parse! {
 
 impl QueryTable {
 
-    pub fn init(self) -> Result<Self> {
+    pub fn init(mut self) -> Result<Self> {
         let a = &self.attr;
-        for (r#type, attr, derive, visibility, filter, optional) in [
-            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &a.delete_optional),
-            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_optional),
-            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &a.select_optional),
-            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_optional),
+        for (r#type, attr, derive, visibility, filter, optional, returning) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &a.delete_optional, &a.delete_returning),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_optional, &a.insert_returning),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &a.select_optional, &None              ),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_optional, &a.update_returning),
         ] {
             if attr.is_none() {
-                if let Some(span) = spany!(derive, visibility, filter, optional) {
+                if let Some(span) = spany!(derive, visibility, filter, optional, returning) {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
@@ -190,7 +202,7 @@ impl QueryTable {
                     if let Ok(r#type) = Types::try_from(skip.data) {
                         if keys.data.iter().any(|key| r#type == key.data.into()) {
                             let msg = "conflicting attributes: #[sqly(skip, key)]";
-                            return Err(syn::Error::new(skip.span, msg));
+                            return Err(syn::Error::new(skip.span(), msg));
                         }
                     }
                 }
@@ -233,12 +245,12 @@ impl QueryTable {
                     }
                     if let Some(skip) = skips.data.iter().find(|skip| skip.data == Skips::FromRow) {
                         let msg = "conflicting attributes: #[sqly(skip, foreign)]";
-                        return Err(syn::Error::new(skip.span, msg));
+                        return Err(syn::Error::new(skip.span(), msg));
                     }
                 }
-                if let Some(select) = field.attr.select.first() {
+                if let Some(span) = field.attr.select.spany() {
                     let msg = "conflicting attributes: #[sqly(foreign, select)]";
-                    return Err(syn::Error::new(select.span, msg));
+                    return Err(syn::Error::new(span, msg));
                 }
             } else {
                 if let Some(span) = field.attr.target.spany() {
@@ -253,16 +265,36 @@ impl QueryTable {
             (Types::Insert, &a.insert),
             (Types::Select, &a.select),
             (Types::Update, &a.update),
-        ].iter().filter(|(_, attr)| attr.is_some()).map(|(r#type, _)| {
+        ].iter().filter(|(_, attr)| attr.is_some()).flat_map(|(r#type, _)| {
             self.fields.iter().filter(|f| self.fielded(f, *r#type)).map(|f| (f, *r#type))
-        }).flatten().filter_map(|(field, r#type)| self.optional(field, r#type)).next();
+        }).filter_map(|(field, r#type)| self.optional(field, r#type)).next();
         self.verify(opt)?;
+
+        let a = &mut self.attr;
+        for returning in [
+            &mut a.returning,
+            &mut a.delete_returning,
+            &mut a.insert_returning,
+            &mut a.update_returning
+        ] {
+            if let Some(name) = returning {
+                if let Some(info) = &mut name.data {
+                    if let Some(table) = &mut info.data.table {
+                        if table.is_ident("Self") {
+                            let mut ident = self.ident.clone();
+                            ident.set_span(table.spanned());
+                            *table = ident.into();
+                        }
+                    }
+                }
+            }
+        }
 
         Ok(self)
     }
 
     fn list<T>(&self, list: &Option<Name<Vec<Info<T>>>>) -> Result<()>
-    where T: TryInto<Types> + ToString + PartialEq + Copy {
+    where T: TryInto<Types> + ToString + PartialEq + Copy + Spanned {
         let types = self.types()?.collect::<Vec<_>>();
 
         if let Some(list) = list {
@@ -271,7 +303,7 @@ impl QueryTable {
                     if !types.contains(&r#type) {
                         let name = item.data.to_string();
                         let msg = format!("unused value: requires #[sqly({})] on struct", name);
-                        return Err(syn::Error::new(item.span, msg));
+                        return Err(syn::Error::new(item.span(), msg));
                     }
                 }
             }
@@ -280,7 +312,7 @@ impl QueryTable {
                 if let Some(item) = rest.find(|i| i.data == item.data) {
                     let name = item.data.to_string();
                     let msg = format!("duplicate value: {}", name);
-                    return Err(syn::Error::new(item.span, msg));
+                    return Err(syn::Error::new(item.span(), msg));
                 }
             }
         }
@@ -294,10 +326,10 @@ impl QueryTable {
 
 impl Rename {
 
-    pub fn rename(&self, str: &str) -> String {
+    pub fn rename<'c>(&self, str: &'c str) -> Cow<'c, str> {
         use heck::*;
-        match self {
-            Rename::None => str.to_string(),
+        Cow::Owned(match self {
+            Rename::None => return Cow::Borrowed(str),
             Rename::LowerCase => str.to_lowercase(),
             Rename::UpperCase => str.to_uppercase(),
             Rename::CamelCase => str.to_lower_camel_case(),
@@ -306,7 +338,7 @@ impl Rename {
             Rename::KebabCase => str.to_kebab_case(),
             Rename::UpperSnakeCase => str.to_shouty_snake_case(),
             Rename::UpperKebabCase => str.to_shouty_kebab_case(),
-        }
+        })
     }
 
 }
@@ -315,11 +347,80 @@ impl Rename {
 
 impl std::fmt::Display for Named {
 
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Named::Ident(ident) => write!(f, "{}", ident),
             Named::String(string) => write!(f, "\"{}\"", string),
         }
     }
 
+}
+
+
+
+impl Default for Returning {
+    fn default() -> Self {
+        Self {
+            table: Default::default(),
+            fields: Default::default(),
+        }
+    }
+}
+
+impl Clone for Returning {
+    fn clone(&self) -> Self {
+        Self {
+            table: self.table.clone(),
+            fields: self.fields.clone(),
+        }
+    }
+}
+
+impl syn::parse::Parse for Returning {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        let name = <syn::Ident as syn::ext::IdentExt>::peek_any;
+        let table = match input.peek(name) {
+            true => Some(input.parse()?),
+            false => None,
+        };
+        let mut fields = Vec::<syn::Ident>::new();
+        if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            fields.push(content.parse()?);
+            while !content.is_empty() {
+                content.parse::<syn::Token![,]>()?;
+                if !content.is_empty() {
+                    fields.push(content.parse()?);
+                }
+            }
+        };
+        if table.is_none() && fields.is_empty() {
+            let look = input.lookahead1();
+            look.peek(syn::Ident);
+            look.peek(syn::token::Brace);
+            return Err(look.error());
+        }
+        Ok(Self { table, fields })
+    }
+}
+
+impl quote::ToTokens for Returning {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        if let Some(table) = &self.table {
+            table.to_tokens(tokens);
+        }
+        if let Some((first, rest)) = self.fields.split_first() {
+            let brace = syn::token::Brace::default();
+            brace.surround(tokens, |tokens| {
+                first.to_tokens(tokens);
+                let spacing = proc_macro2::Spacing::Alone;
+                let char = proc_macro2::Punct::new(',', spacing);
+                for field in rest {
+                    char.to_tokens(tokens);
+                    field.to_tokens(tokens);
+                }
+            });
+        }
+    }
 }

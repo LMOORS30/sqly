@@ -66,6 +66,11 @@ pub use update::*;
 /// `#[sqly((`[`update_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`serde_double_option`](docs::attr#serde_double_option)`)?)]`<br>
 /// 
+/// `#[sqly((`[`returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
+/// `#[sqly((`[`delete_returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
+/// `#[sqly((`[`insert_returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
+/// `#[sqly((`[`update_returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
+/// 
 /// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
 /// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
 /// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>

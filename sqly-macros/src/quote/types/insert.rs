@@ -23,6 +23,12 @@ impl Cache for InsertTable {
             let id = path.try_into()?;
             dep.art(Key::Table(id));
         }
+        if let Some(returning) = self.returning()? {
+            if let Some(table) = &returning.table {
+                let id = table.try_into()?;
+                dep.art(Key::Table(id));
+            }
+        }
         Ok(dep)
     }
 
@@ -35,11 +41,15 @@ impl Cache for InsertTable {
 impl InsertTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let done = self.query()?;
+        let mut local = Local::default();
+        let returnable = self.returnable()?;
+        let local = returnable.colocate(&mut local)?;
+        let returns = returnable.returns(local)?;
+        let done = self.query(&returns)?;
 
-        self.print(&done.query, &done.args)?;
-        let check = self.check(&done.query, &done.args)?;
-        let insert = self.insert(&done)?;
+        self.print(&done)?;
+        let check = self.check(&done, &returns)?;
+        let insert = self.insert(&done, &returns)?;
         let blanket = self.blanket()?;
 
         Ok(quote::quote! {
@@ -55,7 +65,7 @@ impl InsertTable {
 
 impl InsertTable {
 
-    pub fn query(&self) -> Result<Done<InsertTable>> {
+    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<InsertTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;
@@ -100,10 +110,12 @@ impl InsertTable {
         }
         if !build.cut(&[",\n"])? {
             let span = Span::call_site();
-            let msg = "incomplete query: missing insert bind";
+            let msg = "incomplete query: missing insert value";
             return Err(syn::Error::new(span, msg));
         }
         build.str("\n)")?;
+
+        build.duo(|target| returns.returns(target))?;
 
         let args = params.take();
         params.drain(&mut fields)?;

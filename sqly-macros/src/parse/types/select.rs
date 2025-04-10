@@ -10,6 +10,7 @@ parse! {
         ((dynamic)?),
         ((optional)?),
         ((filter)* (= String)+),
+        ((returning as "")? (= safe::Returning)?),
 
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
@@ -43,8 +44,12 @@ impl SelectTable {
             }
         }
 
-        self.r#static()?;
+        if let Some(span) = self.attr.returning.spany() {
+            let msg = "impossible attribute: this should not exist";
+            return Err(syn::Error::new(span, msg));
+        }
 
+        self.r#static()?;
         Ok(self)
     }
 

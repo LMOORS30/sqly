@@ -52,7 +52,7 @@ impl QueryTable {
         Ok(vis)
     }
 
-    pub fn name(&self, r#type: Structs) -> Result<syn::Ident> {
+    pub fn name(&self, r#type: Structs) -> Result<Cow<syn::Ident>> {
         let typed = match r#type {
             Structs::Flat => &self.attr.flat,
             Structs::Delete => &self.attr.delete,
@@ -61,14 +61,14 @@ impl QueryTable {
             Structs::Update => &self.attr.update,
         };
         let name = match typed.as_ref().and_then(|typed| typed.data.as_ref()) {
-            Some(name) => name.data.clone(),
-            None => match r#type {
+            Some(name) => Cow::Borrowed(&name.data),
+            None => Cow::Owned(match r#type {
                 Structs::Flat => quote::format_ident!("Flat{}", self.ident),
                 Structs::Delete => quote::format_ident!("Delete{}", self.ident),
                 Structs::Insert => quote::format_ident!("Insert{}", self.ident),
                 Structs::Select => quote::format_ident!("Select{}", self.ident),
                 Structs::Update => quote::format_ident!("Update{}", self.ident),
-            }
+            }),
         };
         Ok(name)
     }
@@ -144,28 +144,6 @@ impl QueryTable {
 
 impl QueryTable {
 
-    pub fn selects<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
-        let iter = field.attr.select.iter();
-        let foreigns = iter.flat_map(|select| {
-            &select.data
-        }).collect();
-        Ok(foreigns)
-    }
-
-    pub fn foreigns<'c>(&'c self, field: &'c QueryField) -> Result<Vec<&'c Info<String>>> {
-        let iter = field.attr.foreign.iter();
-        let foreigns = iter.flat_map(|foreign| {
-            &foreign.data
-        }).collect();
-        Ok(foreigns)
-    }
-
-}
-
-
-
-impl QueryTable {
-
     pub fn ty<'c>(&'c self, field: &'c QueryField) -> Result<&'c syn::Type> {
         let ty = match &field.attr.from {
             Some(ty) => &ty.data.data,
@@ -180,17 +158,15 @@ impl QueryTable {
 
 impl Constructed<'_> {
 
-    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
+    pub fn nullable(&self) -> Result<Option<Nullable>> {
         self.table.nullable(self.field)
     }
 
 }
 
-
-
 impl Construct<'_> {
 
-    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
+    pub fn nullable(&self) -> Result<Option<Nullable>> {
         let nullable = match &self.foreign {
             Some(foreign) => foreign.nullable,
             None => None,
@@ -202,9 +178,9 @@ impl Construct<'_> {
 
 impl Resolved<'_> {
 
-    pub fn column(&self) -> Result<String> {
+    pub fn column(&self) -> Result<Cow<str>> {
         let column = match self {
-            Resolved::Attr(attr) => attr.column.to_string(),
+            Resolved::Attr(attr) => Cow::Borrowed(attr.column),
             Resolved::Field(field) => field.column()?,
         };
         Ok(column)
@@ -248,36 +224,57 @@ impl Constructed<'_> {
 
 
 
+impl Declared for Constructed<'_> {
+
+    fn declaration(&self) -> Result<Declaration> {
+        let named = self.renamed()?;
+        self.table.declare(self.field, &named)
+    }
+
+}
+
 impl Constructed<'_> {
 
-    pub fn column(&self) -> Result<String> {
-        let table = &self.table;
-        let field = &self.field;
-        let named = &self.renamed()?;
-        Ok(table.declaration(field, named)?.0)
-    }
-
-    pub fn modifier(&self) -> Result<String> {
-        let table = &self.table;
-        let field = &self.field;
-        let named = &self.field.ident;
-        Ok(table.declaration(field, named)?.1)
-    }
-
-    pub fn segment(&self) -> Result<String> {
-        let ident = &self.field.ident;
-        Ok(ident.unraw())
-    }
-
-    pub fn ident(&self) -> Result<syn::Ident> {
+    pub fn ident(&self) -> Result<Cow<syn::Ident>> {
         let alias = self.alias()?;
+        if alias.eq(&self.field.ident.unraw()) {
+            return Ok(Cow::Borrowed(&self.field.ident));
+        }
         let span = self.field.ident.span();
         let ident = syn::Ident::new(alias, span);
-        Ok(ident)
+        Ok(Cow::Owned(ident))
     }
 
     pub fn alias(&self) -> Result<&str> {
         self.unique()
+    }
+
+}
+
+impl<T: Struct + Declare> Declared for Scalar<'_, T> {
+
+    fn declaration(&self) -> Result<Declaration> {
+        let declaration = match self {
+            Scalar::Table(table, field) => table.declaration(field)?,
+            Scalar::Paved(table, field) => table.declaration(field)?,
+        };
+        Ok(declaration)
+    }
+
+}
+
+impl<'c, T: Struct> Scalar<'c, T> {
+
+    pub fn ident(&self) -> Result<&'c syn::Ident> {
+        let ident = match self {
+            Scalar::Table(_, field) => field.ident(),
+            Scalar::Paved(_, field) => field.ident(),
+        };
+        Ok(ident)
+    }
+
+    pub fn alias(&self) -> Result<String> {
+        Ok(self.ident()?.unraw())
     }
 
 }
@@ -290,15 +287,33 @@ both!($table, $field);
 
 impl $table {
 
-    pub fn table(&self) -> Result<String> {
+    pub fn table(&self) -> Result<Cow<str>> {
         let guard = cache::fetch();
         let table = match &self.attr.table.data.data {
-            Paved::String(table) => return Ok(table.clone()),
+            Paved::String(table) => return Ok(Cow::Borrowed(table)),
             Paved::Path(path) => path,
         };
         let table = guard.table(&table.try_into()?)?;
         let table = table.attr.table.data.data.clone();
-        Ok(table)
+        Ok(Cow::Owned(table))
+    }
+
+    pub fn returning(&self) -> Result<Option<Cow<Returning>>> {
+        let data = self.attr.returning.as_ref().map(|name| {
+            match &name.data {
+                Some(info) => Cow::Borrowed(&info.data),
+                None => Cow::Owned(Default::default()),
+            }
+        });
+        Ok(data)
+    }
+
+    pub fn returnable(&self) -> Result<Returnable<Self>> {
+        Ok(Returnable {
+            table: self,
+            paved: &self.attr.table.data,
+            returning: self.returning()?,
+        })
     }
 
     pub fn cells<'c, K, V, F, U, G>(
@@ -388,7 +403,37 @@ impl UpdateTable {
     }
 }
 
+impl QueryTable {
+    pub fn formable(&self) -> bool {
+        spany!(self.attr.from_row, self.attr.select).is_some()
+    }
+}
 
+
+
+pub type Declaration<'c> = (Cow<'c, str>, &'c str);
+
+pub trait Declare: Struct {
+    fn declaration<'c>(&self, field: &'c Self::Field) -> Result<Declaration<'c>>;
+    fn column<'c>(&self, field: &'c Self::Field) -> Result<Cow<'c, str>> {
+        Ok(self.declaration(field)?.0)
+    }
+    #[allow(unused)]
+    fn modifier<'c>(&self, field: &'c Self::Field) -> Result<&'c str> {
+        Ok(self.declaration(field)?.1)
+    }
+}
+
+pub trait Declared {
+    fn declaration(&self) -> Result<Declaration>;
+    fn column(&self) -> Result<Cow<str>> {
+        Ok(self.declaration()?.0)
+    }
+    #[allow(unused)]
+    fn modifier(&self) -> Result<&str> {
+        Ok(self.declaration()?.1)
+    }
+}
 
 macro_rules! both {
 ($table:ty, $field:ty) => {
@@ -399,7 +444,8 @@ impl $table {
         match self.attr.dynamic.spany() {
             Some(span) => if opt.is_none() {
                 let msg = "unused attribute: queries do not need to be generated at runtime\
-                    \nnote: remove #[sqly(dynamic)] to indicate static queries are generated";
+                    \nnote: no fields end up parsed as #[sqly(optional)] in generated queries,\
+                    \n      remove #[sqly(dynamic)] to indicate static queries can be generated";
                 return Err(syn::Error::new(span, msg));
             }
             None => if let Some(span) = opt {
@@ -412,55 +458,53 @@ impl $table {
         Ok(())
     }
 
-    pub fn rename(&self, field: &$field, string: &str) -> Result<String> {
+}
+
+impl $table {
+
+    pub fn rename<'c>(&self, field: &$field, string: &'c str) -> Result<Cow<'c, str>> {
         let all = &self.attr.rename;
         let rename = &field.attr.rename;
         let renamed = match rename.as_ref().or(all.as_ref()) {
             Some(re) => re.data.data.rename(string),
-            None => string.to_string(),
+            None => Cow::Borrowed(string),
         };
         Ok(renamed)
     }
 
-    pub fn declaration(&self, field: &$field, named: &syn::Ident) -> Result<(String, String)> {
+    fn declare<'c>(&self, field: &'c $field, named: &syn::Ident) -> Result<Declaration<'c>> {
         const SEP: &'static [char] = &['!', '?', ':'];
-
-        let iden;
-        let name = match &field.attr.column {
-            Some(column) => &column.data.data,
+        let (name, info) = match &field.attr.column {
             None => {
-                iden = named.to_string();
-                match iden.strip_prefix("r#") {
-                    Some(strip) => strip,
-                    None => &iden,
-                }
+                let ident = named.unraw();
+                let name = self.rename(field, &ident)?;
+                (Cow::Owned(name.into_owned()), "")
+            }
+            Some(column) => {
+                let name = column.data.data.as_str();
+                let (name, info) = match name.find(SEP) {
+                    Some(i) => name.split_at(i),
+                    None => (name, ""),
+                };
+                let name = self.rename(field, name)?;
+                (name, info)
             }
         };
-
-        let (name, info) = match name.find(SEP) {
-            Some(i) => name.split_at(i),
-            None => (name, ""),
-        };
-
-        let name = self.rename(field, name)?;
         let info = match (info.chars().next(), &field.attr.infer) {
-            (Some('!'), Some(_)) => "!: _".to_string(),
-            (Some('?'), Some(_)) => "?: _".to_string(),
-            (_, Some(_)) => ": _".to_string(),
-            (_, None) => info.to_string(),
+            (Some('!'), Some(_)) => "!: _",
+            (Some('?'), Some(_)) => "?: _",
+            (_, Some(_)) => ": _",
+            (_, None) => info,
         };
-
         Ok((name, info))
     }
 
-    pub fn column(&self, field: &$field) -> Result<String> {
-        Ok(self.declaration(field, &field.ident)?.0)
-    }
-    
-    pub fn modifier(&self, field: &$field) -> Result<String> {
-        Ok(self.declaration(field, &field.ident)?.1)
-    }
+}
 
+impl Declare for $table {
+    fn declaration<'c>(&self, field: &'c $field) -> Result<Declaration<'c>> {
+        self.declare(field, &field.ident)
+    }
 }
 
 impl $table {

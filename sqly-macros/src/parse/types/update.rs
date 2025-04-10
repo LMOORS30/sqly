@@ -10,6 +10,7 @@ parse! {
         ((dynamic)?),
         ((optional)?),
         ((filter)* (= String)+),
+        ((returning)? (= safe::Returning)?),
 
         ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
@@ -68,18 +69,17 @@ impl UpdateTable {
             return Err(syn::Error::new(span, msg));
         }
 
-        if self.attr.filter.is_empty() && (
+        if self.attr.filter.is_empty() && {
             self.fields().all(|field| {
                 field.attr.key.is_none()
             })
-        ) {
+        } {
             let span = Span::call_site();
             let msg = "incomplete query: missing update key";
             return Err(syn::Error::new(span, msg));
         }
 
         self.r#static()?;
-
         Ok(self)
     }
 
