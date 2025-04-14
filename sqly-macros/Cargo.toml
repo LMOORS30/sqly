@@ -15,6 +15,7 @@ postgres = []
 mariadb = []
 sqlite = []
 mysql = []
+serde = []
 checked = []
 default = ["checked"]
 

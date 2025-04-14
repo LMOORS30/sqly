@@ -364,6 +364,8 @@ Will likely generate errors if a [serde derive](https://serde.rs/derive.html) is
 
 Intended but not required to be used together with [`#[sqly(optional)]`](#optional).
 
+Only available with the [`serde`](https://github.com/LMOORS30/sqly#features) feature enabled.
+
 See [serde_with](https://docs.rs/serde_with/3.12.0/serde_with/rust/double_option/index.html) for more information.
 
 <br>

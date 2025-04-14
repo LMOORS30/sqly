@@ -24,6 +24,7 @@ postgres = ["sqlx/postgres", "sqly-macros/postgres"]
 mariadb = ["sqlx/mysql", "sqly-macros/mariadb"]
 sqlite = ["sqlx/sqlite", "sqly-macros/sqlite"]
 mysql = ["sqlx/mysql","sqly-macros/mysql"]
+serde = ["dep:serde", "sqly-macros/serde"]
 checked = ["sqlx/macros", "sqly-macros/checked"]
 default = ["checked"]
 
@@ -31,10 +32,11 @@ default = ["checked"]
 sqly-macros = { version = "=0.4.0", path = "sqly-macros", default-features = false }
 
 [dependencies]
-serde = { version = "1.0", default-features = false }
+serde = { version = "1.0", default-features = false, optional = true }
 sqlx = { version = "0.8.0", default-features = false }
 sqly-macros = { workspace = true }
 
 [package.metadata.docs.rs]
-features = ["postgres"]
+features = ["postgres", "serde"]
 targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = ["--generate-link-to-definition"]

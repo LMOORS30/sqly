@@ -5,6 +5,7 @@ mod traits;
 pub use macros::*;
 pub use traits::*;
 
+#[cfg(feature = "serde")]
 pub use serde;
 pub use sqlx;
 
@@ -36,15 +37,20 @@ pub mod docs {
 
 /// Utility module for [serde](https://serde.rs).
 /// 
-/// Used by [`#[sqly(serde_double_option)]`](docs::attr#optional).
+/// Only available with the [`serde`](https://github.com/LMOORS30/sqly#features) feature enabled.
+/// 
+/// Used by [`#[sqly(serde_double_option)]`](docs::attr#serde_double_option).
 /// 
 /// Intended for [`#[serde(with)]`](https://serde.rs/field-attrs.html#with).
 /// 
 /// Based on [serde_with](https://docs.rs/serde_with/3.12.0/serde_with/rust/double_option/index.html).
+#[cfg(feature = "serde")]
 pub mod double_option {
     /// Utility function for [serde](https://serde.rs).
     /// 
-    /// Used by [`#[sqly(serde_double_option)]`](super::docs::attr#optional).
+    /// Only available with the [`serde`](https://github.com/LMOORS30/sqly#features) feature enabled.
+    /// 
+    /// Used by [`#[sqly(serde_double_option)]`](super::docs::attr#serde_double_option).
     /// 
     /// Intended for [`#[serde(deserialize_with)]`](https://serde.rs/field-attrs.html#deserialize_with).
     /// 
@@ -59,7 +65,9 @@ pub mod double_option {
 
     /// Utility function for [serde](https://serde.rs).
     /// 
-    /// Used by [`#[sqly(serde_double_option)]`](super::docs::attr#optional).
+    /// Only available with the [`serde`](https://github.com/LMOORS30/sqly#features) feature enabled.
+    /// 
+    /// Used by [`#[sqly(serde_double_option)]`](super::docs::attr#serde_double_option).
     /// 
     /// Intended for [`#[serde(serialize_with)]`](https://serde.rs/field-attrs.html#serialize_with).
     /// 

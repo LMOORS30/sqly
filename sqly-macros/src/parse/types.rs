@@ -269,6 +269,12 @@ impl QueryTable {
             }
         }
 
+        #[cfg(not(feature = "serde"))]
+        if let Some(span) = self.attr.serde_double_option.spany() {
+            let msg = "unused attribute: requires the serde feature";
+            return Err(syn::Error::new(span, msg));
+        }
+
         let opt = [
             (Types::Delete, &a.delete),
             (Types::Insert, &a.insert),
