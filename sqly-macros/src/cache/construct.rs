@@ -463,12 +463,16 @@ impl<'c, T: Struct> Returnable<'c, T> {
     pub fn correlate(&self, local: &'c Local, field: &syn::Ident) -> Result<Scalar<'c, T>> {
         let ident = field.unraw();
         let mut absent = Vec::new();
-        for field in self.table.fields() {
-            if field.ident().unraw().eq(&ident) {
-                return Ok(Scalar::Table(self.table, field));
+        if let Some(returning) = &self.returning {
+            if returning.table.is_none() {
+                for field in self.table.fields() {
+                    if field.ident().unraw().eq(&ident) {
+                        return Ok(Scalar::Table(self.table, field));
+                    }
+                }
+                absent.push(self.table.ident().to_string());
             }
         }
-        absent.push(self.table.ident().to_string());
         if let Some(path) = self.companion()? {
             let table = local.get_table(&path.try_into()?)?;
             for column in table.coded()? {
