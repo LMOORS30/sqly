@@ -5,7 +5,7 @@
 `#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
 `#[sqly(`[`flat`](#flat)`,`[`delete`](#delete)`,`[`insert`](#insert)`,`[`select`](#select)`,`[`update`](#update)`,`[`derive`](#derive)`,`[`visibility`](#visibility)`)]`<br>
 `#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`returning`](#returning)`)]`<br>
-`#[sqly(`[`crate`](#dev-attributes)`,`[`unchecked`](#dev-attributes)`,`[`print`](#dev-attributes)`,`[`debug`](#dev-attributes)`)]`<br>
+`#[sqly(`[`unchecked`](#codegen)`,`[`crate`](#codegen)`,`[`print`](#development)`,`[`debug`](#development)`)]`<br>
 
 ##### Field Attributes:
 `#[sqly(`[`column`](#column)`,`[`rename`](#rename)`)]`<br>
@@ -368,16 +368,7 @@ See [serde_with](https://docs.rs/serde_with/3.12.0/serde_with/rust/double_option
 
 <br>
 
-#### dev-attributes
----
-```
-# #[derive(sqly::Table)]
-# #[sqly(table = "")]
-#[sqly(crate = ::sqly)]
-# struct T;
-```
-Specify the path to the `sqly` crate instance to use in generated code.
-
+#### codegen
 ---
 ```
 # #[derive(sqly::Table)]
@@ -393,26 +384,66 @@ This has no effect if the default [`checked`](https://github.com/LMOORS30/sqly#f
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-#[sqly(print)]
+#[sqly(crate = ::sqly)]
 # struct T;
 ```
-Prints generated queries to stdout at compile time.
+Specify the path to the `sqly` crate instance to use in generated code.
 
-Intended use: `cargo check > queries.txt`.
+<br>
 
-Intended for development only.
+#### development
+---
+```compile_fail
+# #[derive(sqly::Insert)]
+# #[sqly(table = "")]
+#[sqly(print)]
+# struct T { t: i32 }
+```
+Print generated queries as compile time errors.
 
 ---
-```rust,ignore
+```compile_fail
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
 #[sqly(debug)]
+# struct T;
 ```
-Prints generated code to stdout at compile time.
+Print generated rust code as compile time errors.
 
-Intended use: `cargo check > generated.rs`.
+---
+```compile_fail
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(print = panic)]
+#[sqly(debug = panic)]
+# struct T;
+```
+Same as the above, except more explicit.
 
-Intended for development only.
+---
+```ignore
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(print = warn)]
+#[sqly(debug = warn)]
+# struct T;
+```
+Same as above, except as `deprecated` warnings.
 
-This example is not tested in order to avoid build output in tests. lol
+---
+```ignore
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(print = stdout)]
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(debug = stderr)]
+# struct T2;
+```
+Same as above, except printed directly to the specified output stream.
+
+Use cases:&ensp;`cargo check > queries.txt`&ensp;or&ensp;`cargo check 2> generated.rs`.
 
 <br>
 <br>

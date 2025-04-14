@@ -11,10 +11,10 @@ parse! {
         ((optional)?),
         ((returning)? (= safe::Returning)?),
 
-        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
-        ((print)?),
-        ((debug)?),
+        ((krate as "crate")? (= syn::Path)!),
+        ((print)? (= Print)?),
+        ((debug)? (= Print)?),
     }
     pub InsertField {
         ((column)? (= String)!),

@@ -480,10 +480,11 @@ impl $table {
         Ok(value)
     }
 
-    pub fn print(&self, done: &Done<$table>)  -> Result<()> {
-        if self.attr.print.is_none() {
-            return Ok(());
-        }
+    pub fn print(&self, done: &Done<$table>)  -> Result<TokenStream> {
+        let print = match &self.attr.print {
+            None => return Ok(TokenStream::new()),
+            Some(print) => print,
+        };
         let query = match done.query.as_ref().or(done.check.as_ref()) {
             Some(query) => {
                 let mut tabs = String::new();
@@ -494,9 +495,13 @@ impl $table {
                 if !tabs.is_empty() {
                     tabs.push_str("\n\t");
                 }
-                Cow::Owned(tabs)
+                tabs
             }
-            None => Cow::Borrowed("no static query generated, use #[sqly(debug)] instead"),
+            None => {
+                let debug = print.rename("debug");
+                let debug = quote::quote!{ #debug }.to_string();
+                format!("no static query generated, use #[sqly({debug})] instead")
+            }
         };
         let target = match &done.check {
             Some(_) => Target::Macro,
@@ -513,8 +518,11 @@ impl $table {
             let val = self.value(arg, target)?;
             args.push_str(&val.to_string())
         }
-        println!("{}::query!(\n\tr#\"{}\"#{}\n)", self.ident, query, args);
-        Ok(())
+        let sql = format!(
+            "{}::query!(\n\tr#\"{}\"#{}\n)",
+            self.ident, query, args
+        );
+        Ok(print.output(&sql))
     }
 
 }
@@ -536,21 +544,22 @@ impl $table {
         Ok(krate)
     }
 
-    pub fn debug(&self, res: TokenStream) -> Result<TokenStream> {
-        match self.attr.debug.as_ref() {
-            Some(_) => match syn::parse2(res.clone()) {
-                Ok(tree) => {
-                    let rs = prettyplease::unparse(&tree);
-                    println!("{}", rs);
-                    Ok(res)
-                }
-                Err(err) => {
-                    let rs = res.to_string();
-                    println!("{}", rs);
-                    Err(err)
-                }
+    pub fn debug(&self, mut res: TokenStream) -> Result<TokenStream> {
+        let debug = match &self.attr.debug {
+            None => return Ok(res),
+            Some(debug) => debug,
+        };
+        match syn::parse2(res.clone()) {
+            Ok(tree) => {
+                let rs = prettyplease::unparse(&tree);
+                res.extend(debug.output(&rs));
+                Ok(res)
             }
-            None => Ok(res),
+            Err(_) => {
+                let rs = res.to_string();
+                res.extend(debug.output(&rs));
+                Ok(res)
+            }
         }
     }
 

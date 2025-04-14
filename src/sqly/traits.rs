@@ -63,7 +63,7 @@ pub trait Table {
 /// A [`Table`](Table) which has its columns checked at compile time.
 /// 
 /// This will be generated unless
-/// [`#[sqly(unchecked)]`](docs::attr#dev-attributes) is specified or
+/// [`#[sqly(unchecked)]`](docs::attr#codegen) is specified or
 /// the default [`checked`](https://github.com/LMOORS30/sqly#features) feature is disabled.
 /// 
 /// This trait serves no further purpose.

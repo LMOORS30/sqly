@@ -71,10 +71,10 @@ pub use update::*;
 /// `#[sqly((`[`insert_returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
 /// `#[sqly((`[`update_returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
 /// 
-/// `#[sqly((`[`crate`](docs::attr#dev-attributes)`)? (= `[`Path`](docs::attr#dev-attributes)`)!)]`<br>
-/// `#[sqly((`[`unchecked`](docs::attr#dev-attributes)`)?)]`<br>
-/// `#[sqly((`[`print`](docs::attr#dev-attributes)`)?)]`<br>
-/// `#[sqly((`[`debug`](docs::attr#dev-attributes)`)?)]`<br>
+/// `#[sqly((`[`unchecked`](docs::attr#codegen)`)?)]`<br>
+/// `#[sqly((`[`crate`](docs::attr#codegen)`)? (= `[`Path`](docs::attr#codegen)`)!)]`<br>
+/// `#[sqly((`[`print`](docs::attr#development)`)? (= `[`panic`](docs::attr#development)` | `[`warn`](docs::attr#development)` | `[`stdout`](docs::attr#development)` | `[`stderr`](docs::attr#development)`)?)]`<br>
+/// `#[sqly((`[`debug`](docs::attr#development)`)? (= `[`panic`](docs::attr#development)` | `[`warn`](docs::attr#development)` | `[`stdout`](docs::attr#development)` | `[`stderr`](docs::attr#development)`)?)]`<br>
 /// 
 /// ##### Field Attributes:
 /// `#[sqly((`[`column`](docs::attr#column)`)? (= `[`String`](docs::attr#column)`)!)]`<br>

@@ -56,7 +56,7 @@ impl SelectTable {
         let returns = Returns::Construct(path, &construct);
         let done = self.query(&construct)?;
 
-        self.print(&done)?;
+        let print = self.print(&done)?;
         let check = self.check(&done, &returns)?;
         let select = self.select(&done, &returns)?;
         let blanket = self.blanket()?;
@@ -65,6 +65,7 @@ impl SelectTable {
             #check
             #select
             #blanket
+            #print
         })
     }
 

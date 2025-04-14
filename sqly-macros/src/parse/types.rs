@@ -42,6 +42,12 @@ vars! {
         (Keys = keys),
         (Values = values),
     }
+    pub Print {
+        (Warn = warn),
+        (Panic = panic),
+        (StdOut = stdout),
+        (StdErr = stderr),
+    }
     pub Rename {
         (None = "none"),
         (LowerCase = "lowercase"),
@@ -117,10 +123,10 @@ parse! {
         ((insert_returning)? (= safe::Returning)?),
         ((update_returning)? (= safe::Returning)?),
 
-        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
-        ((print)?),
-        ((debug)?),
+        ((krate as "crate")? (= syn::Path)!),
+        ((print)? (= Print)?),
+        ((debug)? (= Print)?),
     }
     pub QueryField {
         ((column)? (= String)!),
@@ -363,8 +369,6 @@ impl Rename {
 
 }
 
-
-
 impl std::fmt::Display for Named {
 
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -372,6 +376,32 @@ impl std::fmt::Display for Named {
             Named::Ident(ident) => write!(f, "{}", ident),
             Named::String(string) => write!(f, "\"{}\"", string),
         }
+    }
+
+}
+
+impl Name<Option<Info<Print>>> {
+
+    pub fn output(&self, str: &str) -> proc_macro2::TokenStream {
+        match self.data.as_ref().map(|data| data.data) {
+            Some(Print::StdErr) => eprintln!("{}", str),
+            Some(Print::StdOut) => println!("{}", str),
+            Some(Print::Warn) => {
+                let warn = format!("\n{}", str);
+                let span = syn::Error::new_spanned(self, "").span();
+                return quote::quote_spanned!(span =>
+                    #[doc(hidden)]
+                    #[deprecated = #warn]
+                    macro_rules! sqly_print { () => {} }
+                    sqly_print!();
+                );
+            }
+            Some(Print::Panic) | None => {
+                let err = syn::Error::new_spanned(self, str);
+                return err.into_compile_error();
+            }
+        }
+        proc_macro2::TokenStream::new()
     }
 
 }

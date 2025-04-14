@@ -47,7 +47,7 @@ impl UpdateTable {
         let returns = returnable.returns(local)?;
         let done = self.query(&returns)?;
 
-        self.print(&done)?;
+        let print = self.print(&done)?;
         let check = self.check(&done, &returns)?;
         let update = self.update(&done, &returns)?;
         let blanket = self.blanket()?;
@@ -56,6 +56,7 @@ impl UpdateTable {
             #check
             #update
             #blanket
+            #print
         })
     }
 

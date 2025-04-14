@@ -12,10 +12,10 @@ parse! {
         ((filter)* (= String)+),
         ((returning as "")? (= safe::Returning)?),
 
-        ((krate as "crate")? (= syn::Path)!),
         ((unchecked)?),
-        ((print)?),
-        ((debug)?),
+        ((krate as "crate")? (= syn::Path)!),
+        ((print)? (= Print)?),
+        ((debug)? (= Print)?),
     }
     pub SelectField {
         ((column)? (= String)!),

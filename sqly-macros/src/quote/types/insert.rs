@@ -47,7 +47,7 @@ impl InsertTable {
         let returns = returnable.returns(local)?;
         let done = self.query(&returns)?;
 
-        self.print(&done)?;
+        let print = self.print(&done)?;
         let check = self.check(&done, &returns)?;
         let insert = self.insert(&done, &returns)?;
         let blanket = self.blanket()?;
@@ -56,6 +56,7 @@ impl InsertTable {
             #check
             #insert
             #blanket
+            #print
         })
     }
 
