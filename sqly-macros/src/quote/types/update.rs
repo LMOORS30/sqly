@@ -87,13 +87,17 @@ impl UpdateTable {
                 build.opt(field, |build| {
                     let column = self.column(field)?;
                     let list = field.attr.update.infos();
-                    build.str(&format!("\t\"{column}\" = "))?;
                     if !list.is_empty() {
                         map.put("i", cell.clone());
                         map.put("column", Right(column));
+                        build.str("\t")?;
+                        build.arg(map, &list, None)?;
+                        build.str(",\n")
+                    } else {
+                        build.str(&format!("\t\"{column}\" = "))?;
+                        build.arg(map, &[], Some(cell))?;
+                        build.str(",\n")
                     }
-                    build.arg(map, &list, Some(cell))?;
-                    build.str(",\n")
                 })?;
             }
         }

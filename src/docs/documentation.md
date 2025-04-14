@@ -550,12 +550,12 @@ Any field can be referenced any amount of times, including skipped fields, or no
 # #[derive(sqly::Update)]
 # #[sqly(table = "")]
 # struct T {
-#[sqly(update = "$i")]
+#[sqly(update = "$column = $i")]
 # t: i32,
 # #[sqly(key)] k: i32,
 # }
 ```
-The SQL expression to update the column for this field.
+The SQL assignment to update the column for this field.
 
 This [Variadic Attribute](docs::attr::note#variadic-attributes) supports [String Placeholders](docs::attr::note#string-placeholders), and they are necessary to generate valid queries.
 
@@ -583,7 +583,7 @@ The value bound by this field must be referenced as `$i`, the column can optiona
 
 This attribute can be applied to both the struct and its fields, all of which are generated and evaluated with `AND` operators.
 
-Any field can be referenced any amount of times, including skipped fields, or not at all.
+Any field can be referenced any amount of times, including skipped and value fields, or not at all.
 
 ---
 ```
@@ -616,7 +616,7 @@ Declares a field or set of fields as optional.
 
 An optional field will only be included in the generated query if its runtime value resolves to an `Option::Some`, otherwise it will behave as if it was skipped. Will generate type errors if the value bound does not resolve to an `Option`. Does not affect the SQL `SELECT` list, [`sqlx::FromRow`] definition and [`Flat`](#flat) struct, as these do not involve runtime values before execution.
 
-Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter), among others. The value to be bound by this field determines whether the part of the query relevant to this field is included. This check happens regardless of whether the field binds its own value (e.g. [`#[sqly(insert = "default")]`](#insert-1)) or others (e.g. [`#[sqly(update = "COALESCE($i, $j)")]`](#update-1)).
+Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter), among others. The value to be bound by this field determines whether the part of the query relevant to this field is included. This check happens regardless of whether the field binds its own value (e.g. [`#[sqly(insert = "default")]`](#insert-1)) or others (e.g. [`#[sqly(update = "c=COALESCE($i,$j)")]`](#update-1)).
 
 This attribute can be applied to both the struct and its fields. When applied to the struct its behavior is different depening on the derive. [`#[derive(Table)]`](derive@Table) will set all fields as optional, additionally, it will wrap all optional fields in an `Option` when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs. Other derives will only set fields whose type is already wrapped in an `Option` as optional, but fields can be individually specified as optional regardless of their type.
 
