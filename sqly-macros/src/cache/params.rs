@@ -361,9 +361,9 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
                 Ok(ident) => ident.unraw(),
                 Err(_) => {
                     let msg = match next.unwrap_or('\0') {
-                        '{' => format!("invalid identifier: \"${{{var}}}\" is expected to be an identifier\n\
+                        '{' => format!("invalid identifier: \"${{{var}}}\" is expected to specify an identifier\n\
                             help: use \"$${{{var}}}\" to escape and resolve to the literal \"${{{var}}}\""),
-                        _ => format!("invalid identifier: \"${var}\" is expected to be an identifier\n\
+                        _ => format!("invalid identifier: \"${var}\" is expected to specify an identifier\n\
                             help: use \"$${var}\" to escape and resolve to the literal \"${var}\""),
                     };
                     return Err(syn::Error::new(span, msg));
@@ -376,12 +376,13 @@ impl<K: Borrow<str> + Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
                     let mut params = self.map.keys().map(|key| key.borrow()).collect::<Vec<_>>();
                     params.sort_unstable_by_key(|&params| (params.split("__").count(), params));
                     let params = params.join(", ");
+                    let ident = var.trim_ascii();
                     let msg = match next.unwrap_or('\0') {
-                        '{' => format!("unknown parameter: {var}\
-                                      \n known parameters: {params}\n\
+                        '{' => format!("unknown parameter: {ident}\
+                                      \n   must be one of: {params}\n\
                             help: use \"$${{{var}}}\" to escape and resolve to the literal \"${{{var}}}\""),
-                        _ => format!("unknown parameter: {var}\
-                                    \n known parameters: {params}\n\
+                        _ => format!("unknown parameter: {ident}\
+                                    \n   must be one of: {params}\n\
                             help: use \"$${var}\" to escape and resolve to the literal \"${var}\""),
                     };
                     return Err(syn::Error::new(span, msg));

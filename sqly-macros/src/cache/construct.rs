@@ -83,10 +83,9 @@ impl QueryTable {
     pub fn defaulted<'c>(&'c self, field: &'c QueryField) -> Result<Option<Nullable<'c>>> {
         let opt = match &field.attr.default {
             Some(default) => {
-                let span = default.span;
                 let path = default.data.as_ref();
                 let path = path.map(|data| &data.data);
-                Some(Nullable::Default(span, path))
+                Some(Nullable::Default(default.span, path))
             }
             None => None,
         };
@@ -117,10 +116,9 @@ impl QueryTable {
         let path = match typath(ty) {
             Some(path) => path,
             None => {
-                let span = ty.spanned();
-                let msg = "invalid type: not a path\n\
+                let msg = "invalid type: expected path\n\
                     note: expected due to #[sqly(foreign)] attribute";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new_spanned(ty, msg));
             }
         };
         let nullable = self.nullable(field)?;
@@ -290,11 +288,14 @@ impl<'c> Constructed<'c> {
                     None => match &construct.correlate(self)? {
                         Resolved::Field(field) => field.typed()?,
                         Resolved::Attr(compromise) => {
+                            let span = match self.field.attr.target.spany() {
+                                None => self.field.ident.span(),
+                                Some(span) => span,
+                            };
                             let key = &compromise.column;
                             let ident = &compromise.construct.table.ident;
-                            let span = self.field.ident.span();
                             let msg = format!("missing attribute: #[sqly(typed)]\n\
-                                note: type unknown since \"{key}\" does not match any columns in {ident}");
+                                note: type unknown since \"{key}\" does not identify a column in {ident}");
                             return Err(syn::Error::new(span, msg));
                         }
                     }
@@ -367,7 +368,10 @@ impl<'c> Construct<'c> {
                 let ident = &self.table.ident;
                 match &foreign.field.attr.target {
                     None => {
-                        let span = foreign.field.ident.span();
+                        let span = match foreign.field.attr.foreign.spany() {
+                            None => foreign.field.ident.span(),
+                            Some(span) => span,
+                        };
                         let msg = match first {
                             None => format!("missing target: no keys in {ident}\n\
                                 help: use #[sqly(target)] to disambiguate"),
@@ -377,7 +381,6 @@ impl<'c> Construct<'c> {
                         return Err(syn::Error::new(span, msg));
                     }
                     Some(target) => {
-                        let span = target.data.span();
                         let data = &target.data.data;
                         let msg = match first {
                             None => format!("unknown target: {data} has no matches in {ident}\n\
@@ -385,7 +388,7 @@ impl<'c> Construct<'c> {
                             _ => format!("ambiguous target: {data} has multiple matches in {ident}\n\
                                 help: use #[sqly(target = field_ident)] to disambiguate matched fields"),
                         };
-                        return Err(syn::Error::new(span, msg));
+                        return Err(syn::Error::new(target.data.span(), msg));
                     }
                 }
             }
@@ -459,29 +462,30 @@ impl<'c, T: Struct> Returnable<'c, T> {
 
     pub fn correlate(&self, local: &'c Local, field: &syn::Ident) -> Result<Scalar<'c, T>> {
         let ident = field.unraw();
+        let mut absent = Vec::new();
         for field in self.table.fields() {
             if field.ident().unraw().eq(&ident) {
                 return Ok(Scalar::Table(self.table, field));
             }
         }
+        absent.push(self.table.ident().to_string());
         if let Some(path) = self.companion()? {
             let table = local.get_table(&path.try_into()?)?;
             for column in table.coded()? {
                 let column = column?;
                 if column.field.ident().unraw().eq(&ident) {
                     if let Code::Foreign(_) = column.code {
-                        let span = field.spanned();
                         let msg = "invalid field: cannot return foreign field\n\
                             note: #[sqly(returning)] requires a field without #[sqly(foreign)]";
-                        return Err(syn::Error::new(span, msg));
+                        return Err(syn::Error::new_spanned(field, msg));
                     }
                     return Ok(Scalar::Paved(column.table, column.field));
                 }
             }
+            absent.push(table.ident().to_string());
         }
-        let span = field.spanned();
-        let msg = "unknown field: identifier not present in structs";
-        return Err(syn::Error::new(span, msg));
+        let msg = format!("unknown field: identifier not present in {}", absent.join(" or "));
+        return Err(syn::Error::new_spanned(field, msg));
     }
 
     pub fn returns(&'c self, local: &'c Local) -> Result<Returns<'c, T>> {
@@ -497,9 +501,8 @@ impl<'c, T: Struct> Returnable<'c, T> {
             let returns = match list.len() {
                 0 | 1 => match list.pop() {
                     None => {
-                        let span = Span::call_site();
                         let msg = "no returning fields found";
-                        return Err(syn::Error::new(span, msg));
+                        return Err(syn::Error::new(Span::call_site(), msg));
                     }
                     Some(item) => Returns::Scalar(item),
                 }
@@ -510,25 +513,22 @@ impl<'c, T: Struct> Returnable<'c, T> {
         let (path, table) = match self.companion()? {
             Some(path) => (path, local.get_table(&path.try_into()?)?),
             None => {
-                let span = self.paved.span();
                 let msg = "invalid table identifier: expected path\n\
                     note: #[sqly(returning)] requires a struct with #[derive(Table)]";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(self.paved.span(), msg));
             }
         };
         for column in table.coded()? {
             if let Code::Foreign(_) = column?.code {
-                let span = path.spanned();
                 let msg = "invalid table: cannot return foreign table\n\
                     note: #[sqly(returning)] requires a table without #[sqly(foreign)]";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new_spanned(path, msg));
             }
         }
         if !table.formable() {
-            let span = path.spanned();
             let msg = "missing attribute: the referenced table must have #[sqly(from_row)]\n\
                 note: #[sqly(returning)] uses the sqlx::FromRow definition for its query";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new_spanned(path, msg));
         };
         Ok(Returns::Table(path, table))
     }

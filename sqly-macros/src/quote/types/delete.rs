@@ -106,9 +106,8 @@ impl DeleteTable {
             })?;
         }
         if !build.cut(&[" AND\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing delete filter";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
 
         build.duo(|target| returns.returns(target))?;

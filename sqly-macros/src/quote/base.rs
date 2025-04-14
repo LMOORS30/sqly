@@ -386,9 +386,8 @@ impl $table {
         let query = match &done.check {
             Some(check) => check,
             None => {
-                let span = Span::call_site();
                 let msg = "failed to generate compile time check";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(Span::call_site(), msg));
             }
         };
 
@@ -454,6 +453,33 @@ impl $table {
         })
     }
 
+    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
+        let rip = self.optional(field).map(|span| quote::quote_spanned!(span => .rip()));
+        let value = match &field.attr.value {
+            Some(value) => {
+                let span = value.data.span();
+                let expr = &value.data.data;
+                let unfer = unfer(expr);
+                let unfer = unfer.as_ref().unwrap_or(expr);
+                match (target, &field.attr.infer) {
+                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => (#unfer) #rip as _),
+                    (Target::Macro, None) => quote::quote_spanned!(span => (#expr) #rip),
+                    (Target::Function, _) => quote::quote_spanned!(span => #unfer),
+                }
+            }
+            None => {
+                let ident = &field.ident;
+                let span = field.ty.spanned();
+                match (target, &field.attr.infer) {
+                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => self.#ident #rip as _),
+                    (Target::Macro, None) => quote::quote_spanned!(span => self.#ident #rip),
+                    (Target::Function, _) => quote::quote_spanned!(span => self.#ident),
+                }
+            }
+        };
+        Ok(value)
+    }
+
     pub fn print(&self, done: &Done<$table>)  -> Result<()> {
         if self.attr.print.is_none() {
             return Ok(());
@@ -489,33 +515,6 @@ impl $table {
         }
         println!("{}::query!(\n\tr#\"{}\"#{}\n)", self.ident, query, args);
         Ok(())
-    }
-
-    pub fn value(&self, field: &$field, target: Target) -> Result<TokenStream> {
-        let rip = self.optional(field).map(|span| quote::quote_spanned!(span => .rip()));
-        let value = match &field.attr.value {
-            Some(value) => {
-                let span = value.data.span();
-                let expr = &value.data.data;
-                let unfer = unfer(expr);
-                let unfer = unfer.as_ref().unwrap_or(expr);
-                match (target, &field.attr.infer) {
-                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => (#unfer) #rip as _),
-                    (Target::Macro, None) => quote::quote_spanned!(span => (#expr) #rip),
-                    (Target::Function, _) => quote::quote_spanned!(span => #unfer),
-                }
-            }
-            None => {
-                let ident = &field.ident;
-                let span = field.ty.spanned();
-                match (target, &field.attr.infer) {
-                    (Target::Macro, Some(_)) => quote::quote_spanned!(span => self.#ident #rip as _),
-                    (Target::Macro, None) => quote::quote_spanned!(span => self.#ident #rip),
-                    (Target::Function, _) => quote::quote_spanned!(span => self.#ident),
-                }
-            }
-        };
-        Ok(value)
     }
 
 }

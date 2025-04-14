@@ -87,9 +87,8 @@ impl InsertTable {
             })?;
         }
         if !build.cut(&[",\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing insert column";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
         build.str("\n) VALUES (\n")?;
 
@@ -109,9 +108,8 @@ impl InsertTable {
             })?;
         }
         if !build.cut(&[",\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing insert value";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
         build.str("\n)")?;
 

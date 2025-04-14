@@ -38,18 +38,16 @@ impl SelectTable {
         let path = match &self.attr.table.data.data {
             Paved::Path(path) => path,
             _ => {
-                let span = self.attr.table.data.span();
                 let msg = "invalid table identifier: expected path\n\
                     note: #[derive(Select)] requires a struct with #[derive(Table)]";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(self.attr.table.data.span(), msg));
             }
         };
         let table = cache::fetch().table(&path.try_into()?)?.sync()?;
         if !table.formable() {
-            let span = self.attr.table.data.span();
             let msg = "missing attribute: the referenced table must have #[sqly(from_row)]\n\
                 note: #[derive(Select)] uses the sqlx::FromRow definition for its query";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new_spanned(path, msg));
         };
 
         let mut local = Local::default();
@@ -115,9 +113,8 @@ impl<T: Struct + Declare> Returns<'_, T> {
             Returns::Tuple(list) => Left(list.as_slice()),
             Returns::Table(_, table) => Right(table),
             Returns::Construct(_, _) => {
-                let span = Span::call_site();
                 let msg = "invalid query: cannot return foreign table";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(Span::call_site(), msg));
             }
         };
 
@@ -292,9 +289,8 @@ impl SelectTable {
             })?;
         }
         if !build.cut(&[" AND\n", "\nWHERE\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing select filter";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
 
         let args = params.take();

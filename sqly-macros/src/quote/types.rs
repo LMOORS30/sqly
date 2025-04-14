@@ -63,6 +63,12 @@ impl QueryTable {
         let local = self.colocate(&mut local)?;
         let construct = self.construct(local)?;
 
+        for column in &construct.fields {
+            if let Code::Foreign(foreign) = &column.code {
+                let _ = foreign.correlate(column)?;
+            }
+        }
+
         let check = construct.check()?;
         let flat = match &self.attr.flat {
             Some(_) => Some(construct.flat()?),
@@ -373,7 +379,10 @@ impl Construct<'_> {
                                 Some(field) => field,
                                 None => {
                                     let ident = &construct.table.ident;
-                                    let span = column.table.ty(column.field)?.spanned();
+                                    let span = match column.field.attr.foreign.spany() {
+                                        None => column.field.ident.span(),
+                                        Some(span) => span,
+                                    };
                                     let msg = format!("ambiguous left join on {ident}: \
                                         all fetched fields are nullable");
                                     return Err(syn::Error::new(span, msg));

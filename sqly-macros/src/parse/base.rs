@@ -196,10 +196,9 @@ impl Construct<'_> {
         match self.unique.get() {
             Some(unique) => Ok(unique.as_str()),
             None => {
-                let span = Span::call_site();
                 let msg = "OnceCell not initialized\n\
                     note: this error should not occur";
-                Err(syn::Error::new(span, msg))
+                Err(syn::Error::new(Span::call_site(), msg))
             }
         }
     }
@@ -212,10 +211,9 @@ impl Constructed<'_> {
         match self.unique.get() {
             Some(unique) => Ok(unique.as_str()),
             None => {
-                let span = Span::call_site();
                 let msg = "OnceCell not initialized\n\
                     note: this error should not occur";
-                Err(syn::Error::new(span, msg))
+                Err(syn::Error::new(Span::call_site(), msg))
             }
         }
     }
@@ -371,7 +369,7 @@ impl $table {
         let opt = self.fields.iter().find_map(|field| {
             self.optional(field)
         });
-        self.verify(opt)
+        r#static(self.dynamic(), opt)
     }
 
 }
@@ -437,28 +435,6 @@ pub trait Declared {
 
 macro_rules! both {
 ($table:ty, $field:ty) => {
-
-impl $table {
-
-    pub fn verify(&self, opt: Option<Span>) -> Result<()> {
-        match self.attr.dynamic.spany() {
-            Some(span) => if opt.is_none() {
-                let msg = "unused attribute: queries do not need to be generated at runtime\
-                    \nnote: no fields end up parsed as #[sqly(optional)] in generated queries,\
-                    \n      remove #[sqly(dynamic)] to indicate static queries can be generated";
-                return Err(syn::Error::new(span, msg));
-            }
-            None => if let Some(span) = opt {
-                let msg = "unused attribute: requires #[sqly(dynamic)] on struct\
-                    \nnote: due to #[sqly(optional)] queries must be generated at runtime,\
-                    \n      use #[sqly(dynamic)] to explicitly opt-in for this behavior";
-                return Err(syn::Error::new(span, msg));
-            }
-        }
-        Ok(())
-    }
-
-}
 
 impl $table {
 

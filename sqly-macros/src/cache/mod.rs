@@ -53,23 +53,20 @@ impl TryFrom<&syn::Path> for Id {
     fn try_from(path: &syn::Path) -> Result<Self> {
         match path.segments.last() {
             None => {
-                let span = path.spanned();
                 let msg = "invalid path: no segments\n\
                     note: required by sqly internals";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new_spanned(path, msg));
             }
             Some(segment) => {
                 if !segment.arguments.is_none() {
-                    let span = path.spanned();
                     let msg = "invalid path: generics not supported\n\
                         note: required by sqly internals";
-                    return Err(syn::Error::new(span, msg));
+                    return Err(syn::Error::new_spanned(path, msg));
                 }
                 if path.is_ident("Self") {
-                    let span = path.spanned();
                     let msg = "invalid path: Self\n\
                         note: enforced by sqly internals";
-                    return Err(syn::Error::new(span, msg));
+                    return Err(syn::Error::new_spanned(path, msg));
                 }
                 Id::try_from(&segment.ident)
             }
@@ -193,11 +190,10 @@ paste::paste! {
         match self.$lower.get(id) {
             Some(entry) => Ok(entry),
             None => {
-                let span = Span::call_site();
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
-                Err(syn::Error::new(span, msg))
+                Err(syn::Error::new(Span::call_site(), msg))
             }
         }
     })*
@@ -206,11 +202,10 @@ paste::paste! {
         match self.$lower.remove_entry(id) {
             Some(entry) => Ok(entry),
             None => {
-                let span = Span::call_site();
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
-                Err(syn::Error::new(span, msg))
+                Err(syn::Error::new(Span::call_site(), msg))
             }
         }
     })*
@@ -233,11 +228,10 @@ impl Guard<RwLockReadGuard<'static, Store>> {
         match self.0.$lower.get(id) {
             Some(tree) => Ok(&tree.val),
             None => {
-                let span = Span::call_site();
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
-                Err(syn::Error::new(span, msg))
+                Err(syn::Error::new(Span::call_site(), msg))
             }
         }
     })*
@@ -247,11 +241,10 @@ impl Guard<RwLockReadGuard<'static, Store>> {
             $(Key::$upper(id) => match self.0.$lower.get(id) {
                 Some(tree) => tree.val.sync()?.call(),
                 None => {
-                    let span = Span::call_site();
                     let key = Key::$upper(id.clone());
                     let msg = format!("missing definition: {key}\n\
                         note: this error should not occur");
-                    Err(syn::Error::new(span, msg))
+                    Err(syn::Error::new(Span::call_site(), msg))
                 }
             },)*
         }
@@ -321,12 +314,11 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
 
         match self.0.$lower.entry(id) {
             map::Entry::Occupied(entry) => {
-                let span = Span::call_site();
                 let key = Key::$upper(entry.key().clone());
                 let msg = format!("duplicate definition: {key}\n\
-                    note: cannot #[derive(sqly::{})] on multiple structs with the same identifier",
+                    note: cannot #[derive({})] on multiple structs with the same identifier",
                     stringify!($upper));
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(Span::call_site(), msg));
             }
             map::Entry::Vacant(entry) => {
                 entry.insert(Tree {

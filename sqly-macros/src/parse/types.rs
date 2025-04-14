@@ -201,7 +201,10 @@ impl QueryTable {
                 for skip in &skips.data {
                     if let Ok(r#type) = Types::try_from(skip.data) {
                         if keys.data.iter().any(|key| r#type == key.data.into()) {
-                            let msg = "conflicting attributes: #[sqly(skip, key)]";
+                            let msg = format!(
+                                "conflicting attributes: #[sqly(skip = {}, key = {})]",
+                                r#type, r#type,
+                            );
                             return Err(syn::Error::new(skip.span(), msg));
                         }
                     }
@@ -268,7 +271,7 @@ impl QueryTable {
         ].iter().filter(|(_, attr)| attr.is_some()).flat_map(|(r#type, _)| {
             self.fields.iter().filter(|f| self.fielded(f, *r#type)).map(|f| (f, *r#type))
         }).filter_map(|(field, r#type)| self.optional(field, r#type)).next();
-        self.verify(opt)?;
+        r#static(self.attr.dynamic.spany(), opt)?;
 
         let a = &mut self.attr;
         for returning in [
@@ -301,7 +304,7 @@ impl QueryTable {
             for item in &list.data {
                 if let Ok(r#type) = item.data.try_into() {
                     if !types.contains(&r#type) {
-                        let name = item.data.to_string();
+                        let name = item.data.to_string().to_lowercase();
                         let msg = format!("unused value: requires #[sqly({})] on struct", name);
                         return Err(syn::Error::new(item.span(), msg));
                     }
@@ -310,8 +313,7 @@ impl QueryTable {
             for (i, item) in list.data.iter().enumerate() {
                 let mut rest = list.data.as_slice()[i + 1..].iter();
                 if let Some(item) = rest.find(|i| i.data == item.data) {
-                    let name = item.data.to_string();
-                    let msg = format!("duplicate value: {}", name);
+                    let msg = format!("duplicate value: {}", item.data.to_string());
                     return Err(syn::Error::new(item.span(), msg));
                 }
             }
@@ -320,6 +322,24 @@ impl QueryTable {
         Ok(())
     }
 
+}
+
+pub fn r#static(dynamic: Option<Span>, optional: Option<Span>) -> Result<()> {
+    match dynamic {
+        Some(span) => if optional.is_none() {
+            let msg = "unused attribute: queries do not need to be generated at runtime\
+                \nnote: no fields end up parsed as #[sqly(optional)] in generated queries,\
+                \n      remove #[sqly(dynamic)] to indicate static queries can be generated";
+            return Err(syn::Error::new(span, msg));
+        }
+        None => if let Some(span) = optional {
+            let msg = "unused attribute: requires #[sqly(dynamic)] on struct\
+                \nnote: due to #[sqly(optional)] queries must be generated at runtime,\
+                \n      use #[sqly(dynamic)] to explicitly opt-in for this behavior";
+            return Err(syn::Error::new(span, msg));
+        }
+    }
+    Ok(())
 }
 
 

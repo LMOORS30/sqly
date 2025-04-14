@@ -46,9 +46,8 @@ impl DeleteTable {
 
         if self.attr.filter.is_empty() {
             if self.fields().next().is_none() {
-                let span = Span::call_site();
                 let msg = "incomplete query: missing delete key";
-                return Err(syn::Error::new(span, msg));
+                return Err(syn::Error::new(Span::call_site(), msg));
             }
         }
 

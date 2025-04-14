@@ -312,26 +312,19 @@ paste::paste! {
 
         fn try_from(input: syn::DeriveInput) -> syn::Result<Self> {
             let data = match input.data {
-                syn::Data::Struct(data) => {
-                    if data.fields.iter().all(|f| {
-                        f.ident.is_some()
-                    }) { Some(data) }
-                    else { None }
-                }
-                _ => None,
+                syn::Data::Struct(data) => data,
+                _ => {
+                    let msg = "expected struct";
+                    return Err(syn::Error::new(Span::call_site(), msg));
+                },
             };
 
-            let data = match data {
-                Some(data) => data,
-                None => {
-                    let span = Span::call_site();
-                    let msg = "not a struct with named fields";
-                    return Err(syn::Error::new(span, msg));
-                }
-            };
+            if data.fields.iter().any(|f| f.ident.is_none()) {
+                let msg = "expected struct with named fields";
+                return Err(syn::Error::new(Span::call_site(), msg));
+            }
 
-            let span = Span::call_site();
-            let info = (input.attrs, span);
+            let info = (input.attrs, Span::call_site());
             let attr = Box::new([<$table Attr>]::try_from(info)?);
             let fields = data.fields.into_iter().map($field::try_from);
             let fields = fields.collect::<syn::Result<Vec<$field>>>()?;
@@ -352,8 +345,7 @@ paste::paste! {
         fn try_from(field: syn::Field) -> syn::Result<Self> {
             let ident = field.ident.expect("unnamed field");
 
-            let span = ident.span();
-            let info = (field.attrs, span);
+            let info = (field.attrs, ident.span());
             let attr = [<$field Attr>]::try_from(info)?;
 
             Ok(Self {

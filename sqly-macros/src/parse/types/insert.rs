@@ -44,9 +44,8 @@ impl InsertTable {
         }
 
         if self.fields().next().is_none() {
-            let span = Span::call_site();
             let msg = "incomplete query: missing insert value";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
 
         self.r#static()?;

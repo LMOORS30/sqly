@@ -97,9 +97,8 @@ impl UpdateTable {
             }
         }
         if !build.cut(&[",\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing update column";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
         build.str("\nWHERE\n")?;
 
@@ -130,9 +129,8 @@ impl UpdateTable {
             }
         }
         if !build.cut(&[" AND\n"])? {
-            let span = Span::call_site();
             let msg = "incomplete query: missing update filter";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
 
         build.duo(|target| returns.returns(target))?;
