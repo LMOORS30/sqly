@@ -157,7 +157,7 @@ impl QueryTable {
         ).unwrap();
         self.listed(&mut query, target)?;
         write!(&mut query,
-            "\nFROM \"{table}\" AS \"self\""
+            "\nFROM {table} AS \"self\""
         ).unwrap();
         Ok(query)
     }
@@ -237,7 +237,7 @@ impl Construct<'_> {
         }
 
         write!(&mut query,
-            "\nFROM \"{table}\" AS \"{unique}\""
+            "\nFROM {table} AS \"{unique}\""
         ).unwrap();
 
         query.push_str(&joins);

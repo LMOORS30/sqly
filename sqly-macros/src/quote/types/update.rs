@@ -79,7 +79,7 @@ impl UpdateTable {
         map.ensure("i");
 
         build.str(&format!(
-            "UPDATE \"{table}\" AS \"self\"\nSET\n",
+            "UPDATE {table} AS \"self\"\nSET\n",
         ))?;
 
         for (field, cell) in &mut fields {

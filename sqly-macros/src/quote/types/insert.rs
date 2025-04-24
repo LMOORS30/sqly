@@ -78,7 +78,7 @@ impl InsertTable {
         map.ensure("i");
 
         build.str(&format!(
-            "INSERT INTO \"{table}\" AS \"self\" (\n"
+            "INSERT INTO {table} AS \"self\" (\n"
         ))?;
 
         for (field, _) in &fields {

@@ -31,7 +31,9 @@
 ```
 The name of the database table which this type represents.
 
-All uses of the table name will be enclosed in quotes.
+The table name will NOT be enclosed in quotes, allowing schemas and even function calls.
+
+Invalid identifiers must be manually quoted, an alias must not be provided, it will be automatically generated.
 
 ----
 ```

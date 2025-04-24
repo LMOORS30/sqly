@@ -79,7 +79,7 @@ impl DeleteTable {
         map.ensure("i");
 
         build.str(&format!(
-            "DELETE FROM \"{table}\" AS \"self\"\nWHERE\n"
+            "DELETE FROM {table} AS \"self\"\nWHERE\n"
         ))?;
 
         let list = self.attr.filter.infos();
