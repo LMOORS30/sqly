@@ -449,7 +449,6 @@ impl $table {
     }
 
     fn declare<'c>(&self, field: &'c $field, named: &syn::Ident) -> Result<Declaration<'c>> {
-        const SEP: &'static [char] = &['!', '?', ':'];
         let (name, info) = match &field.attr.column {
             None => {
                 let ident = named.unraw();
@@ -458,9 +457,15 @@ impl $table {
             }
             Some(column) => {
                 let name = column.data.data.as_str();
-                let (name, info) = match name.find(SEP) {
-                    Some(i) => name.split_at(i),
-                    None => (name, ""),
+                let (name, info) = {
+                    if let Some(cut) = name.rfind('\0') {
+                        (&name[..cut], &name[cut + 1..])
+                    } else {
+                        match name.find(['!', '?', ':']) {
+                            Some(i) => name.split_at(i),
+                            None => (name, ""),
+                        }
+                    }
                 };
                 let name = self.rename(field, name)?;
                 (name, info)

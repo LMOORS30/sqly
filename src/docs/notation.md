@@ -12,7 +12,7 @@ Both the name and value are surrounded by parentheses and followed by a repetiti
 
 If no value is specified in the definition there cannot be any value.
 
-The value must occur the specified amount of times for each occurence of the name.
+The value must occur the specified amount of times for each occurrence of the name.
 
 A singular equals sign is required when the value occurs at least once, otherwise it must be omitted.
 

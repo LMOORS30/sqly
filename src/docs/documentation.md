@@ -469,11 +469,13 @@ Use cases:&ensp;`cargo check > queries.txt`&ensp;or&ensp;`cargo check 2> generat
 ```
 The name of the database column which this field maps to.
 
-If not specified this defaults to the ident of the field.
-
 All uses of the column name will be enclosed in quotes.
 
+If not specified this defaults to the ident of the field.
+
 Includes support for the sqlx&ensp;`?`&ensp;`!`&ensp;`: _`&ensp;and&ensp;`: T`&ensp;[type overrides](sqlx::query!#type-overrides-output-columns).
+
+The string will be split at the first occurrence of any of those, with only the preceding part representing the database column name. In case this is not desired, the `\0` character can be used as an escape hatch, splitting the string at its last occurrence instead.
 
 <br>
 
