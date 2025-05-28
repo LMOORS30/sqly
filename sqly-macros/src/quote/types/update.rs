@@ -70,16 +70,17 @@ impl UpdateTable {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;
+        let unique = "self";
 
         let map = &mut params;
         let mut fields = self.cells(map, |field| {
             Dollar(Index::unset(field))
-        }, Either::<_, Cow<str>>::Left)?;
+        }, Either::<_, Cow<_>>::Left)?;
         map.ensure("column");
         map.ensure("i");
 
         build.str(&format!(
-            "UPDATE {table} AS \"self\"\nSET\n",
+            "UPDATE {table} AS \"{unique}\"\nSET\n",
         ))?;
 
         for (field, cell) in &mut fields {
@@ -107,6 +108,7 @@ impl UpdateTable {
         }
         build.str("\nWHERE\n")?;
 
+        map.displace("table", Right(unique.into()));
         let list = self.attr.filter.infos();
         if !list.is_empty() {
             build.str("\t(")?;

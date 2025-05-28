@@ -111,6 +111,7 @@ impl<T: Struct + Declare> Returns<'_, T> {
 
     pub fn returns(&self, target: Target) -> Result<String> {
         let mut query = String::new();
+        let unique = "self";
 
         let returns = match self {
             Returns::None => return Ok(query),
@@ -128,17 +129,16 @@ impl<T: Struct + Declare> Returns<'_, T> {
         ).unwrap();
 
         match returns {
-            Right(table) => table.listed(&mut query, target)?,
+            Right(table) => table.listed(&mut query, unique, target)?,
             Left(slice) => {
                 for item in slice {
-                    let table = "self";
                     let alias = item.alias()?;
                     let (column, modifier) = item.declaration()?;
                     let list = match item {
                         Scalar::Table(_, _) => Vec::new(),
                         Scalar::Paved(_, field) => field.attr.select.infos(),
                     };
-                    selector(&mut query, &list, &table, &column, &alias, modifier, target)?;
+                    selector(&mut query, &list, unique, &column, &alias, modifier, target)?;
                 }
                 if query.ends_with(",\n") {
                     query.truncate(query.len() - 2);
@@ -156,26 +156,26 @@ impl QueryTable {
     pub fn query(&self, target: Target) -> Result<String> {
         let table = &self.attr.table.data.data;
         let mut query = String::new();
+        let unique = "self";
         write!(&mut query,
             "SELECT\n"
         ).unwrap();
-        self.listed(&mut query, target)?;
+        self.listed(&mut query, unique, target)?;
         write!(&mut query,
-            "\nFROM {table} AS \"self\""
+            "\nFROM {table} AS \"{unique}\""
         ).unwrap();
         Ok(query)
     }
 
-    fn listed(&self, query: &mut String, target: Target) -> Result<()> {
+    fn listed(&self, query: &mut String, table: &str, target: Target) -> Result<()> {
         for column in self.coded()? {
             let column = column?;
             let field = column.field;
             if let Code::Query = column.code {
-                let table = "self";
                 let alias = field.ident.unraw();
                 let (column, modifier) = self.declaration(field)?;
                 let list = field.attr.select.infos();
-                selector(query, &list, &table, &column, &alias, modifier, target)?;
+                selector(query, &list, table, &column, &alias, modifier, target)?;
             }
         }
         if query.ends_with(",\n") {
@@ -206,9 +206,9 @@ impl Construct<'_> {
                     let modifier = "!: _";
                     let alias = flattened.column.alias()?;
                     let column = flattened.column.column()?;
-                    let table = flattened.construct.unique()?;
+                    let unique = flattened.construct.unique()?;
                     let list = flattened.column.field.attr.select.infos();
-                    selector(&mut query, &list, &table, &column, &alias, modifier, target)?;
+                    selector(&mut query, &list, unique, &column, &alias, modifier, target)?;
                 }
                 Code::Foreign(construct) => {
                     let list = flattened.column.field.attr.foreign.infos();
@@ -257,18 +257,19 @@ impl SelectTable {
     pub fn query(&self, construct: &Construct) -> Result<Done<SelectTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
-        let table = construct.unique()?;
+        let unique = construct.unique()?;
 
         let map = &mut params;
         let mut fields = self.cells(map, |field| {
             Dollar(Index::unset(field))
-        }, Either::<_, Cow<str>>::Left)?;
+        }, Either::<_, Cow<_>>::Left)?;
         map.ensure("column");
         map.ensure("i");
 
         build.duo(|target| construct.query(target))?;
         build.str("\nWHERE\n")?;
 
+        map.displace("table", Right(unique.into()));
         let list = self.attr.filter.infos();
         if !list.is_empty() {
             build.str("\t(")?;
@@ -287,7 +288,7 @@ impl SelectTable {
                     build.arg(map, &list, None)?;
                     build.str(") AND\n")
                 } else {
-                    build.str(&format!("\t\"{table}\".\"{column}\" = "))?;
+                    build.str(&format!("\t\"{unique}\".\"{column}\" = "))?;
                     build.arg(map, &[], Some(cell))?;
                     build.str(" AND\n")
                 }

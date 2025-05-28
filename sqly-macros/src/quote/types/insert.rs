@@ -70,6 +70,7 @@ impl InsertTable {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;
+        let unique = "self";
 
         let map = &mut params;
         let mut fields = self.cells(map, |field| {
@@ -78,7 +79,7 @@ impl InsertTable {
         map.ensure("i");
 
         build.str(&format!(
-            "INSERT INTO {table} AS \"self\" (\n"
+            "INSERT INTO {table} AS \"{unique}\" (\n"
         ))?;
 
         for (field, _) in &fields {
