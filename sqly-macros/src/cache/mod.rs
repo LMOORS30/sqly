@@ -164,7 +164,7 @@ pub struct Store {
 
 #[derive(Default)]
 pub struct Local {
-    $($lower: Map<Id, $table>,)*
+    $($lower: Map<Id, Option<$table>>,)*
 }
 
 static STORE: OnceLock<RwLock<Store>> = OnceLock::new();
@@ -186,8 +186,12 @@ pub mod cache {
 impl Local {
 paste::paste! {
 
+    $(pub fn [<has_ $lower>](&self, id: &Id) -> bool {
+        self.$lower.get(id).and_then(Option::as_ref).is_some()
+    })*
+
     $(pub fn [<get_ $lower>](&self, id: &Id) -> Result<&$table> {
-        match self.$lower.get(id) {
+        match self.$lower.get(id).and_then(Option::as_ref) {
             Some(entry) => Ok(entry),
             None => {
                 let key = Key::$upper(id.clone());
@@ -198,9 +202,9 @@ paste::paste! {
         }
     })*
 
-    $(pub fn [<pop_ $lower>](&mut self, id: &Id) -> Result<(Id, $table)> {
-        match self.$lower.remove_entry(id) {
-            Some(entry) => Ok(entry),
+    $(pub fn [<pop_ $lower>](&mut self, id: &Id) -> Result<Option<$table>> {
+        match self.$lower.get_mut(id) {
+            Some(entry) => Ok(entry.take()),
             None => {
                 let key = Key::$upper(id.clone());
                 let msg = format!("missing definition: {key}\n\
@@ -211,12 +215,8 @@ paste::paste! {
     })*
 
     $(pub fn [<put_ $lower>](&mut self, id: Id, table: $table) -> Result<()> {
-        self.$lower.insert(id, table);
+        self.$lower.insert(id, Some(table));
         Ok(())
-    })*
-
-    $(pub fn [<has_ $lower>](&self, id: &Id) -> bool {
-        self.$lower.contains_key(id)
     })*
 
 } }

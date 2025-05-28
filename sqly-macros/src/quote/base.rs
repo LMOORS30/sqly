@@ -168,22 +168,39 @@ impl<'c, T: Struct> Scalar<'c, T> {
 
 impl Constructed<'_> {
 
-    pub fn from(&self) -> Result<TokenStream> {
-        let from = match &self.field.attr.from {
-            None => TokenStream::new(),
-            Some(_) => {
-                let ty = &self.field.ty;
-                let span = ty.spanned();
-                quote::quote_spanned!(span => <#ty>::from)
-            }
+    pub fn from(&self, arg: &TokenStream, base: &Construct) -> Result<TokenStream> {
+        let ty = &self.field.ty;
+        let from = match (&self.field.attr.try_from, &self.field.attr.from) {
+            (Some(name), _) => {
+                if let Some(span) = base.table.attr.from_flat.spany() {
+                    let msg = "conflicting attributes: \
+                        #[sqly(from_flat)] with #[sqly(try_from)] on foreign fields\n\
+                        help: use #[sqly(try_from_flat)] instead";
+                    return Err(syn::Error::new(span, msg));
+                }
+                let column = self.alias()?;
+                let krate = self.table.krate()?;
+                quote::quote_spanned!{name.span=>
+                    <#ty as ::core::convert::TryFrom<_>>::try_from(#arg).map_err(|e| {
+                        #krate::sqlx::Error::ColumnDecode {
+                            source: #krate::__spec_error!(e),
+                            index: #column.to_string(),
+                        }
+                    })?
+                }
+            },
+            (_, Some(name)) => quote::quote_spanned!{name.span=>
+                <#ty as ::core::convert::From<_>>::from(#arg)
+            },
+            _ => arg.clone(),
         };
         Ok(from)
     }
 
-    pub fn none(&self) -> Result<TokenStream> {
+    pub fn none(&self, arg: &TokenStream, base: &Construct) -> Result<TokenStream> {
         let none = match &self.field.attr.default {
-            Some(_) => TokenStream::new(),
-            None => self.from()?,
+            None => self.from(arg, base)?,
+            Some(_) => arg.clone(),
         };
         Ok(none)
     }
@@ -192,16 +209,14 @@ impl Constructed<'_> {
 
 impl Nullable<'_> {
 
-    pub fn some(&self) -> Result<TokenStream> {
+    pub fn some(&self, arg: &TokenStream) -> Result<TokenStream> {
         let some = match self {
             Nullable::Option(path) => {
                 let path = argone(path);
                 let span = path.spanned();
-                quote::quote_spanned!(span => #path::Some)
+                quote::quote_spanned!(span => #path::Some(#arg))
             }
-            Nullable::Default(_, _) => {
-                TokenStream::new()
-            }
+            Nullable::Default(_, _) => arg.clone(),
         };
         Ok(some)
     }
@@ -275,13 +290,13 @@ impl $table {
 
     pub fn [<$lower>](&self, done: &Done<$table>, returns: &Returns<$table>) -> Result<TokenStream> {
         let db = db![];
+        let row = row![];
         let obj = &self.ident;
         let krate = self.krate()?;
         let res = quote::quote! { ::core::result::Result };
         let err = quote::quote! { #krate::sqlx::error::BoxDynError };
-        let row = quote::quote! { <#krate #db as #krate::sqlx::Database>::Row };
         let arg = quote::quote! { <#krate #db as #krate::sqlx::Database>::Arguments };
-        let map = quote::quote! { fn(#row) -> #krate::sqlx::Result };
+        let map = quote::quote! { fn(#krate #row) -> #krate::sqlx::Result };
 
         let typle = match &self.attr.table.data.data {
             Paved::String(_) => quote::quote! { &'static str },
@@ -524,9 +539,11 @@ impl $table {
             args.push_str(&val.to_string())
         }
         for arg in &done.rest {
-            args.push_str(",\n\t// ");
-            let val = self.value(arg, target)?;
-            args.push_str(&val.to_string())
+            if self.optional(arg).is_some() {
+                args.push_str(",\n\t// ");
+                let val = self.value(arg, target)?;
+                args.push_str(&val.to_string());
+            }
         }
         let sql = format!(
             "{}::query!(\n\tr#\"{}\"#{}\n)",

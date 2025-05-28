@@ -159,9 +159,10 @@ impl QueryTable {
                     let table = guard.table(&id)?.sync()?;
                     local.put_table(id.clone(), table)?;
                 }
-                let (id, table) = local.pop_table(&id)?;
-                table.colocate(local)?;
-                local.put_table(id, table)?;
+                if let Some(table) = local.pop_table(&id)? {
+                    table.colocate(local)?;
+                    local.put_table(id, table)?;
+                }
             }
         }
         Ok(&*local)
@@ -218,19 +219,20 @@ impl<'c> Construct<'c> {
                 level: n,
                 column,
             }));
-            let iter: Box<dyn Iterator<Item = _>> = match &column.code {
-                Code::Skip => Box::new(once),
-                Code::Query => Box::new(once),
+            let iter = match &column.code {
+                Code::Skip => Left(once),
+                Code::Query => Left(once),
                 Code::Foreign(construct) => {
                     let opt = construct.nullable()?.or(opt);
-                    Box::new(once.chain(construct.flattened(opt, n + 1)?))
+                    Right(once.chain(construct.flattened(opt, n + 1)?))
                 }
             };
             Ok(iter)
         }).flat_map(|iter| match iter {
-            Err(err) => Box::new(std::iter::once(Err(err))),
+            Err(err) => Left(std::iter::once(Err(err))),
             Ok(iter) => iter,
         });
+        let flatten: Box<dyn Iterator<Item = _>> = Box::new(flatten);
         Ok(flatten)
     }
 

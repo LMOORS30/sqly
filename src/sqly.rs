@@ -5,6 +5,7 @@ mod traits;
 pub use macros::*;
 pub use traits::*;
 
+#[doc(hidden)]
 #[cfg(feature = "serde")]
 pub use serde;
 pub use sqlx;
@@ -34,6 +35,8 @@ pub mod docs {
         pub mod note {}
     }
 }
+
+
 
 /// Utility module for [serde](https://serde.rs).
 /// 
@@ -83,6 +86,8 @@ pub mod double_option {
         }
     }
 }
+
+
 
 /// Utility module for [`#[sqly(dynamic)]`](docs::attr#dynamic).
 pub mod dynamic {
@@ -151,5 +156,74 @@ pub mod dynamic {
             panic!("not possible")
         }
     }
+}
 
+
+
+/// Utility module for [`#[sqly(try_from_flat)]`](docs::attr#flat).
+/// 
+/// Based on [`sqlx::spec_error`](https://docs.rs/crate/sqlx/0.8.0/source/src/spec_error.rs).
+#[doc(hidden)]
+pub mod spec_error {
+    /// Builds a `Box<dyn Error + Send + Sync + 'static>` from any expression.
+    /// 
+    /// Used by [`#[sqly(try_from_flat)]`](docs::attr#flat).
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __spec_error {
+        ($e:expr) => {{
+            use $crate::spec_error::SpecError as _;
+            let wrapper = $crate::spec_error::SpecErrorWrapper($e);
+            (&&&&wrapper).__sqly_spec_error()(wrapper.0)
+        }};
+    }
+
+    /// Wrapper to perform autoderef specialization on.
+    /// 
+    /// Used by [`__spec_error!`](__spec_error!).
+    pub struct SpecErrorWrapper<E>(pub E);
+
+    /// Trait to perform autoderef specialization with.
+    /// 
+    /// Used by [`__spec_error!`](__spec_error!).
+    pub trait SpecError<E> {
+        /// Function to perform autoderef specialization with.
+        /// 
+        /// Used by [`__spec_error!`](__spec_error!).
+        fn __sqly_spec_error(&self) -> fn(E) -> sqlx::error::BoxDynError;
+    }
+
+    impl<E: std::error::Error + Send + Sync + 'static> SpecError<E> for &&&SpecErrorWrapper<E> {
+        fn __sqly_spec_error(&self) -> fn(E) -> sqlx::error::BoxDynError {
+            |e| Box::new(e)
+        }
+    }
+    impl<E: std::fmt::Display> SpecError<E> for &&SpecErrorWrapper<E> {
+        fn __sqly_spec_error(&self) -> fn(E) -> sqlx::error::BoxDynError {
+            |e| e.to_string().into()
+        }
+    }
+    impl<E: std::fmt::Debug> SpecError<E> for &SpecErrorWrapper<E> {
+        fn __sqly_spec_error(&self) -> fn(E) -> sqlx::error::BoxDynError {
+            |e| format!("{:?}", e).into()
+        }
+    }
+    impl<E> SpecError<E> for SpecErrorWrapper<E> {
+        fn __sqly_spec_error(&self) -> fn(E) -> sqlx::error::BoxDynError {
+            |_| format!("unprintable error: {}", std::any::type_name::<E>()).into()
+        }
+    }
+
+    #[test]
+    fn spec_error() {
+        type E = sqlx::error::BoxDynError;
+        let e: E = __spec_error!(std::io::Error::from(std::io::ErrorKind::Other));
+        assert_eq!(format!("{:?}", e), "Kind(Other)");
+        assert_eq!(format!("{}", e), "other error");
+        let e: E = __spec_error!("display");
+        assert_eq!(format!("{:?}", e), "\"display\"");
+        let e: E = __spec_error!(&["debug"]);
+        assert_eq!(format!("{}", e), "[\"debug\"]");
+        let _: E = __spec_error!(SpecErrorWrapper(&e));
+    }
 }

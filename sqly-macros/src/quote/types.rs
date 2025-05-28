@@ -55,7 +55,7 @@ impl Cache for QueryTable {
 impl QueryTable {
 
     pub fn derived(&self) -> Result<TokenStream> {
-        let db = db![];
+        let row = row![];
         let ident = &self.ident;
         let krate = self.krate()?;
 
@@ -81,8 +81,8 @@ impl QueryTable {
 
         let from_row = form.map(|form| quote::quote! {
             #[automatically_derived]
-            impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #ident {
-                fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
+            impl<'r> #krate::sqlx::FromRow<'r, #krate #row> for #ident {
+                fn from_row(row: &'r #krate #row) -> #krate::sqlx::Result<Self> {
                     #![allow(non_snake_case)]
                     use #krate::sqlx::Row as _;
                     #krate::sqlx::Result::Ok(#form)
@@ -202,7 +202,7 @@ impl Construct<'_> {
     }
 
     pub fn flat(&self) -> Result<TokenStream> {
-        let db = db![];
+        let row = row![];
         let ident = &self.table.ident;
         let krate = self.table.krate()?;
 
@@ -218,7 +218,7 @@ impl Construct<'_> {
             } }
         };
 
-        let sets = match &self.table.attr.flat_row {
+        let flat_row = match &self.table.attr.flat_row {
             None => None,
             Some(_) => {
                 let mut sets = Vec::new();
@@ -233,31 +233,44 @@ impl Construct<'_> {
                         });
                     }
                 }
-                Some(sets)
+                Some(quote::quote! {
+                    #[automatically_derived]
+                    impl<'r> #krate::sqlx::FromRow<'r, #krate #row> for #flat {
+                        fn from_row(row: &'r #krate #row) -> #krate::sqlx::Result<Self> {
+                            use #krate::sqlx::Row as _;
+                            #krate::sqlx::Result::Ok(#flat { #(#sets,)* })
+                        }
+                    }
+                })
             }
         };
-        let flat_row = sets.map(|sets| quote::quote! {
-            #[automatically_derived]
-            impl<'r> #krate::sqlx::FromRow<'r, <#krate #db as #krate::sqlx::Database>::Row> for #flat {
-                fn from_row(row: &'r <#krate #db as #krate::sqlx::Database>::Row) -> #krate::sqlx::Result<Self> {
-                    use #krate::sqlx::Row as _;
-                    #krate::sqlx::Result::Ok(#flat { #(#sets,)* })
-                }
-            }
-        });
 
-        let form = match &self.table.attr.from_flat {
-            Some(_) => Some(self.form(Source::Field)?),
-            None => None,
-        };
-        let from_flat = form.map(|form| quote::quote! {
-            #[automatically_derived]
-            impl ::core::convert::From<#flat> for #ident {
-                fn from(row: #flat) -> Self {
-                    #form
-                }
+        let from_flat = match (&self.table.attr.try_from_flat, &self.table.attr.from_flat) {
+            (Some(_), _) => {
+                let form = self.form(Source::Field)?;
+                Some(quote::quote! {
+                    #[automatically_derived]
+                    impl ::core::convert::TryFrom<#flat> for #ident {
+                        type Error = #krate::sqlx::error::Error;
+                        fn try_from(row: #flat) -> ::core::result::Result<Self, Self::Error> {
+                            ::core::result::Result::Ok(#form)
+                        }
+                    }
+                })
             }
-        });
+            (_, Some(_)) => {
+                let form = self.form(Source::Field)?;
+                Some(quote::quote! {
+                    #[automatically_derived]
+                    impl ::core::convert::From<#flat> for #ident {
+                        fn from(row: #flat) -> Self {
+                            #form
+                        }
+                    }
+                })
+            }
+            _ => None,
+        };
 
         Ok(quote::quote! {
             #[allow(non_snake_case)]
@@ -279,16 +292,16 @@ struct Former<'c> {
     target: &'c Constructed<'c>,
     source: &'c Constructed<'c>,
     option: Nullable<'c>,
-    ident: Cow<'c, syn::Ident>,
+    gifted: Cow<'c, syn::Ident>,
 }
 
 impl Construct<'_> {
 
     pub fn form(&self, source: Source) -> Result<TokenStream> {
-        self.formed(None, source)
+        self.formed(None, source, self)
     }
 
-    fn formed(&self, former: Option<&Former>, source: Source) -> Result<TokenStream> {
+    fn formed(&self, former: Option<&Former>, source: Source, base: &Construct) -> Result<TokenStream> {
         let fields = self.fields.iter().map(|column| {
             let value = match &column.code {
                 Code::Skip => {
@@ -301,71 +314,79 @@ impl Construct<'_> {
                 Code::Query => match source {
                     Source::Field => match (former, column.nullable()?) {
                         (Some(former), None) => {
-                            let nullable = &former.option;
-                            let from = column.from()?;
                             let ident = column.ident()?;
-                            let option = nullable.option()?;
-                            let default = nullable.default()?;
-                            let none = former.source.none()?;
+                            let option = former.option.option()?;
+                            let arg = quote::quote_spanned!(ident.span() => val);
+                            let row = quote::quote_spanned!(ident.span() => row.#ident);
+                            let none = former.source.none(&former.option.default()?, base)?;
+                            let some = column.from(&arg, base)?;
                             quote::quote! {
-                                match row.#ident {
-                                    #option::Some(val) => #from(val),
-                                    #option::None => break #none(#default),
+                                match #row {
+                                    #option::Some(#arg) => #some,
+                                    #option::None => break #none,
                                 }
                             }
                         }
-                        (_, Some(Nullable::Default(span, path))) => {
-                            let nullable = Nullable::Default(span, path);
-                            let from = column.from()?;
+                        (_, Some(nullable)) if nullable.defaulted() => {
                             let ident = column.ident()?;
                             let option = nullable.option()?;
-                            let default = nullable.default()?;
+                            let arg = quote::quote_spanned!(ident.span() => val);
+                            let row = quote::quote_spanned!(ident.span() => row.#ident);
+                            let none = nullable.default()?;
+                            let some = column.from(&arg, base)?;
                             quote::quote! {
-                                match row.#ident {
-                                    #option::Some(val) => #from(val),
-                                    #option::None => #default,
+                                match #row {
+                                    #option::Some(#arg) => #some,
+                                    #option::None => #none,
                                 }
                             }
                         }
                         _ => {
-                            let from = column.from()?;
                             let ident = column.ident()?;
-                            quote::quote! { #from(row.#ident) }
+                            let row = quote::quote_spanned!(ident.span() => row.#ident);
+                            let from = column.from(&row, base)?;
+                            quote::quote! { #from }
                         }
                     }
                     Source::Column => {
                         let ident = column.ident()?;
                         let param = former.and_then(|former| {
-                            match ident.eq(&former.ident) {
+                            match ident.eq(&former.gifted) {
                                 true => Some(ident),
                                 false => None,
                             }
                         });
                         match param {
                             Some(param) => {
-                                let from = column.from()?;
-                                quote::quote! { #from(#param) }
+                                let arg = quote::quote! { #param };
+                                let some = column.from(&arg, base)?;
+                                quote::quote! { #some }
                             }
-                            None => match column.nullable()? {
-                                Some(Nullable::Default(span, path)) => {
-                                    let nullable = Nullable::Default(span, path);
+                            None => match column.defaulted()? {
+                                Some(defaulted) => {
                                     let ty = column.typed()?;
-                                    let from = column.from()?;
                                     let alias = column.alias()?;
-                                    let option = nullable.option()?;
-                                    let default = nullable.default()?;
+                                    let option = defaulted.option()?;
+                                    let default = defaulted.default()?;
+                                    let span = column.field.ident.span();
+                                    let arg = quote::quote_spanned!(span => val);
+                                    let get = quote::quote_spanned!(span => row.try_get);
+                                    let some = column.from(&arg, base)?;
                                     quote::quote! {
-                                        match row.try_get::<#ty, _>(#alias)? {
-                                            #option::Some(val) => #from(val),
+                                        match #get::<#ty, _>(#alias)? {
+                                            #option::Some(#arg) => #some,
                                             #option::None => #default,
                                         }
                                     }
                                 }
                                 _ => {
                                     let ty = column.typed()?;
-                                    let from = column.from()?;
                                     let alias = column.alias()?;
-                                    quote::quote! { #from(row.try_get::<#ty, _>(#alias)?) }
+                                    let span = column.field.ident.span();
+                                    let get = quote::quote_spanned!(span => row.try_get);
+                                    let arg = quote::quote! { #get::<#ty, _>(#alias)? };
+                                    let from = column.from(&arg, base)?;
+                                    quote::quote! { #from }
                                 }
                             }
                         }
@@ -389,37 +410,34 @@ impl Construct<'_> {
                                 }
                             };
                             let source = &column;
-                            let ident = target.ident()?;
-                            Some(Former { option, source, target, ident })
+                            let gifted = target.ident()?;
+                            Some(Former { option, source, target, gifted })
                         }
                     };
                     let former = nullable.as_ref().or(former);
-                    let formed = construct.formed(former, source)?;
+                    let formed = construct.formed(former, source, base)?;
                     match nullable {
                         None => {
-                            let from = column.from()?;
-                            quote::quote! { #from(#formed) }
+                            let from = column.from(&formed, base)?;
+                            quote::quote! { #from }
                         }
                         Some(former) => match source {
                             Source::Field => {
-                                let from = column.from()?;
-                                let some = former.option.some()?;
-                                quote::quote! { loop { break #from(#some(#formed)); } }
+                                let from = column.from(&former.option.some(&formed)?, base)?;
+                                quote::quote! { loop { break #from; } }
                             }
                             Source::Column => {
-                                let ident = &former.ident;
+                                let gifted = &former.gifted;
                                 let nullable = &former.option;
+                                let option = nullable.option()?;
                                 let ty = former.target.typed()?;
                                 let alias = former.target.alias()?;
-                                let default = nullable.default()?;
-                                let option = nullable.option()?;
-                                let some = nullable.some()?;
-                                let none = column.none()?;
-                                let from = column.from()?;
+                                let some = column.from(&nullable.some(&formed)?, base)?;
+                                let none = column.none(&nullable.default()?, base)?;
                                 quote::quote! {
                                     match row.try_get::<#option<#ty>, _>(#alias)? {
-                                        #option::Some(#ident) => #from(#some(#formed)),
-                                        #option::None => #none(#default),
+                                        #option::Some(#gifted) => #some,
+                                        #option::None => #none,
                                     }
                                 }
                             }

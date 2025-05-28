@@ -1,6 +1,9 @@
 #[cfg(feature = "postgres")]
 macro_rules! db { [] => ( quote::quote! { ::sqlx::Postgres } ) }
 
+#[cfg(feature = "postgres")]
+macro_rules! row { [] => ( quote::quote! { ::sqlx::postgres::PgRow } ) }
+
 
 
 macro_rules! vectok {
@@ -243,12 +246,13 @@ impl<'c, T: Builder> Build<'c, T> {
         let stream = if let Some(stream) = &mut self.stream {
             let db = db![];
             let krate = self.table.krate()?;
-            let option = self.optional.then(|| {
-                quote::quote! { ::core::option::Option::Some }
-            });
             let tuple = match args.len() {
                 0 => quote::quote! { query },
                 _ => quote::quote! { (query, args) },
+            };
+            let tuple = match self.optional {
+                true => quote::quote! { ::core::option::Option::Some(#tuple) },
+                false => tuple,
             };
             let mut full = args.clone();
             full.extend(rest.iter().filter(|field| {
@@ -260,7 +264,6 @@ impl<'c, T: Builder> Build<'c, T> {
             let ident = full.iter().map(|field| Self::idx(field));
             let bind = (0..full.len()).map(|i| syn::Index::from(i));
             let args = (!args.is_empty()).then(|| quote::quote! {
-                use ::core::fmt::Write as _;
                 let args = <#db as #krate::sqlx::Database>::Arguments::default();
                 let mut args = ::core::result::Result::Ok(args);
             });
@@ -271,9 +274,10 @@ impl<'c, T: Builder> Build<'c, T> {
             });
             quote::quote! {
                 #arg
+                use ::core::fmt::Write as _;
                 let mut query = ::std::string::String::new();
                 #stream
-                #option(#tuple)
+                #tuple
             }
         } else if let Some(string) = &mut self.string {
             let db = db![];
@@ -282,7 +286,8 @@ impl<'c, T: Builder> Build<'c, T> {
             let bind = (0..len).map(|i| {
                 let i = syn::Index::from(i);
                 quote::quote! { arg.#i }
-            }).collect::<Vec<_>>();
+            });
+            let hint = bind.clone();
             let expr = args.iter().map(|field| {
                 self.table.value(field, Target::Function)
             }).collect::<Result<Vec<_>>>()?;
@@ -290,7 +295,7 @@ impl<'c, T: Builder> Build<'c, T> {
                 let arg = (#(&(#expr),)*);
                 use #krate::sqlx::Arguments as _;
                 let mut args = <#krate #db as #krate::sqlx::Database>::Arguments::default();
-                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#bind))*);
+                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#hint))*);
                 let args = ::core::result::Result::Ok(args)
                 #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
                 (#string, args)

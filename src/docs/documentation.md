@@ -2,7 +2,7 @@
 
 ##### Struct Attributes:
 `#[sqly(`[`table`](#table)`,`[`rename_all`](#rename)`)]`<br>
-`#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
+`#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`try_from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
 `#[sqly(`[`flat`](#flat)`,`[`delete`](#delete)`,`[`insert`](#insert)`,`[`select`](#select)`,`[`update`](#update)`,`[`derive`](#derive)`,`[`visibility`](#visibility)`)]`<br>
 `#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`returning`](#returning)`)]`<br>
 `#[sqly(`[`unchecked`](#codegen)`,`[`crate`](#codegen)`,`[`print`](#development)`,`[`debug`](#development)`)]`<br>
@@ -12,9 +12,8 @@
 `#[sqly(`[`select`](#select-1)`,`[`insert`](#insert-1)`,`[`update`](#update-1)`)]`<br>
 `#[sqly(`[`optional`](#optional)`,`[`filter`](#filter)`,`[`value`](#value)`,`[`infer`](#infer)`)]`<br>
 `#[sqly(`[`foreign`](#foreign)`,`[`target`](#target)`,`[`named`](#named)`,`[`typed`](#typed)`)]`<br>
-`#[sqly(`[`default`](#default)`,`[`from`](#from)`)]`<br>
+`#[sqly(`[`default`](#default)`,`[`from`](#from)`,`[`try_from`](#from)`)]`<br>
 `#[sqly(`[`skip`](#skip)`,`[`key`](#key)`)]`<br>
-
 
 <br>
 
@@ -99,6 +98,15 @@ Same as above, except the struct is named by the given `Ident`.
 # struct T;
 ```
 Implements [`From<Self::Flat>`](Flat::Flat) for the table.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", flat)]
+#[sqly(try_from_flat)]
+# struct T;
+```
+Implements [`TryFrom<Self::Flat>`](Flat::Flat) for the table.
 
 ---
 ```
@@ -917,6 +925,18 @@ This attribute can be used along with [`#[sqly(foreign)]`](#foreign), where the 
 
 This will replace the type of this field when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.
 
+---
+```
+# type Type = i32;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T {
+#[sqly(try_from = Type)]
+# t: i32,
+# }
+```
+Same as above, except with the `TryFrom<T>` implementation.
+
 <br>
 
 #### skip
@@ -931,7 +951,7 @@ This will replace the type of this field when included in generated [`Delete`](d
 ```
 Do not include this field when generating queries or structs.
 
-When this table is included in any [`sqlx::FromRow`] or [`From<Self::Flat>`](Flat::Flat) definitions the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) function must be specified.
+When this table is included in any [`From<Flat>`](Flat::Flat), [`TryFrom<Flat>`](Flat::Flat) or [`sqlx::FromRow`] definitions the type of this field must implement `Default`, or a custom [`#[sqly(default)]`](#default) expression must be specified.
 
 ---
 ```
@@ -973,9 +993,11 @@ Different operations regard this attribute differently:
 
 [`#[derive(Table)]`](derive@Table) uses the key attribute to determine which fields to include in generated structs:
 
-When generating [`#[sqly(delete)]`](#delete) and [`#[sqly(select)]`](#select) structs only key fields are included.
+When generating [`#[sqly(delete)]`](#delete) structs only key fields are included.
 
 When generating [`#[sqly(update)]`](#update) structs this attribute is passed through.
+
+When generating [`#[sqly(select)]`](#select) structs only key fields are included.
 
 When generating [`#[sqly(insert)]`](#insert) structs this attribute is ignored.
 

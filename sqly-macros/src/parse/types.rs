@@ -87,6 +87,7 @@ parse! {
 
         ((from_row)?),
         ((from_flat)?),
+        ((try_from_flat)?),
         ((flat_row)?),
 
         ((flat)? (= syn::Ident)?),
@@ -161,6 +162,7 @@ parse! {
         ((typed)? (= syn::Type)!),
 
         ((from)? (= syn::Type)!),
+        ((try_from)? (= syn::Type)!),
         ((default)? (= syn::Expr)?),
 
         ((skip)? (= Skips)*),
@@ -189,7 +191,7 @@ impl QueryTable {
         }
 
         if self.attr.flat.is_none() {
-            if let Some(span) = spany!(a.from_flat, a.flat_row) {
+            if let Some(span) = spany!(a.from_flat, a.try_from_flat, a.flat_row) {
                 let msg = "unused attribute: requires #[sqly(flat)]";
                 return Err(syn::Error::new(span, msg));
             }
@@ -268,6 +270,25 @@ impl QueryTable {
             } else {
                 if let Some(span) = field.attr.target.spany() {
                     let msg = "unused attribute: requires #[sqly(foreign)]";
+                    return Err(syn::Error::new(span, msg));
+                }
+            }
+        }
+
+        if let Some(span) = self.attr.try_from_flat.spany().and(self.attr.from_flat.spany()) {
+            let msg = "conflicting attributes: #[sqly(from_flat, try_from_flat)]";
+            return Err(syn::Error::new(span, msg));
+        }
+        for field in &self.fields {
+            if let Some(span) = field.attr.try_from.spany().and(field.attr.from.spany()) {
+                let msg = "conflicting attributes: #[sqly(from, try_from)]";
+                return Err(syn::Error::new(span, msg));
+            }
+            if field.attr.try_from.is_some() && !self.skipped(field, Skips::FromRow) {
+                if let Some(span) = self.attr.from_flat.spany() {
+                    let msg = "conflicting attributes: \
+                        #[sqly(from_flat)] with #[sqly(try_from)] on fields\n\
+                        help: use #[sqly(try_from_flat)] instead";
                     return Err(syn::Error::new(span, msg));
                 }
             }

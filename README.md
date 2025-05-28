@@ -66,7 +66,7 @@ Currently only postgres is supported.
 - [X] `#[sqly(infer)]` for custom sqlx types
 - [X] `#[sqly(value)]` for custom parameter binding
 - [X] `#[sqly(select)]` for custom SQL select expressions
-- [X] `#[sqly(default, from)]` for decoding table fields
+- [X] `#[sqly(default, from, try_from)]` for decoding table fields
 - [X] `#[sqly(insert, update)]` for custom SQL value expressions
 - [X] `#[sqly(filter)]` for custom SQL filter expressions
 - [X] `#[sqly(optional)]` for dynamic SQL through optional fields

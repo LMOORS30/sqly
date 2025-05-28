@@ -15,7 +15,7 @@ pub use update::*;
 
 /// Applied to types which are defined to represent a database table.
 /// 
-/// Implements [`Table`](Table). Might also implement [`Check`](Check), [`Flat`](Flat), [`From<Self::Flat>`](Flat::Flat) and [`sqlx::FromRow`].
+/// Implements [`Table`](Table). Might also implement [`Check`](Check), [`Flat`](Flat), [`From<Flat>`](Flat::Flat), [`TryFrom<Flat>`](Flat::Flat) and [`sqlx::FromRow`].
 /// 
 /// <br>
 /// 
@@ -31,6 +31,7 @@ pub use update::*;
 /// 
 /// `#[sqly((`[`from_row`](docs::attr#from_row)`)?)]`<br>
 /// `#[sqly((`[`from_flat`](docs::attr#flat)`)?)]`<br>
+/// `#[sqly((`[`try_from_flat`](docs::attr#flat)`)?)]`<br>
 /// `#[sqly((`[`flat_row`](docs::attr#flat)`)?)]`<br>
 /// 
 /// `#[sqly((`[`flat`](docs::attr#flat)`)? (= `[`Ident`](docs::attr#flat)`)?)]`<br>
@@ -106,6 +107,7 @@ pub use update::*;
 /// `#[sqly((`[`typed`](docs::attr#typed)`)? (= `[`Type`](docs::attr#typed)`)!)]`<br>
 /// 
 /// `#[sqly((`[`from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
+/// `#[sqly((`[`try_from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
 /// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Expr`](docs::attr#default)`)?)]`<br>
 /// 
 /// `#[sqly((`[`skip`](docs::attr#skip)`)? (= `[`delete`](docs::attr#skip)` | `[`insert`](docs::attr#skip)` | `[`select`](docs::attr#skip)` | `[`update`](docs::attr#skip)` | `[`from_row`](docs::attr#skip)`)*)]`<br>

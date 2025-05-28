@@ -145,9 +145,10 @@ impl QueryTable {
 impl QueryTable {
 
     pub fn ty<'c>(&'c self, field: &'c QueryField) -> Result<&'c syn::Type> {
-        let ty = match &field.attr.from {
-            Some(ty) => &ty.data.data,
-            None => &field.ty,
+        let ty = match (&field.attr.try_from, &field.attr.from) {
+            (Some(ty), _) => &ty.data.data,
+            (_, Some(ty)) => &ty.data.data,
+            _ => &field.ty,
         };
         Ok(ty)
     }
@@ -156,7 +157,22 @@ impl QueryTable {
 
 
 
+impl Nullable<'_> {
+
+    pub fn defaulted(&self) -> bool {
+        match self {
+            Nullable::Option(_) => false,
+            Nullable::Default(_, _) => true,
+        }
+    }
+
+}
+
 impl Constructed<'_> {
+
+    pub fn defaulted(&self) -> Result<Option<Nullable>> {
+        self.table.defaulted(self.field)
+    }
 
     pub fn nullable(&self) -> Result<Option<Nullable>> {
         self.table.nullable(self.field)
