@@ -95,6 +95,10 @@ fn selector(
         write!(query,
             " AS \"{alias}{modifier}\",\n"
         ).unwrap();
+    } else if column.eq(alias) && modifier.is_empty() {
+        write!(query,
+            "\t\"{table}\".\"{column}\",\n"
+        ).unwrap();
     } else {
         write!(query,
             "\t\"{table}\".\"{column}\" AS \"{alias}{modifier}\",\n"
@@ -283,9 +287,9 @@ impl SelectTable {
                     build.arg(map, &list, None)?;
                     build.str(") AND\n")
                 } else {
-                    build.str(&format!("\t(\"{table}\".\"{column}\" = "))?;
+                    build.str(&format!("\t\"{table}\".\"{column}\" = "))?;
                     build.arg(map, &[], Some(cell))?;
-                    build.str(") AND\n")
+                    build.str(" AND\n")
                 }
             })?;
         }

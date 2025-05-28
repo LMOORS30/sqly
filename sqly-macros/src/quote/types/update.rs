@@ -126,9 +126,9 @@ impl UpdateTable {
                         build.arg(map, &list, None)?;
                         build.str(") AND\n")
                     } else {
-                        build.str(&format!("\t(\"{column}\" = "))?;
+                        build.str(&format!("\t\"{column}\" = "))?;
                         build.arg(map, &[], Some(cell))?;
-                        build.str(") AND\n")
+                        build.str(" AND\n")
                     }
                 })?;
             }
