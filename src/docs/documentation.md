@@ -1,7 +1,7 @@
 # Attribute Documentation
 
 ##### Struct Attributes:
-`#[sqly(`[`table`](#table)`,`[`rename`](#rename)`)]`<br>
+`#[sqly(`[`table`](#table)`,`[`rename_all`](#rename)`)]`<br>
 `#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
 `#[sqly(`[`flat`](#flat)`,`[`delete`](#delete)`,`[`insert`](#insert)`,`[`select`](#select)`,`[`update`](#update)`,`[`derive`](#derive)`,`[`visibility`](#visibility)`)]`<br>
 `#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`returning`](#returning)`)]`<br>
@@ -504,6 +504,7 @@ The string will be split at the first occurrence of any of those, with only the 
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
+#[sqly(rename_all = "none")]
 # struct T {
 #[sqly(rename = "UPPERCASE")]
 # t: i32,

@@ -83,7 +83,7 @@ safe! {
 parse! {
     pub QueryTable {
         ((table)! (= String)!),
-        ((rename)? (= Rename)!),
+        ((rename_all)? (= Rename)!),
 
         ((from_row)?),
         ((from_flat)?),

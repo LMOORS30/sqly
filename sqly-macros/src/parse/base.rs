@@ -439,7 +439,7 @@ macro_rules! both {
 impl $table {
 
     pub fn rename<'c>(&self, field: &$field, string: &'c str) -> Result<Cow<'c, str>> {
-        let all = &self.attr.rename;
+        let all = &self.attr.rename_all;
         let rename = &field.attr.rename;
         let renamed = match rename.as_ref().or(all.as_ref()) {
             Some(re) => re.data.data.rename(string),

@@ -5,7 +5,7 @@ use super::*;
 parse! {
     pub SelectTable {
         ((table)! (= safe::Paved)!),
-        ((rename)? (= Rename)!),
+        ((rename_all)? (= Rename)!),
 
         ((dynamic)?),
         ((optional)?),

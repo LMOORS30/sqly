@@ -13,7 +13,7 @@ use super::*;
 /// 
 /// ##### Struct Attributes:
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`Path`](docs::attr#table)` | `[`String`](docs::attr#table)`)!)] // required`<br>
-/// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
+/// `#[sqly((`[`rename_all`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
 /// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
 /// `#[sqly((`[`optional`](docs::attr#optional)`)?)]`<br>

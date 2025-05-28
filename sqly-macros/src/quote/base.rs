@@ -8,7 +8,7 @@ impl QueryTable {
         let ident = &self.ident;
         let mut attrs = vectok![
             quote::quote! { table = #ident },
-            self.attr.rename,
+            self.attr.rename_all,
             self.attr.krate,
             self.attr.unchecked,
             self.attr.print,

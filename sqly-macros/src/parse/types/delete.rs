@@ -5,7 +5,7 @@ use super::*;
 parse! {
     pub DeleteTable {
         ((table)! (= safe::Paved)!),
-        ((rename)? (= Rename)!),
+        ((rename_all)? (= Rename)!),
 
         ((dynamic)?),
         ((optional)?),

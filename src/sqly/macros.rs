@@ -27,7 +27,7 @@ pub use update::*;
 /// 
 /// ##### Struct Attributes:
 /// `#[sqly((`[`table`](docs::attr#table)`)! (= `[`String`](docs::attr#table)`)!)] // required`<br>
-/// `#[sqly((`[`rename`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
+/// `#[sqly((`[`rename_all`](docs::attr#rename)`)? (= `[`String`](docs::attr#rename)`)!)]`<br>
 /// 
 /// `#[sqly((`[`from_row`](docs::attr#from_row)`)?)]`<br>
 /// `#[sqly((`[`from_flat`](docs::attr#flat)`)?)]`<br>
