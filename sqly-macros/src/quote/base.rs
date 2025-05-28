@@ -226,8 +226,8 @@ impl Nullable<'_> {
                 let span = path.spanned();
                 quote::quote_spanned!(span => #path::None)
             }
-            Nullable::Default(span, path) => match &path {
-                Some(path) => quote::quote_spanned!(*span => #path()),
+            Nullable::Default(span, expr) => match &expr {
+                Some(default) => quote::quote! { #default },
                 None => quote::quote_spanned!(*span => ::core::default::Default::default()),
             }
         };

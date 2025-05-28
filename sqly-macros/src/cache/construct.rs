@@ -33,7 +33,7 @@ pub struct Foreign<'c> {
 
 #[derive(Clone, Copy)]
 pub enum Nullable<'c> {
-    Default(Span, Option<&'c syn::Path>),
+    Default(Span, Option<&'c syn::Expr>),
     Option(&'c syn::Path),
 }
 
@@ -83,9 +83,9 @@ impl QueryTable {
     pub fn defaulted<'c>(&'c self, field: &'c QueryField) -> Result<Option<Nullable<'c>>> {
         let opt = match &field.attr.default {
             Some(default) => {
-                let path = default.data.as_ref();
-                let path = path.map(|data| &data.data);
-                Some(Nullable::Default(default.span, path))
+                let expr = default.data.as_ref();
+                let expr = expr.map(|data| &data.data);
+                Some(Nullable::Default(default.span, expr))
             }
             None => None,
         };

@@ -160,8 +160,8 @@ parse! {
         ((named)? (= syn::Ident)!),
         ((typed)? (= syn::Type)!),
 
-        ((default)? (= syn::Path)?),
         ((from)? (= syn::Type)!),
+        ((default)? (= syn::Expr)?),
 
         ((skip)? (= Skips)*),
         ((key)? (= Keys)*),

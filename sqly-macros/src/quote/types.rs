@@ -295,7 +295,7 @@ impl Construct<'_> {
                     let span = column.field.attr.skip.spany().unwrap_or_else(Span::call_site);
                     match column.field.attr.default.as_ref().and_then(|data| data.data.as_ref()) {
                         None => quote::quote_spanned!(span => ::core::default::Default::default()),
-                        Some(default) => quote::quote_spanned!(span => #default()),
+                        Some(default) => quote::quote_spanned!(span => #default),
                     }
                 }
                 Code::Query => match source {

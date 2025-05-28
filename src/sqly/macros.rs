@@ -105,8 +105,8 @@ pub use update::*;
 /// `#[sqly((`[`named`](docs::attr#named)`)? (= `[`Ident`](docs::attr#named)`)!)]`<br>
 /// `#[sqly((`[`typed`](docs::attr#typed)`)? (= `[`Type`](docs::attr#typed)`)!)]`<br>
 /// 
-/// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Path`](docs::attr#default)`)?)]`<br>
 /// `#[sqly((`[`from`](docs::attr#from)`)? (= `[`Type`](docs::attr#from)`)!)]`<br>
+/// `#[sqly((`[`default`](docs::attr#default)`)? (= `[`Expr`](docs::attr#default)`)?)]`<br>
 /// 
 /// `#[sqly((`[`skip`](docs::attr#skip)`)? (= `[`delete`](docs::attr#skip)` | `[`insert`](docs::attr#skip)` | `[`select`](docs::attr#skip)` | `[`update`](docs::attr#skip)` | `[`from_row`](docs::attr#skip)`)*)]`<br>
 /// `#[sqly((`[`key`](docs::attr#key)`)? (= `[`delete`](docs::attr#key)` | `[`select`](docs::attr#key)` | `[`update`](docs::attr#key)`)*)]`

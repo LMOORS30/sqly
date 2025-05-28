@@ -889,11 +889,11 @@ This will wrap the type of this field in an `Option` when included in generated 
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
 # struct T {
-#[sqly(default = Default::default)]
+#[sqly(default = Default::default())]
 # t: i32,
 # }
 ```
-Same as above, except the default value is provided by calling the given path.
+Same as above, except the default value is provided by the given expression.
 
 This can also be used to provide the default value for [`#[sqly(skip)]`](#skip).
 
