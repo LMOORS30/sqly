@@ -11,7 +11,7 @@ parse! {
         ((optional)?),
         ((returning)? (= safe::Returning)?),
 
-        ((unchecked)?),
+        ((unchecked)? (= Checks)?),
         ((krate as "crate")? (= syn::Path)!),
         ((print)? (= Print)?),
         ((debug)? (= Print)?),

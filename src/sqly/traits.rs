@@ -70,6 +70,9 @@ pub trait Table {
 pub trait Check {
     /// Calls the [`sqlx::query_as!`] macro to perform the compile time check.
     /// 
+    /// Calls [`sqlx::query_as_unchecked!`] instead if
+    /// [`#[sqly(unchecked = types)]`](docs::attr#codegen) was specified.
+    /// 
     /// This function is not meant to be called and will panic if attempted.
     fn check(&self) -> !;
 }

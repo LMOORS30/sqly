@@ -38,7 +38,7 @@ pub struct Build<'c, T> {
 impl<'c, T: Builder> Build<'c, T> {
     pub fn new(table: &'c T) -> Result<Self> {
         let dynamic = table.dynamic().is_some();
-        let checked = table.checked();
+        let checked = !table.unchecked();
         let certain = table.certain();
         Ok(Self {
             table,
@@ -334,8 +334,8 @@ macro_rules! build {
 }
 
 build! {
-    fn checked(&self) -> bool;
     fn certain(&self) -> bool;
+    fn unchecked(&self) -> bool;
     fn dynamic(&self) -> Option<Span>;
     fn optional(&self, field: &Self::Field) -> Option<Span>;
     fn value(&self, field: &Self::Field, target: Target) -> Result<TokenStream>;

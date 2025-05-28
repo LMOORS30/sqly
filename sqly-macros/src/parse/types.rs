@@ -42,6 +42,10 @@ vars! {
         (Keys = keys),
         (Values = values),
     }
+    pub Checks {
+        (Query = query),
+        (Types = types),
+    }
     pub Print {
         (Warn = warn),
         (Panic = panic),
@@ -123,7 +127,7 @@ parse! {
         ((insert_returning)? (= safe::Returning)?),
         ((update_returning)? (= safe::Returning)?),
 
-        ((unchecked)?),
+        ((unchecked)? (= Checks)?),
         ((krate as "crate")? (= syn::Path)!),
         ((print)? (= Print)?),
         ((debug)? (= Print)?),

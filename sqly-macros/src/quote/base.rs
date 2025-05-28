@@ -241,7 +241,7 @@ impl Nullable<'_> {
 impl Construct<'_> {
 
     pub fn check(&self) -> Result<TokenStream> {
-        if !self.table.checked() {
+        if self.table.unchecked() {
             return Ok(TokenStream::new());
         }
         let obj = &self.table.ident;
@@ -380,7 +380,7 @@ impl $table {
     }
 
     pub fn check(&self, done: &Done<$table>, returns: &Returns<$table>) -> Result<TokenStream> {
-        if !self.checked() {
+        if self.unchecked() {
             return Ok(TokenStream::new());
         }
         let query = match &done.check {
@@ -426,17 +426,27 @@ impl $table {
                 Some(_) => Some(Right(path)),
             }
         };
+        let call = match check {
+            None => match self.untyped() {
+                false => quote::quote! { query },
+                true => quote::quote! { query_unchecked },
+            }
+            Some(_) => match self.untyped() {
+                false => quote::quote! { query_as },
+                true => quote::quote! { query_as_unchecked },
+            }
+        };
         let check = match check {
             None => quote::quote! {
-                #krate::sqlx::query!(#query #(, #args)*);
+                #krate::sqlx::#call!(#query #(, #args)*);
             },
             Some(Left(fields)) => quote::quote! {
                 struct #model { #(#fields),* }
-                #krate::sqlx::query_as!(#model, #query #(, #args)*);
+                #krate::sqlx::#call!(#model, #query #(, #args)*);
             },
             Some(Right(flat)) => quote::quote! {
                 type #model = <#flat as #krate::Flat>::Flat;
-                #krate::sqlx::query_as!(#model, #query #(, #args)*);
+                #krate::sqlx::#call!(#model, #query #(, #args)*);
             },
         };
 

@@ -377,6 +377,15 @@ See [serde_with](https://docs.rs/serde_with/3.12.0/serde_with/rust/double_option
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
+#[sqly(crate = ::sqly)]
+# struct T;
+```
+Specify the path to the `sqly` crate instance to use in generated code.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
 #[sqly(unchecked)]
 # struct T;
 ```
@@ -388,10 +397,21 @@ This has no effect if the default [`checked`](https://github.com/LMOORS30/sqly#f
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-#[sqly(crate = ::sqly)]
+#[sqly(unchecked = query)]
 # struct T;
 ```
-Specify the path to the `sqly` crate instance to use in generated code.
+Same as above, except more explicit.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+#[sqly(unchecked = types)]
+# struct T;
+```
+Same as above, except only disables type compatibility and nullability checks.
+
+The query is still parsed to ensure it is syntactically and semantically valid.
 
 <br>
 

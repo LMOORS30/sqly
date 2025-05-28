@@ -491,13 +491,33 @@ impl Declare for $table {
 impl $table {
 
     #[cfg(not(feature = "checked"))]
-    pub fn checked(&self) -> bool {
-        false
+    pub fn unchecked(&self) -> bool {
+        true
     }
 
     #[cfg(feature = "checked")]
-    pub fn checked(&self) -> bool {
-        self.attr.unchecked.is_none()
+    pub fn unchecked(&self) -> bool {
+        let data = self.attr.unchecked.as_ref().map(|data| {
+            data.data.as_ref().map(|data| data.data)
+        });
+        match data {
+            None => false,
+            Some(None) => true,
+            Some(Some(Checks::Query)) => true,
+            Some(Some(Checks::Types)) => false,
+        }
+    }
+
+    pub fn untyped(&self) -> bool {
+        let data = self.attr.unchecked.as_ref().map(|data| {
+            data.data.as_ref().map(|data| data.data)
+        });
+        match data {
+            None => false,
+            Some(None) => false,
+            Some(Some(Checks::Query)) => false,
+            Some(Some(Checks::Types)) => true,
+        }
     }
 
 }
