@@ -14,16 +14,6 @@ impl QueryTable {
             self.attr.print,
             self.attr.debug,
         ];
-        if let Some(dynamic) = &self.attr.dynamic {
-            for field in &self.fields {
-                if self.fielded(field, r#type) {
-                    if self.optional(field, r#type).is_some() {
-                        attrs.push(quote::quote! { #dynamic });
-                        break;
-                    }
-                }
-            }
-        }
         let a = &self.attr;
         match r#type {
             Types::Delete => args!(attrs, [
@@ -31,12 +21,14 @@ impl QueryTable {
                 (returning = a.delete_returning, a.returning),
             ]),
             Types::Insert => args!(attrs, [
+                (dynamic = a.insert_dynamic),
                 (returning = a.insert_returning, a.returning),
             ]),
             Types::Select => args!(attrs, [
                 (filter = a.select_filter, a.filter),
             ]),
             Types::Update => args!(attrs, [
+                (dynamic = a.update_dynamic),
                 (filter = a.update_filter, a.filter),
                 (returning = a.update_returning, a.returning),
             ]),

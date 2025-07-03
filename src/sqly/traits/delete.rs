@@ -14,16 +14,12 @@ use super::*;
 pub trait Delete {
     /// The type representing the table which this query will operate on.
     /// 
-    /// When generated with [`#[derive(Delete)]`](derive@Delete) this type is set by the [`#[sqly(table)]`](docs::attr#table) attribute.
-    /// 
-    /// When generated with [`#[sqly(delete)]`](docs::attr#delete) this type is set to the struct for which [`#[derive(Table)]`](derive@Table) was called.
-    /// 
     /// When this type implements the [`Table`](Table) trait the [`Table::delete`](`Table::delete`) alias is made available, this type serves no other purpose.
     type Table;
 
     /// The query type for the operation to be executed.
     /// 
-    /// This will be equal to one of the [`sqlx::query`](mod@sqlx::query) types.
+    /// This will be one of the [`sqlx::query`](mod@sqlx::query) types.
     type Query<'a>
         where Self: 'a;
 
@@ -41,7 +37,7 @@ pub trait Delete {
 /// A type which has its [`Delete`](Delete) query checked at compile time.
 /// 
 /// This will be generated unless
-/// [`#[sqly(unchecked)]`](docs::attr#codegen) is specified or
+/// [`#[sqly(unchecked = query)]`](docs::attr#codegen) is specified or
 /// the default [`checked`](https://github.com/LMOORS30/sqly#features) feature is disabled.
 /// 
 /// This trait serves no further purpose.

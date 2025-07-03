@@ -38,10 +38,6 @@ vars! {
         (Select = select),
         (Update = update),
     }
-    pub Optionals {
-        (Keys = keys),
-        (Values = values),
-    }
     pub Checks {
         (Query = query),
         (Types = types),
@@ -115,12 +111,10 @@ parse! {
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
 
-        ((dynamic)?),
-        ((optional)? (= Optionals)?),
-        ((delete_optional)? (= Optionals)?),
-        ((insert_optional)? (= Optionals)?),
-        ((select_optional)? (= Optionals)?),
-        ((update_optional)? (= Optionals)?),
+        ((insert_dynamic)?),
+        ((update_dynamic)?),
+        ((insert_optional)?),
+        ((update_optional)?),
         ((serde_double_option)?),
 
         ((returning)? (= safe::Returning)?),
@@ -146,10 +140,7 @@ parse! {
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
 
-        ((optional)? (= bool)?),
-        ((delete_optional)? (= bool)?),
         ((insert_optional)? (= bool)?),
-        ((select_optional)? (= bool)?),
         ((update_optional)? (= bool)?),
 
         ((value)? (= syn::Expr)!),
@@ -176,14 +167,14 @@ impl QueryTable {
 
     pub fn init(mut self) -> Result<Self> {
         let a = &self.attr;
-        for (r#type, attr, derive, visibility, filter, optional, returning) in [
-            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &a.delete_optional, &a.delete_returning),
-            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_optional, &a.insert_returning),
-            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &a.select_optional, &None              ),
-            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_optional, &a.update_returning),
+        for (r#type, attr, derive, visibility, filter, dynamic, optional, returning) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &None            , &None             , &a.delete_returning),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_dynamic, &a.insert_optional, &a.insert_returning),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &None            , &None             , &None              ),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_dynamic, &a.update_optional, &a.update_returning),
         ] {
             if attr.is_none() {
-                if let Some(span) = spany!(derive, visibility, filter, optional, returning) {
+                if let Some(span) = spany!(derive, visibility, filter, dynamic, optional, returning) {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }
@@ -200,7 +191,6 @@ impl QueryTable {
         for field in &self.fields {
             self.list(&field.attr.key)?;
             self.list(&field.attr.skip)?;
-
             let listed = (&field.attr.key, &field.attr.skip);
             if let (Some(keys), Some(skips)) = listed {
                 if skips.data.is_empty() {
@@ -227,9 +217,9 @@ impl QueryTable {
         for field in &self.fields {
             let b = &field.attr;
             for (r#type, attr, value, filter, optional) in [
-                (Types::Delete, &a.delete, &vec![],   &b.delete_filter, &b.delete_optional),
+                (Types::Delete, &a.delete, &vec![],   &b.delete_filter, &None             ),
                 (Types::Insert, &a.insert, &b.insert, &vec![]         , &b.insert_optional),
-                (Types::Select, &a.select, &vec![],   &b.select_filter, &b.select_optional),
+                (Types::Select, &a.select, &vec![],   &b.select_filter, &None             ),
                 (Types::Update, &a.update, &b.update, &b.update_filter, &b.update_optional),
             ] {
                 if let Some(span) = spany!(value, filter, optional) {
@@ -287,7 +277,7 @@ impl QueryTable {
             if field.attr.try_from.is_some() && !self.skipped(field, Skips::FromRow) {
                 if let Some(span) = self.attr.from_flat.spany() {
                     let msg = "conflicting attributes: \
-                        #[sqly(from_flat)] with #[sqly(try_from)] on fields\n\
+                        #[sqly(from_flat)] with #[sqly(try_from)]\n\
                         help: use #[sqly(try_from_flat)] instead";
                     return Err(syn::Error::new(span, msg));
                 }
@@ -299,16 +289,6 @@ impl QueryTable {
             let msg = "unused attribute: requires the serde feature";
             return Err(syn::Error::new(span, msg));
         }
-
-        let opt = [
-            (Types::Delete, &a.delete),
-            (Types::Insert, &a.insert),
-            (Types::Select, &a.select),
-            (Types::Update, &a.update),
-        ].iter().filter(|(_, attr)| attr.is_some()).flat_map(|(r#type, _)| {
-            self.fields.iter().filter(|f| self.fielded(f, *r#type)).map(|f| (f, *r#type))
-        }).filter_map(|(field, r#type)| self.optional(field, r#type)).next();
-        r#static(self.attr.dynamic.spany(), opt)?;
 
         let a = &mut self.attr;
         for returning in [
@@ -364,14 +344,14 @@ impl QueryTable {
 pub fn r#static(dynamic: Option<Span>, optional: Option<Span>) -> Result<()> {
     match dynamic {
         Some(span) => if optional.is_none() {
-            let msg = "unused attribute: queries do not need to be generated at runtime\
-                \nnote: no fields end up parsed as #[sqly(optional)] in generated queries,\
-                \n      remove #[sqly(dynamic)] to indicate static queries can be generated";
+            let msg = "unused attribute: query does not need to be generated at runtime\
+                \nnote: no fields end up parsed as #[sqly(optional)] in generated query,\
+                \n      remove #[sqly(dynamic)] to indicate a static query is generated";
             return Err(syn::Error::new(span, msg));
         }
         None => if let Some(span) = optional {
             let msg = "unused attribute: requires #[sqly(dynamic)] on struct\
-                \nnote: due to #[sqly(optional)] queries must be generated at runtime,\
+                \nnote: queries with #[sqly(optional)] must be generated at runtime,\
                 \n      use #[sqly(dynamic)] to explicitly opt-in for this behavior";
             return Err(syn::Error::new(span, msg));
         }

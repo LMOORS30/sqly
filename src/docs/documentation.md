@@ -345,14 +345,24 @@ This overrides the value set with `returning`.
 #### dynamic
 ---
 ```
-# #[derive(sqly::Table)]
-# #[sqly(table = "", optional, insert)]
+# #[derive(sqly::Insert)]
+# #[sqly(table = "")]
 #[sqly(dynamic)]
-# struct T { t: i32 }
+# struct T { #[sqly(optional)] t: Option<i32> }
 ```
 Queries with [`#[sqly(optional)]`](#optional) must be generated at runtime, this requires storing the SQL in an owned string and prevents the use of the [`Delete`](Delete), [`Insert`](Insert), [`Select`](Select) and [`Update`](Update) traits (the corresponding `Impl` traits must be used instead). Additionally, the implementation generated for the `Check` traits only tests for the case of all optional fields being provided, possibly allowing additional runtime query errors to occur (although this should not make any difference in practice).
 
 [`#[sqly(dynamic)]`](#dynamic) must be used to explicitly opt-in for this behavior.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", insert_optional, update_optional, insert, update)]
+#[sqly(insert_dynamic)]
+#[sqly(update_dynamic)]
+# struct T { #[sqly(key)] k: i32, v: i32 }
+```
+Same as above, except only for the operations specified.
 
 <br>
 
@@ -360,7 +370,7 @@ Queries with [`#[sqly(optional)]`](#optional) must be generated at runtime, this
 ---
 ```
 # #[derive(sqly::Table)]
-# #[sqly(table = "", optional)]
+# #[sqly(table = "")]
 #[sqly(serde_double_option)]
 # struct T;
 ```
@@ -614,9 +624,9 @@ This [Variadic Attribute](docs::attr::note#variadic-attributes) supports [String
 
 The value bound by this field must be referenced as `$i`, the column can optionally be referenced as `$column`, the table can optionally be referenced as `$table`, values bound by other fields can be referenced by their ident.
 
-This attribute can be applied to both the struct and its fields, all of which are generated and evaluated with `AND` operators.
-
 Any field can be referenced any amount of times, including skipped and value fields, or not at all.
+
+This attribute can be applied to both the struct and its fields, all of which are generated and evaluated with `AND` operators.
 
 ---
 ```
@@ -638,72 +648,60 @@ This overrides the value set with `filter`.
 #### optional
 ---
 ```
-# #[derive(sqly::Table)]
-# #[sqly(table = "", dynamic, insert)]
+# #[derive(sqly::Insert)]
+# #[sqly(table = "", dynamic)]
 #[sqly(optional)]
-# struct T {
-# t: i32,
-# }
+# struct T { t: Option<i32> }
 ```
 Declares a field or set of fields as optional.
 
-An optional field will only be included in the generated query if its runtime value resolves to an `Option::Some`, otherwise it will behave as if it was skipped. Will generate type errors if the value bound does not resolve to an `Option`. Does not affect the SQL `SELECT` list, [`sqlx::FromRow`] definition and [`Flat`](#flat) struct, as these do not involve runtime values before execution.
+This attribute can be applied to both the struct and its fields. When applied to the struct all fields with a type wrapped in an `Option` are set as optional. Other types can be individually specified as optional by applying the attribute to the field instead.
 
-Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter), among others. The value to be bound by this field determines whether the part of the query relevant to this field is included. This check happens regardless of whether the field binds its own value (e.g. [`#[sqly(insert = "default")]`](#insert-1)) or others (e.g. [`#[sqly(update = "c=COALESCE($i,$j)")]`](#update-1)).
+An optional field will only be included in the generated query if its runtime value resolves to an `Option::Some`, otherwise it will behave as if it was skipped. Will generate type errors if the value expression does not resolve to an `Option`. This does not affect the SQL `SELECT` list, [`sqlx::FromRow`] definition and [`Flat`](#flat) struct, as these do not involve runtime values before execution.
 
-This attribute can be applied to both the struct and its fields. When applied to the struct its behavior is different depening on the derive. [`#[derive(Table)]`](derive@Table) will set all fields as optional, additionally, it will wrap all optional fields in an `Option` when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs. Other derives will only set fields whose type is already wrapped in an `Option` as optional, but fields can be individually specified as optional regardless of their type.
+Any field can be optional, even those with [`#[sqly(value)]`](#value) or [`#[sqly(filter)]`](#filter). The rust expression of this field determines whether the part of the query relevant to the field is included. This happens the same regardless of whether or not the field binds its own value (e.g. [`#[sqly(insert = "DEFAULT")]`](#insert-1)) or others (e.g. [`#[sqly(update = "c = COALESCE($a, $b)")]`](#update-1)).
 
 [`#[sqly(dynamic)]`](#dynamic) is required to explicitly opt-in for this behavior.
 
 ---
 ```
 # #[derive(sqly::Table)]
-# #[sqly(table = "", dynamic, insert)]
-#[sqly(optional = keys)]
-# struct T {
-# #[sqly(key)]
-# t: i32,
-# }
+# #[sqly(table = "", insert_dynamic, insert)]
+#[sqly(insert_optional)]
+# struct T { t: i32 }
 ```
-Apply optional to all fields which are marked as a key.
+Applied on the table struct, marks all insert fields as optional, wrapping them in an `Option` for the generated insert struct.
 
 ---
 ```
 # #[derive(sqly::Table)]
-# #[sqly(table = "", dynamic, insert)]
-#[sqly(optional = values)]
-# struct T {
-# t: i32,
-# }
+# #[sqly(table = "", update_dynamic, update)]
+#[sqly(update_optional)]
+# struct T { #[sqly(key)] k: i32, v: i32 }
 ```
-Apply optional to all fields which are not marked as a key.
+Applied on the table struct, marks all update value fields as optional, wrapping them in an `Option` for the generated update struct.
 
 ---
 ```
-# #[derive(sqly::Table)]
-# #[sqly(table = "", dynamic, optional, insert)]
-# struct T {
+# #[derive(sqly::Insert)]
+# #[sqly(table = "", dynamic)]
+# struct T1 {
 #[sqly(optional = false)]
 # t: i32,
+# #[sqly(optional)]
+# d: Option<i32>,
+# }
+# #[derive(sqly::Table)]
+# #[sqly(table = "", insert, update, insert_dynamic, update_dynamic)]
+# struct T2 {
+#[sqly(insert_optional = true)]
+#[sqly(update_optional = false)]
+# k: i32,
+# #[sqly(key, update_optional)]
 # v: i32,
 # }
 ```
-Overrides any value set on the struct and disables optional for this field.
-
----
-```
-# #[derive(sqly::Table)]
-# #[sqly(table = "", dynamic, insert, update)]
-#[sqly(insert_optional = keys)]
-# struct T {
-# t: i32,
-#[sqly(update_optional = false)]
-# #[sqly(key)] k: i32,
-# }
-```
-Same as all of the above, except only for the operations specified.
-
-This overrides the value set with `optional`.
+Overrides any value set on the struct and sets optional for this field.
 
 <br>
 

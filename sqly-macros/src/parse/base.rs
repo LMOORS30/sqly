@@ -81,26 +81,23 @@ impl QueryTable {
 
     pub fn optional(&self, field: &QueryField, r#type: Types) -> Option<Span> {
         let optional = match r#type {
-            Types::Delete => &field.attr.delete_optional,
             Types::Insert => &field.attr.insert_optional,
-            Types::Select => &field.attr.select_optional,
             Types::Update => &field.attr.update_optional,
-        }.as_ref().or(field.attr.optional.as_ref());
+            Types::Delete | Types::Select => &None,
+        };
         if let Some(opt) = optional {
             return opt.data.as_ref().map_or(true, |opt| opt.data).then(|| opt.span);
         }
         let optional = match r#type {
-            Types::Delete => &self.attr.delete_optional,
             Types::Insert => &self.attr.insert_optional,
-            Types::Select => &self.attr.select_optional,
             Types::Update => &self.attr.update_optional,
-        }.as_ref().or(self.attr.optional.as_ref());
+            Types::Delete | Types::Select => &None,
+        };
         if let Some(opt) = optional {
-            return match &opt.data.as_ref().map(|opt| opt.data) {
-                Some(Optionals::Values) => !self.keyed(field, r#type),
-                Some(Optionals::Keys) => self.keyed(field, r#type),
-                None => true,
-            }.then(|| opt.span);
+            return match r#type {
+                Types::Update => (!self.keyed(field, r#type)).then(|| opt.span),
+                Types::Delete | Types::Insert | Types::Select => Some(opt.span),
+            }
         }
         None
     }

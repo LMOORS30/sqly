@@ -59,12 +59,8 @@ pub use update::*;
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// 
-/// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
-/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`delete_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`insert_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`select_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`update_optional`](docs::attr#optional)`)? (= `[`keys`](docs::attr#optional)` | `[`values`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`insert_optional`](docs::attr#optional)`)?, (`[`insert_dynamic`](docs::attr#dynamic)`)?)]`<br>
+/// `#[sqly((`[`update_optional`](docs::attr#optional)`)?, (`[`update_dynamic`](docs::attr#dynamic)`)?)]`<br>
 /// `#[sqly((`[`serde_double_option`](docs::attr#serde_double_option)`)?)]`<br>
 /// 
 /// `#[sqly((`[`returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
@@ -91,10 +87,7 @@ pub use update::*;
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// 
-/// `#[sqly((`[`optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`delete_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`insert_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
-/// `#[sqly((`[`select_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// `#[sqly((`[`update_optional`](docs::attr#optional)`)? (= `[`bool`](docs::attr#optional)`)?)]`<br>
 /// 
 /// `#[sqly((`[`value`](docs::attr#value)`)? (= `[`Expr`](docs::attr#value)`)!)]`<br>
