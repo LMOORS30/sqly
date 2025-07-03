@@ -17,6 +17,7 @@ use super::*;
 /// 
 /// `#[sqly((`[`dynamic`](docs::attr#dynamic)`)?)]`<br>
 /// `#[sqly((`[`optional`](docs::attr#optional)`)?)]`<br>
+/// `#[sqly((`[`keyless`](docs::attr#keyless)`)?)]`<br>
 /// `#[sqly((`[`filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`returning`](docs::attr#returning)`)? (= `[`Path`](docs::attr#returning)`? { `[`Ident`](docs::attr#returning)`,+ }? )?)]`<br>
 /// 

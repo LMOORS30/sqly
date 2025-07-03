@@ -58,6 +58,7 @@ pub use update::*;
 /// `#[sqly((`[`delete_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`select_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
 /// `#[sqly((`[`update_filter`](docs::attr#filter)`)* (= `[`String`](docs::attr#filter)`)+)]`<br>
+/// `#[sqly((`[`delete_keyless`](docs::attr#keyless)`)?, (`[`update_keyless`](docs::attr#keyless)`)?)]`<br>
 /// 
 /// `#[sqly((`[`insert_optional`](docs::attr#optional)`)?, (`[`insert_dynamic`](docs::attr#dynamic)`)?)]`<br>
 /// `#[sqly((`[`update_optional`](docs::attr#optional)`)?, (`[`update_dynamic`](docs::attr#dynamic)`)?)]`<br>

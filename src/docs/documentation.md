@@ -4,7 +4,7 @@
 `#[sqly(`[`table`](#table)`,`[`rename_all`](#rename)`)]`<br>
 `#[sqly(`[`from_row`](#from_row)`,`[`from_flat`](#flat)`,`[`try_from_flat`](#flat)`,`[`flat_row`](#flat)`)]`<br>
 `#[sqly(`[`flat`](#flat)`,`[`delete`](#delete)`,`[`insert`](#insert)`,`[`select`](#select)`,`[`update`](#update)`,`[`derive`](#derive)`,`[`visibility`](#visibility)`)]`<br>
-`#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`returning`](#returning)`)]`<br>
+`#[sqly(`[`dynamic`](#dynamic)`,`[`optional`](#optional)`,`[`serde_double_option`](#serde_double_option)`,`[`filter`](#filter)`,`[`keyless`](#keyless)`,`[`returning`](#returning)`)]`<br>
 `#[sqly(`[`unchecked`](#codegen)`,`[`crate`](#codegen)`,`[`print`](#development)`,`[`debug`](#development)`)]`<br>
 
 ##### Field Attributes:
@@ -339,6 +339,30 @@ This type is required to have [`#[derive(Table)]`](derive@Table).
 Same as all of the above, except only for the operations specified.
 
 This overrides the value set with `returning`.
+
+<br>
+
+#### keyless
+---
+```
+# #[derive(sqly::Delete)]
+# #[sqly(table = "")]
+#[sqly(keyless)]
+# struct T;
+```
+Allows delete and update structs without any key fields.
+
+Useful in combination with [`#[sqly(filter)]`](#filter) on the struct.
+
+---
+```
+# #[derive(sqly::Table)]
+# #[sqly(table = "", delete, update)]
+#[sqly(delete_keyless)]
+#[sqly(update_keyless)]
+# struct T { #[sqly(skip = delete)] t: i32 }
+```
+Same as above, except only for the operations specified.
 
 <br>
 

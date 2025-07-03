@@ -391,7 +391,7 @@ impl $table {
 
 impl DeleteTable {
     pub fn certain(&self) -> bool {
-        self.attr.filter.spany().is_some() ||
+        self.attr.keyless.is_some() ||
         self.fields().any(|field| self.optional(field).is_none())
     }
 }
@@ -410,10 +410,10 @@ impl UpdateTable {
     pub fn certain(&self) -> bool {
         let mut keys = self.fields().filter(|field| field.attr.key.is_some());
         let mut values = self.fields().filter(|field| field.attr.key.is_none());
-        values.any(|field| self.optional(field).is_none()) && (
+        values.any(|field| self.optional(field).is_none()) && {
             keys.any(|field| self.optional(field).is_none()) ||
-            self.attr.filter.spany().is_some()
-        )
+            self.attr.keyless.is_some()
+        }
     }
 }
 

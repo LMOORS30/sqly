@@ -135,7 +135,7 @@ impl UpdateTable {
                 })?;
             }
         }
-        if !build.cut(&[" AND\n"])? {
+        if !build.cut(&[" AND\n", "\nWHERE\n"])? {
             let msg = "incomplete query: missing update filter";
             return Err(syn::Error::new(Span::call_site(), msg));
         }

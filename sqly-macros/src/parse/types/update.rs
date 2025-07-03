@@ -9,6 +9,7 @@ parse! {
 
         ((dynamic)?),
         ((optional)?),
+        ((keyless)?),
         ((filter)* (= String)+),
         ((returning)? (= safe::Returning)?),
 
@@ -61,22 +62,23 @@ impl UpdateTable {
             }
         }
 
-        if self.fields().all(|field| {
-            field.attr.key.is_some()
-        }) {
-            let span = Span::call_site();
+        if self.fields().all(|field| field.attr.key.is_some()) {
             let msg = "incomplete query: missing update value";
-            return Err(syn::Error::new(span, msg));
+            return Err(syn::Error::new(Span::call_site(), msg));
         }
 
-        if self.attr.filter.is_empty() && {
-            self.fields().all(|field| {
-                field.attr.key.is_none()
-            })
-        } {
-            let span = Span::call_site();
-            let msg = "incomplete query: missing update key";
-            return Err(syn::Error::new(span, msg));
+        if let Some(keyless) = &self.attr.keyless {
+            if self.fields().any(|field| field.attr.key.is_some()) {
+                let msg = "conflicting attributes: #[sqly(keyless)] with #[sqly(key)]\n\
+                    help: remove #[sqly(keyless)]";
+                return Err(syn::Error::new(keyless.span, msg));
+            }
+        } else {
+            if self.fields().all(|field| field.attr.key.is_none()) {
+                let msg = "incomplete query: missing update key\n\
+                    help: use #[sqly(keyless)] if intended";
+                return Err(syn::Error::new(Span::call_site(), msg));
+            }
         }
 
         self.r#static()?;

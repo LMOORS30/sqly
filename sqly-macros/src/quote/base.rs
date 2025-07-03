@@ -17,6 +17,7 @@ impl QueryTable {
         let a = &self.attr;
         match r#type {
             Types::Delete => args!(attrs, [
+                (keyless = a.delete_keyless),
                 (filter = a.delete_filter, a.filter),
                 (returning = a.delete_returning, a.returning),
             ]),
@@ -29,6 +30,7 @@ impl QueryTable {
             ]),
             Types::Update => args!(attrs, [
                 (dynamic = a.update_dynamic),
+                (keyless = a.update_keyless),
                 (filter = a.update_filter, a.filter),
                 (returning = a.update_returning, a.returning),
             ]),

@@ -110,6 +110,8 @@ parse! {
         ((delete_filter)* (= String)+),
         ((select_filter)* (= String)+),
         ((update_filter)* (= String)+),
+        ((delete_keyless)?),
+        ((update_keyless)?),
 
         ((insert_dynamic)?),
         ((update_dynamic)?),
@@ -167,14 +169,14 @@ impl QueryTable {
 
     pub fn init(mut self) -> Result<Self> {
         let a = &self.attr;
-        for (r#type, attr, derive, visibility, filter, dynamic, optional, returning) in [
-            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &None            , &None             , &a.delete_returning),
-            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &a.insert_dynamic, &a.insert_optional, &a.insert_returning),
-            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &None            , &None             , &None              ),
-            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_dynamic, &a.update_optional, &a.update_returning),
+        for (r#type, attr, derive, visibility, filter, keyless, dynamic, optional, returning) in [
+            (Types::Delete, &a.delete, &a.delete_derive, &a.delete_visibility, &a.delete_filter, &a.delete_keyless, &None            , &None             , &a.delete_returning),
+            (Types::Insert, &a.insert, &a.insert_derive, &a.insert_visibility, &vec![]         , &None            , &a.insert_dynamic, &a.insert_optional, &a.insert_returning),
+            (Types::Select, &a.select, &a.select_derive, &a.select_visibility, &a.select_filter, &None            , &None            , &None             , &None              ),
+            (Types::Update, &a.update, &a.update_derive, &a.update_visibility, &a.update_filter, &a.update_keyless, &a.update_dynamic, &a.update_optional, &a.update_returning),
         ] {
             if attr.is_none() {
-                if let Some(span) = spany!(derive, visibility, filter, dynamic, optional, returning) {
+                if let Some(span) = spany!(derive, visibility, filter, keyless, dynamic, optional, returning) {
                     let msg = format!("unused attribute: requires #[sqly({})]", r#type);
                     return Err(syn::Error::new(span, msg));
                 }

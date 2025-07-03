@@ -9,6 +9,7 @@ parse! {
 
         ((dynamic)?),
         ((optional)?),
+        ((keyless)?),
         ((filter)* (= String)+),
         ((returning)? (= safe::Returning)?),
 
@@ -44,9 +45,16 @@ impl DeleteTable {
             }
         }
 
-        if self.attr.filter.is_empty() {
+        if let Some(keyless) = &self.attr.keyless {
+            if self.fields().next().is_some() {
+                let msg = "conflicting attribute: #[sqly(keyless)] with keys\n\
+                    help: remove #[sqly(keyless)]";
+                return Err(syn::Error::new(keyless.span, msg));
+            }
+        } else {
             if self.fields().next().is_none() {
-                let msg = "incomplete query: missing delete key";
+                let msg = "incomplete query: missing delete key\n\
+                    help: use #[sqly(keyless)] if intended";
                 return Err(syn::Error::new(Span::call_site(), msg));
             }
         }
