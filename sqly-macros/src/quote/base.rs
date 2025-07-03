@@ -263,13 +263,17 @@ impl Construct<'_> {
         let krate = self.table.krate()?;
         let fields = self.table.flats()?;
         let query = self.table.query(Target::Macro)?;
+        let call = match self.table.untyped() {
+            false => quote::quote! { query_as },
+            true => quote::quote! { query_as_unchecked },
+        };
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::Check for #obj {
                 #[allow(unused)]
                 fn check(&self) -> ! {
                     struct #obj { #(#fields,)* }
-                    #krate::sqlx::query_as!(#obj, #query);
+                    #krate::sqlx::#call!(#obj, #query);
                     ::core::panic!()
                 }
             }
