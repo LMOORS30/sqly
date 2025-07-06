@@ -56,10 +56,6 @@ impl<'c, T: Builder> Build<'c, T> {
 
 impl<'c, T: Builder> Build<'c, T> {
 
-    fn idx(field: &T::Field) -> syn::Ident {
-        quote::format_ident!("_{}", field.ident())
-    }
-
     fn put(&mut self) -> Result<()> {
         if let Some(pending) = &mut self.pending {
             if let Some(stream) = &mut self.stream {
@@ -178,10 +174,10 @@ impl<'c, T: Builder> Build<'c, T> {
                     return Err(err);
                 }
                 self.put()?;
-                let ident = Self::idx(field);
+                let ident = field.ident();
                 let body = self.stream.replace(stream);
                 self.stream.as_mut().map(|stream| stream.extend(quote::quote! {
-                    if let ::core::option::Option::Some(_) = &#ident.value {
+                    if #ident.value.is_some() {
                         #body
                     }
                 }));
@@ -222,9 +218,9 @@ impl<'c, T: Builder> Build<'c, T> {
                 params.place(&mut fmt, cell)?;
             } else { return Ok(()); }
             let (str, map) = fmt.into_inner();
-            let tuple = map.values().map(|field| field.ident());
-            let value = map.values().map(|field| Self::idx(field));
             let write = quote::quote! { ::core::write!(&mut query, #str).ok(); };
+            let tuple = map.values().map(|field| field.ident());
+            let value = tuple.clone();
             let block = match map.len() {
                 0 => quote::quote! { #write },
                 _ => quote::quote! { {
@@ -261,13 +257,14 @@ impl<'c, T: Builder> Build<'c, T> {
             let expr = full.iter().map(|field| {
                 self.table.value(field, Target::Function)
             }).collect::<Result<Vec<_>>>()?;
-            let ident = full.iter().map(|field| Self::idx(field));
+            let ident = full.iter().map(|field| field.ident());
             let bind = (0..full.len()).map(|i| syn::Index::from(i));
             let args = (!args.is_empty()).then(|| quote::quote! {
                 let args = <#db as #krate::sqlx::Database>::Arguments::default();
                 let mut args = ::core::result::Result::Ok(args);
             });
             let arg = (!full.is_empty()).then(|| quote::quote! {
+                #![allow(non_snake_case)]
                 let arg = (#(&(#expr),)*);
                 #args
                 #(let mut #ident = #krate::dynamic::Bind::new(arg.#bind);)*
@@ -283,10 +280,7 @@ impl<'c, T: Builder> Build<'c, T> {
             let db = db![];
             let len = args.len();
             let krate = self.table.krate()?;
-            let bind = (0..len).map(|i| {
-                let i = syn::Index::from(i);
-                quote::quote! { arg.#i }
-            });
+            let bind = (0..len).map(|i| syn::Index::from(i));
             let hint = bind.clone();
             let expr = args.iter().map(|field| {
                 self.table.value(field, Target::Function)
@@ -295,9 +289,9 @@ impl<'c, T: Builder> Build<'c, T> {
                 let arg = (#(&(#expr),)*);
                 use #krate::sqlx::Arguments as _;
                 let mut args = <#krate #db as #krate::sqlx::Database>::Arguments::default();
-                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(#hint))*);
+                args.reserve(#len, 0 #(+ #krate::sqlx::Encode::<#krate #db>::size_hint(arg.#hint))*);
                 let args = ::core::result::Result::Ok(args)
-                #(.and_then(move |mut args| args.add(#bind).map(move |()| args)))*;
+                #(.and_then(move |mut args| args.add(arg.#bind).map(move |()| args)))*;
                 (#string, args)
             }).unwrap_or_else(|| quote::quote! { #string })
         } else { TokenStream::new() };
