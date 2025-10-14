@@ -421,20 +421,11 @@ impl Name<Option<Info<Print>>> {
 
 
 
-impl Default for Returning {
-    fn default() -> Self {
+impl Returning {
+    pub const fn default() -> Self {
         Self {
-            table: Default::default(),
-            fields: Default::default(),
-        }
-    }
-}
-
-impl Clone for Returning {
-    fn clone(&self) -> Self {
-        Self {
-            table: self.table.clone(),
-            fields: self.fields.clone(),
+            table: None,
+            fields: Vec::new(),
         }
     }
 }

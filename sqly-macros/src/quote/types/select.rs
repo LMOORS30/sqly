@@ -20,8 +20,7 @@ impl Cache for SelectTable {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
         if let Paved::Path(path) = table {
-            let id = path.try_into()?;
-            dep.end(Key::Table(id));
+            dep.end(Key::Table(path));
         }
         Ok(dep)
     }

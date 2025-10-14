@@ -60,7 +60,7 @@ pub type Constructed<'c> = Column<'c, Construct<'c>>;
 pub struct Returnable<'c, T> {
     pub table: &'c T,
     pub paved: &'c Info<Paved>,
-    pub returning: Option<Cow<'c, Returning>>,
+    pub returning: Option<&'c Returning>,
 }
 
 pub enum Scalar<'c, T: Struct> {
@@ -154,7 +154,7 @@ impl QueryTable {
         let guard = cache::fetch();
         for column in self.coded()? {
             if let Code::Foreign(foreign) = column?.code {
-                let id = Id::try_from(foreign.path)?;
+                let id = foreign.path.try_into()?;
                 if !local.has_table(&id) {
                     let table = guard.table(&id)?.sync()?;
                     local.put_table(id.clone(), table)?;
@@ -173,8 +173,8 @@ impl QueryTable {
             let column = column?;
             let code = match column.code {
                 Code::Foreign(foreign) => {
-                    let id = &Id::try_from(foreign.path)?;
-                    let table = local.get_table(id)?;
+                    let id = foreign.path.try_into()?;
+                    let table = local.get_table(&id)?;
                     let mut construct = table.locolate(local)?;
                     construct.foreign = Some(foreign);
                     Code::Foreign(construct)
@@ -453,7 +453,7 @@ impl<'c, T: Struct> Returnable<'c, T> {
     pub fn colocate(&'c self, local: &'c mut Local) -> Result<&'c Local> {
         if let Some(path) = self.companion()? {
             let guard = cache::fetch();
-            let id = Id::try_from(path)?;
+            let id = path.try_into()?;
             if !local.has_table(&id) {
                 let table = guard.table(&id)?.sync()?;
                 local.put_table(id, table)?;

@@ -290,8 +290,6 @@ impl<'c, T: Struct> Scalar<'c, T> {
 
 }
 
-
-
 macro_rules! base {
 ($table:ty, $field:ty) => {
 both!($table, $field);
@@ -309,11 +307,11 @@ impl $table {
         Ok(Cow::Owned(table))
     }
 
-    pub fn returning(&self) -> Result<Option<Cow<Returning>>> {
+    pub fn returning(&self) -> Result<Option<&Returning>> {
         let data = self.attr.returning.as_ref().map(|name| {
             match &name.data {
-                Some(info) => Cow::Borrowed(&info.data),
-                None => Cow::Owned(Default::default()),
+                Some(info) => &info.data,
+                None => const { &Returning::default() },
             }
         });
         Ok(data)

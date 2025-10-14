@@ -20,13 +20,11 @@ impl Cache for InsertTable {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
         if let Paved::Path(path) = table {
-            let id = path.try_into()?;
-            dep.art(Key::Table(id));
+            dep.art(Key::Table(path));
         }
         if let Some(returning) = self.returning()? {
-            if let Some(table) = &returning.table {
-                let id = table.try_into()?;
-                dep.art(Key::Table(id));
+            if let Some(path) = &returning.table {
+                dep.art(Key::Table(path));
             }
         }
         Ok(dep)

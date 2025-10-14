@@ -38,6 +38,64 @@ pub mod docs {
 
 
 
+/// Utility module for error reporting in generated code.
+#[doc(hidden)]
+pub mod require {
+    use super::*;
+
+    /// Requires the given type to exist and implement [`Table`](Table).
+    /// 
+    /// Used in generated code to raise errors for incorrect attribute paths.
+    /// 
+    /// ```compile_fail
+    /// # mod arg { pub struct Type; }
+    /// const _: () = sqly::require::table::<arg::Type>();
+    /// ```
+    pub const fn table<T: Table>() {}
+
+    /// Requires the given type to exist and implement [`DeleteImpl`](DeleteImpl).
+    /// 
+    /// Used in generated code to raise errors for incorrect attribute paths.
+    /// 
+    /// ```compile_fail
+    /// # mod arg { pub struct Type; }
+    /// const _: () = sqly::require::delete::<arg::Type>();
+    /// ```
+    pub const fn delete<T: DeleteImpl>() {}
+
+    /// Requires the given type to exist and implement [`InsertImpl`](InsertImpl).
+    /// 
+    /// Used in generated code to raise errors for incorrect attribute paths.
+    /// 
+    /// ```compile_fail
+    /// # mod arg { pub struct Type; }
+    /// const _: () = sqly::require::insert::<arg::Type>();
+    /// ```
+    pub const fn insert<T: InsertImpl>() {}
+
+    /// Requires the given type to exist and implement [`SelectImpl`](SelectImpl).
+    /// 
+    /// Used in generated code to raise errors for incorrect attribute paths.
+    /// 
+    /// ```compile_fail
+    /// # mod arg { pub struct Type; }
+    /// const _: () = sqly::require::select::<arg::Type>();
+    /// ```
+    pub const fn select<T: SelectImpl>() {}
+
+    /// Requires the given type to exist and implement [`UpdateImpl`](UpdateImpl).
+    /// 
+    /// Used in generated code to raise errors for incorrect attribute paths.
+    /// 
+    /// ```compile_fail
+    /// # mod arg { pub struct Type; }
+    /// const _: () = sqly::require::update::<arg::Type>();
+    /// ```
+    pub const fn update<T: UpdateImpl>() {}
+}
+
+
+
 /// Utility module for [serde](https://serde.rs).
 /// 
 /// Only available with the [`serde`](https://github.com/LMOORS30/sqly#features) feature enabled.

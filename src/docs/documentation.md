@@ -773,9 +773,13 @@ The following attributes achieve the same effect:
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
+# #[sqly(target = "")]
 #[sqly(foreign)]
-# t: i32,
+# t: T1,
 # }
 ```
 Mark this field as a foreign table.
@@ -794,9 +798,13 @@ The [`#[sqly(target)]`](#target), [`#[sqly(named)]`](#named) and [`#[sqly(typed)
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
+# #[sqly(target = "")]
 #[sqly(foreign = "$INNER JOIN other AS $other ON $other.id = $table.other_id")]
-# t: i32,
+# t: T1,
 # }
 ```
 Set a custom SQL `JOIN` expression for the foreign table.
@@ -826,10 +834,13 @@ Nullability is not checked for SQL `JOIN`s. When performing a `LEFT JOIN` be sur
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
+# struct T1 { field: i32 }
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
 # #[sqly(foreign)]
 #[sqly(target = field)]
-# t: i32,
+# t: T1,
 # }
 ```
 Specify the ident of the field in the foreign struct to perform the SQL `JOIN` on.
@@ -842,10 +853,13 @@ If not specified a default field is chosen only if there is exactly one key fiel
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
 # #[sqly(foreign)]
 #[sqly(target = "column")]
-# t: i32,
+# t: T1,
 # }
 ```
 Specify the column of the foreign table to perform the SQL `JOIN` on.
@@ -859,10 +873,13 @@ This is the same as above, except the column is specified directly and not requi
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
-# #[sqly(foreign)]
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
+# #[sqly(foreign, target = "")]
 #[sqly(named = ident)]
-# t: i32,
+# t: T1,
 # }
 ```
 Set the ident of this field when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.
@@ -883,10 +900,13 @@ This can cause problems if [`#[sqly(column)]`](#column) is also not specified, a
 ```
 # #[derive(sqly::Table)]
 # #[sqly(table = "")]
-# struct T {
-# #[sqly(foreign)]
+# struct T1;
+# #[derive(sqly::Table)]
+# #[sqly(table = "")]
+# struct T2 {
+# #[sqly(foreign, target = "")]
 #[sqly(typed = Type)]
-# t: i32,
+# t: T1,
 # }
 ```
 Set the type of this field when included in generated [`Delete`](derive@Delete), [`Insert`](derive@Insert), [`Select`](derive@Select) and [`Update`](derive@Update) structs.

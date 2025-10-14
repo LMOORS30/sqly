@@ -39,8 +39,7 @@ impl Cache for QueryTable {
         let mut dep = Dep::new();
         for column in self.coded()? {
             if let Code::Foreign(foreign) = column?.code {
-                let id = Id::try_from(foreign.path)?;
-                dep.end(Key::Table(id));
+                dep.end(Key::Table(foreign.path));
             }
         }
         Ok(dep)

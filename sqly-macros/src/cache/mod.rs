@@ -1,6 +1,6 @@
 use std::collections::{
-    btree_map as map,
-    BTreeMap as Map,
+    btree_map as btree,
+    BTreeMap as BTree,
 };
 
 use proc_macro2::TokenStream;
@@ -31,26 +31,21 @@ pub trait Cache {
 
 
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id {
     ident: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Key {
-    $($upper(Id),)*
-}
-
 impl TryFrom<&syn::Ident> for Id {
     type Error = syn::Error;
-    fn try_from(ident: &syn::Ident) -> Result<Self> {
-        Ok(Self { ident: ident.unraw() })
+    fn try_from(ident: &syn::Ident) -> Result<Id> {
+        Ok(Id { ident: ident.unraw() })
     }
 }
 
 impl TryFrom<&syn::Path> for Id {
     type Error = syn::Error;
-    fn try_from(path: &syn::Path) -> Result<Self> {
+    fn try_from(path: &syn::Path) -> Result<Id> {
         match path.segments.last() {
             None => {
                 let msg = "invalid path: no segments\n\
@@ -80,11 +75,35 @@ impl std::fmt::Display for Id {
     }
 }
 
-impl std::fmt::Display for Key {
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Key<T> {
+    $($upper(T),)*
+}
+
+impl<T> Key<T> {
+    fn into_inner(self) -> T {
+        match self {
+            $(Key::$upper(val) => val,)*
+        }
+    }
+}
+
+impl TryFrom<Key<&syn::Path>> for Key<Id> {
+    type Error = syn::Error;
+    fn try_from(key: Key<&syn::Path>) -> Result<Key<Id>> {
+        Ok(match key {
+            $(Key::$upper(id) => Key::$upper(id.try_into()?),)*
+        })
+    }
+}
+
+impl<T: std::borrow::Borrow<Id>> std::fmt::Display for Key<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            $(Self::$upper(id) => {
-                write!(f, "#[derive({})] {}", stringify!($upper), id)
+            $(Key::$upper(id) => {
+                write!(f, "#[derive({})] {}", stringify!($upper), id.borrow())
             },)*
         }
     }
@@ -92,56 +111,62 @@ impl std::fmt::Display for Key {
 
 
 
-#[derive(Clone, PartialEq, Eq, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Res {
     End,
     Art,
 }
 
-#[derive(Clone, PartialEq, Eq, Default)]
-pub struct Dep {
-    set: Map<Key, Res>,
+#[derive(Clone)]
+pub struct Dep<'c> {
+    src: Vec<(Key<&'c syn::Path>, Res)>,
 }
 
-struct Tree<T> {
-    dep: Dep,
+impl<'c> Dep<'c> {
+
+    pub fn new() -> Dep<'c> {
+        Dep { src: Vec::new() }
+    }
+
+    pub fn art(&mut self, key: Key<&'c syn::Path>) -> &mut Dep<'c> {
+        self.src.push((key, Res::Art));
+        self
+    }
+
+    pub fn end(&mut self, key: Key<&'c syn::Path>) -> &mut Dep<'c> {
+        self.src.push((key, Res::End));
+        self
+    }
+
+}
+
+
+
+struct Src<T> {
+    dep: BTree<Key<Id>, Res>,
     val: T,
 }
 
-impl Dep {
-
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn art(&mut self, key: Key) -> &mut Self {
-        self.set.entry(key).or_insert(Res::Art);
-        self
-    }
-
-    pub fn end(&mut self, key: Key) -> &mut Self {
-        self.set.insert(key, Res::End);
-        self
-    }
+impl<T> Src<T> {
 
     fn res(&self) -> Res {
-        match self.set.len() {
+        match self.dep.len() {
             0 => Res::End,
             _ => Res::Art,
         }
     }
 
-    fn pop(&mut self, key: &Key, res: Res) -> Option<Res> {
+    fn pop(&mut self, key: &Key<Id>, res: Res) -> Option<Res> {
         let pop = match res {
-            Res::End => !self.set.is_empty(),
-            Res::Art => match self.set.get(&key) {
+            Res::End => !self.dep.is_empty(),
+            Res::Art => match self.dep.get(&key) {
                 Some(&res) => res == Res::Art,
                 None => false,
             }
         };
         match pop {
             false => None,
-            true => match self.set.remove(&key) {
+            true => match self.dep.remove(&key) {
                 Some(_) => Some(self.res()),
                 None => None,
             }
@@ -152,34 +177,9 @@ impl Dep {
 
 
 
-pub struct Guard<T>(T);
-
-pub type ReadGuard = Guard<RwLockReadGuard<'static, Store>>;
-pub type WriteGuard = Guard<RwLockWriteGuard<'static, Store>>;
-
-#[derive(Default)]
-pub struct Store {
-    $($lower: Map<Id, Tree<<$table as Safe>::Safe>>,)*
-}
-
 #[derive(Default)]
 pub struct Local {
-    $($lower: Map<Id, Option<$table>>,)*
-}
-
-static STORE: OnceLock<RwLock<Store>> = OnceLock::new();
-
-pub fn fetch() -> ReadGuard {
-    Guard(STORE.get_or_init(Default::default).read().unwrap())
-}
-
-pub fn store() -> WriteGuard {
-    Guard(STORE.get_or_init(Default::default).write().unwrap())
-}
-
-pub mod cache {
-    pub use super::fetch;
-    pub use super::store;
+    $($lower: BTree<Id, Option<$table>>,)*
 }
 
 #[allow(dead_code)]
@@ -187,14 +187,14 @@ impl Local {
 paste::paste! {
 
     $(pub fn [<has_ $lower>](&self, id: &Id) -> bool {
-        self.$lower.get(id).and_then(Option::as_ref).is_some()
+        self.$lower.get(id).is_some()
     })*
 
     $(pub fn [<get_ $lower>](&self, id: &Id) -> Result<&$table> {
         match self.$lower.get(id).and_then(Option::as_ref) {
             Some(entry) => Ok(entry),
             None => {
-                let key = Key::$upper(id.clone());
+                let key = Key::$upper(id);
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
                 Err(syn::Error::new(Span::call_site(), msg))
@@ -206,7 +206,7 @@ paste::paste! {
         match self.$lower.get_mut(id) {
             Some(entry) => Ok(entry.take()),
             None => {
-                let key = Key::$upper(id.clone());
+                let key = Key::$upper(id);
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
                 Err(syn::Error::new(Span::call_site(), msg))
@@ -221,14 +221,40 @@ paste::paste! {
 
 } }
 
+
+
+pub struct Guard<T>(T);
+
+pub type ReadGuard = Guard<RwLockReadGuard<'static, Store>>;
+pub type WriteGuard = Guard<RwLockWriteGuard<'static, Store>>;
+
+#[derive(Default)]
+pub struct Store {
+    $($lower: BTree<Id, Src<<$table as Safe>::Safe>>,)*
+}
+
+static STORE: OnceLock<RwLock<Store>> = OnceLock::new();
+
+pub mod cache {
+    use super::*;
+
+    pub fn fetch() -> ReadGuard {
+        Guard(STORE.get_or_init(Default::default).read().unwrap())
+    }
+
+    pub fn store() -> WriteGuard {
+        Guard(STORE.get_or_init(Default::default).write().unwrap())
+    }
+}
+
 #[allow(dead_code)]
-impl Guard<RwLockReadGuard<'static, Store>> {
+impl ReadGuard {
 
     $(pub fn $lower(&self, id: &Id) -> Result<&<$table as Safe>::Safe> {
         match self.0.$lower.get(id) {
             Some(tree) => Ok(&tree.val),
             None => {
-                let key = Key::$upper(id.clone());
+                let key = Key::$upper(id);
                 let msg = format!("missing definition: {key}\n\
                     note: this error should not occur");
                 Err(syn::Error::new(Span::call_site(), msg))
@@ -236,12 +262,12 @@ impl Guard<RwLockReadGuard<'static, Store>> {
         }
     })*
 
-    fn call(&self, key: &Key) -> Result<TokenStream> {
+    fn call(&self, key: &Key<Id>) -> Result<TokenStream> {
         match key {
             $(Key::$upper(id) => match self.0.$lower.get(id) {
                 Some(tree) => tree.val.sync()?.call(),
                 None => {
-                    let key = Key::$upper(id.clone());
+                    let key = Key::$upper(id);
                     let msg = format!("missing definition: {key}\n\
                         note: this error should not occur");
                     Err(syn::Error::new(Span::call_site(), msg))
@@ -252,31 +278,12 @@ impl Guard<RwLockReadGuard<'static, Store>> {
 
 }
 
-impl Guard<RwLockWriteGuard<'static, Store>> {
+impl WriteGuard {
 
-    fn dep(&self, key: &Key) -> Option<&Dep> {
-        match key {
-            $(Key::$upper(id) => match self.0.$lower.get(id) {
-                Some(tree) => Some(&tree.dep),
-                None => None,
-            },)*
-        }
-    }
-
-    fn set(&self, dep: Dep) -> Dep {
-        let set = dep.set.into_iter().filter(|(key, res)| {
-            self.dep(key).map_or(true, |dep| match res {
-                Res::End => !dep.set.is_empty(),
-                Res::Art => false,
-            })
-        }).collect();
-        Dep{ set }
-    }
-
-    fn pop(&mut self, key: &Key, res: Res) -> Vec<Key> {
+    fn pop(&mut self, key: &Key<Id>, res: Res) -> Vec<Key<Id>> {
         let mut vec = Vec::new();
         $(vec.extend(self.0.$lower.iter_mut().filter_map(|(id, val)| {
-            val.dep.pop(key, res).and_then(|pop| match pop {
+            val.pop(key, res).and_then(|pop| match pop {
                 Res::End => Some(Key::$upper(id.clone())),
                 Res::Art => None,
             })
@@ -284,12 +291,9 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
         vec
     }
 
-    fn put(&mut self, key: &Key, res: Res) -> Vec<Key> {
+    fn put(&mut self, key: &Key<Id>, res: Res) -> Vec<Key<Id>> {
         let mut new = self.pop(key, res);
-        let mut all = match res {
-            Res::End => vec![key.clone()],
-            Res::Art => vec![],
-        };
+        let mut all = Vec::new();
         while !new.is_empty() {
             let add = new.iter().flat_map(|key| {
                 self.pop(key, Res::End)
@@ -297,8 +301,28 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
             all.append(&mut new);
             new = add;
         }
-        all.append(&mut new);
         all
+    }
+
+}
+
+
+
+impl WriteGuard {
+
+    fn dep(&self, key: &Key<Id>) -> Option<&BTree<Key<Id>, Res>> {
+        match key {
+            $(Key::$upper(id) => match self.0.$lower.get(id) {
+                Some(src) => Some(&src.dep),
+                None => None,
+            },)*
+        }
+    }
+
+    fn check(&self, key: &Key<Id>, path: Key<&syn::Path>) -> Option<TokenStream> {
+        self.dep(&key).is_none().then(|| match path {
+            $(Key::$upper(path) => quote::quote! { $lower::<#path> },)*
+        })
     }
 
     $(pub fn $lower(mut self, val: $table) -> Result<TokenStream>
@@ -306,44 +330,58 @@ impl Guard<RwLockWriteGuard<'static, Store>> {
     {
         let id = val.id()?;
         let dep = val.dep()?;
-        let safe = val.send()?;
+        let mut src = Src {
+            val: val.send()?,
+            dep: BTree::new(),
+        };
+        let mut out = TokenStream::new();
 
-        let dep = self.set(dep);
-        let key = Key::$upper(id.clone());
-        let vec = self.put(&key, dep.res());
+        for (path, res) in dep.src {
+            let key = path.try_into()?;
+            if let Some(check) = self.check(&key, path) {
+                let krate = val.krate()?;
+                let typed = quote::quote! {
+                    const _: () = #krate::require::#check();
+                };
+                out.extend(typed);
+            }
+            if match (self.dep(&key), res) {
+                (Some(dep), Res::End) => !dep.is_empty(),
+                (Some(_), Res::Art) => false,
+                (None, _) => true,
+            } {
+                src.dep.insert(key, res);
+            }
+        }
+
+        let res = src.res();
+        let key = Key::$upper(id);
+        let vec = self.put(&key, res);
+        let id = key.into_inner();
 
         match self.0.$lower.entry(id) {
-            map::Entry::Occupied(entry) => {
-                let key = Key::$upper(entry.key().clone());
+            btree::Entry::Occupied(entry) => {
+                let key = Key::$upper(entry.key());
                 let msg = format!("duplicate definition: {key}\n\
                     note: cannot #[derive({})] on multiple structs with the same identifier",
                     stringify!($upper));
                 return Err(syn::Error::new(Span::call_site(), msg));
             }
-            map::Entry::Vacant(entry) => {
-                entry.insert(Tree {
-                    val: safe,
-                    dep,
-                });
+            btree::Entry::Vacant(entry) => {
+                entry.insert(src);
             }
         }
 
         drop(self);
-        let mut val = Some(val);
-        let mut out = TokenStream::new();
         let read = cache::fetch();
-
-        for put in vec {
-            let put = match put == key {
-                false => read.call(&put)?,
-                true => match val.take() {
-                    None => read.call(&put)?,
-                    Some(val) => val.call()?,
-                }
-            };
+        if let Res::End = res {
+            let put = val.call()?;
             out.extend(put.into_iter())
         }
-
+        for put in vec {
+            let put = read.call(&put)?;
+            out.extend(put.into_iter())
+        }
         Ok(out)
     })*
 
