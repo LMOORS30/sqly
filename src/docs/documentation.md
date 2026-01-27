@@ -268,14 +268,14 @@ If not specified this defaults to the visibility of the current struct.
 # #[derive(sqly::Table)]
 # #[sqly(table = "", delete, insert)]
 #[sqly(flat_visibility = pub)]
-#[sqly(delete_visibility = ,)]
+#[sqly(delete_visibility( ))]
 # pub struct T { #[sqly(key)] t: i32 };
 ```
 Set the visbility of the specified generated struct.
 
 This overrides the value set with `query_visibility`.
 
-Use `visibility = ,` to set an inherited (private) visibility.
+Use `visibility( )` to set an inherited (private) visibility.
 
 <br>
 

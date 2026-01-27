@@ -701,20 +701,30 @@ macro_rules! safe {
 
 macro_rules! token {
     ($i:ident, (= $($t:tt)*)*) => ({
-        match $i.peek(syn::Token![=]) {
+        match $i.peek(syn::Token![=]) || $i.peek(syn::token::Paren) {
             true => token!($i, (= $($t)*)+),
             false => Ok(Vec::new()),
         }
     });
     ($i:ident, (= $($t:tt)*)+) => ({
-        $i.parse::<syn::Token![=]>()?;
+        if $i.peek(syn::token::Paren) {
+            let $i = syn::__private::parse_parens(&$i)?.content;
+            token!($i, (@ @ $($t)*)+)
+        } else {
+            $i.parse::<syn::Token![=]>()?;
+            token!($i, (@ = $($t)*)+)
+        }
+    });
+    ($i:ident, (@ $a:tt $($t:tt)*)+) => ({
         let mut vec = Vec::new();
         vec.push(token!($i, $($t)*)?);
         while $i.peek(syn::Token![,]) {
-            if $i.peek3(syn::Token![=]) {
-                break;
-            }
-            token!(lit($($t)*) {
+            token!(sin($a $($t)*) {
+                if $i.peek3(syn::Token![=]) {
+                    break;
+                }
+            });
+            token!(lit($a $($t)*) {
                 if $i.peek2(<syn::Ident as syn::ext::IdentExt>::peek_any) {
                     break;
                 }
@@ -728,14 +738,23 @@ macro_rules! token {
         Ok(vec)
     });
     ($i:ident, (= $($t:tt)*)?) => ({
-        match $i.peek(syn::Token![=]) {
+        match $i.peek(syn::Token![=]) || $i.peek(syn::token::Paren) {
             true => token!($i, (= $($t)*)!).map(Some),
             false => Ok(None),
         }
     });
     ($i:ident, (= $($t:tt)*)!) => ({
-        $i.parse::<syn::Token![=]>()?;
-        token!($i, $($t)*)
+        if $i.peek(syn::token::Paren) {
+            let $i = syn::__private::parse_parens(&$i)?.content;
+            let t = token!($i, $($t)*);
+            if $i.peek(syn::Token![,]) {
+                $i.parse::<syn::Token![,]>()?;
+            }
+            t
+        } else {
+            $i.parse::<syn::Token![=]>()?;
+            token!($i, $($t)*)
+        }
     });
     ($i:ident,) => ( Ok(crate::parse::rules::Info { data: crate::parse::rules::Void, span: None }) );
     ($i:ident, f64) => ( token!(let $i: syn::LitFloat = $i.base10_parse()?) );
@@ -747,11 +766,12 @@ macro_rules! token {
     (let $i:ident: $t:ty = $v:expr) => ( $i.parse::<$t>().and_then(|$i: $t| {
         Ok(crate::parse::rules::Info { span: Some($i.span()), data: $v })
     }) );
-    (lit(f64) { $($t:tt)* }) => ( $($t)* );
-    (lit(u64) { $($t:tt)* }) => ( $($t)* );
-    (lit(i64) { $($t:tt)* }) => ( $($t)* );
-    (lit(String) { $($t:tt)* }) => ( $($t)* );
-    (lit($($t:tt)+) { $($_:tt)* }) => ();
+    (lit(= f64) { $($t:tt)* }) => ( $($t)* );
+    (lit(= u64) { $($t:tt)* }) => ( $($t)* );
+    (lit(= i64) { $($t:tt)* }) => ( $($t)* );
+    (lit(= String) { $($t:tt)* }) => ( $($t)* );
+    (sin(= $($_:tt)*) { $($t:tt)* }) => ( $($t)* );
+    ($f:ident($($t:tt)+) { $($_:tt)* }) => ();
 }
 
 macro_rules! specd {
