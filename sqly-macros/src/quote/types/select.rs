@@ -16,7 +16,7 @@ impl Cache for SelectTable {
         Id::try_from(&self.ident)
     }
 
-    fn dep(&self) -> Result<Dep> {
+    fn dep(&self) -> Result<Dep<'_>> {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
         if let Paved::Path(path) = table {
@@ -253,7 +253,7 @@ impl Construct<'_> {
 
 impl SelectTable {
 
-    pub fn query(&self, construct: &Construct) -> Result<Done<SelectTable>> {
+    pub fn query(&self, construct: &Construct) -> Result<Done<'_, SelectTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let unique = construct.unique()?;

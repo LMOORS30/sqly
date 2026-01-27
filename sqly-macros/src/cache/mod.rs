@@ -25,7 +25,7 @@ macro_rules! cache {
 
 pub trait Cache {
     fn id(&self) -> Result<Id>;
-    fn dep(&self) -> Result<Dep>;
+    fn dep(&self) -> Result<Dep<'_>>;
     fn call(self) -> Result<TokenStream>;
 }
 
@@ -326,8 +326,7 @@ impl WriteGuard {
     }
 
     $(pub fn $lower(mut self, val: $table) -> Result<TokenStream>
-    where $table: Cache + Safe<Error = syn::Error>
-    {
+    where $table: Cache + Safe<Error = syn::Error> {
         let id = val.id()?;
         let dep = val.dep()?;
         let mut src = Src {

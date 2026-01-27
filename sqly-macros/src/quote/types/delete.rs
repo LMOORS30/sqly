@@ -16,7 +16,7 @@ impl Cache for DeleteTable {
         Id::try_from(&self.ident)
     }
 
-    fn dep(&self) -> Result<Dep> {
+    fn dep(&self) -> Result<Dep<'_>> {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
         if let Paved::Path(path) = table {
@@ -64,7 +64,7 @@ impl DeleteTable {
 
 impl DeleteTable {
 
-    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<DeleteTable>> {
+    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<'_, DeleteTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;

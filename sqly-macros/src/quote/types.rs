@@ -35,7 +35,7 @@ impl Cache for QueryTable {
         Id::try_from(&self.ident)
     }
 
-    fn dep(&self) -> Result<Dep> {
+    fn dep(&self) -> Result<Dep<'_>> {
         let mut dep = Dep::new();
         for column in self.coded()? {
             if let Code::Foreign(foreign) = column?.code {
@@ -98,7 +98,9 @@ impl QueryTable {
             #check
             #from_row
             #[automatically_derived]
-            impl #krate::Table for #ident {}
+            impl #krate::Table for #ident {
+                const AUTOMATICALLY_DERIVED: () = ();
+            }
             #(#types)*
         })
     }
@@ -278,6 +280,7 @@ impl Construct<'_> {
             #from_flat
             #[automatically_derived]
             impl #krate::Flat for #ident {
+                const AUTOMATICALLY_DERIVED: () = ();
                 type Flat = #flat;
             }
         })

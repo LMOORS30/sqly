@@ -52,7 +52,7 @@ impl QueryTable {
         Ok(vis)
     }
 
-    pub fn name(&self, r#type: Structs) -> Result<Cow<syn::Ident>> {
+    pub fn name(&self, r#type: Structs) -> Result<Cow<'_, syn::Ident>> {
         let typed = match r#type {
             Structs::Flat => &self.attr.flat,
             Structs::Delete => &self.attr.delete,
@@ -167,11 +167,11 @@ impl Nullable<'_> {
 
 impl Constructed<'_> {
 
-    pub fn defaulted(&self) -> Result<Option<Nullable>> {
+    pub fn defaulted(&self) -> Result<Option<Nullable<'_>>> {
         self.table.defaulted(self.field)
     }
 
-    pub fn nullable(&self) -> Result<Option<Nullable>> {
+    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
         self.table.nullable(self.field)
     }
 
@@ -179,7 +179,7 @@ impl Constructed<'_> {
 
 impl Construct<'_> {
 
-    pub fn nullable(&self) -> Result<Option<Nullable>> {
+    pub fn nullable(&self) -> Result<Option<Nullable<'_>>> {
         let nullable = match &self.foreign {
             Some(foreign) => foreign.nullable,
             None => None,
@@ -191,7 +191,7 @@ impl Construct<'_> {
 
 impl Resolved<'_> {
 
-    pub fn column(&self) -> Result<Cow<str>> {
+    pub fn column(&self) -> Result<Cow<'_, str>> {
         let column = match self {
             Resolved::Attr(attr) => Cow::Borrowed(attr.column),
             Resolved::Field(field) => field.column()?,
@@ -237,7 +237,7 @@ impl Constructed<'_> {
 
 impl Declared for Constructed<'_> {
 
-    fn declaration(&self) -> Result<Declaration> {
+    fn declaration(&self) -> Result<Declaration<'_>> {
         let named = self.renamed()?;
         self.table.declare(self.field, &named)
     }
@@ -246,7 +246,7 @@ impl Declared for Constructed<'_> {
 
 impl Constructed<'_> {
 
-    pub fn ident(&self) -> Result<Cow<syn::Ident>> {
+    pub fn ident(&self) -> Result<Cow<'_, syn::Ident>> {
         let alias = self.alias()?;
         if alias.eq(&self.field.ident.unraw()) {
             return Ok(Cow::Borrowed(&self.field.ident));
@@ -264,7 +264,7 @@ impl Constructed<'_> {
 
 impl<T: Struct + Declare> Declared for Scalar<'_, T> {
 
-    fn declaration(&self) -> Result<Declaration> {
+    fn declaration(&self) -> Result<Declaration<'_>> {
         let declaration = match self {
             Scalar::Table(table, field) => table.declaration(field)?,
             Scalar::Paved(table, field) => table.declaration(field)?,
@@ -296,7 +296,7 @@ both!($table, $field);
 
 impl $table {
 
-    pub fn table(&self) -> Result<Cow<str>> {
+    pub fn table(&self) -> Result<Cow<'_, str>> {
         let guard = cache::fetch();
         let table = match &self.attr.table.data.data {
             Paved::String(table) => return Ok(Cow::Borrowed(table)),
@@ -317,7 +317,7 @@ impl $table {
         Ok(data)
     }
 
-    pub fn returnable(&self) -> Result<Returnable<Self>> {
+    pub fn returnable(&self) -> Result<Returnable<'_, Self>> {
         Ok(Returnable {
             table: self,
             paved: &self.attr.table.data,
@@ -437,8 +437,8 @@ pub trait Declare: Struct {
 }
 
 pub trait Declared {
-    fn declaration(&self) -> Result<Declaration>;
-    fn column(&self) -> Result<Cow<str>> {
+    fn declaration(&self) -> Result<Declaration<'_>>;
+    fn column(&self) -> Result<Cow<'_, str>> {
         Ok(self.declaration()?.0)
     }
     #[allow(unused)]

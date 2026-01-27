@@ -96,9 +96,7 @@ impl<'c, T: Builder> Build<'c, T> {
     }
 
     pub fn duo<F>(&mut self, mut f: F) -> Result<()>
-    where
-        F: FnMut(Target) -> Result<String>
-    {
+    where F: FnMut(Target) -> Result<String> {
         if let Some(checking) = &mut self.checking {
             let mac = f(Target::Macro)?;
             checking.push_str(&mac);
@@ -162,9 +160,7 @@ impl<'c, T: Builder> Build<'c, T> {
     }
 
     pub fn opt<F>(&mut self, field: &T::Field, f: F) -> Result<()>
-    where
-        F: FnOnce(&mut Self) -> Result<()>,
-    {
+    where F: FnOnce(&mut Self) -> Result<()> {
         if self.table.optional(field).is_some() {
             self.put()?;
             if let Some(stream) = self.stream.take() {
@@ -338,5 +334,5 @@ build! {
     fn dynamic(&self) -> Option<Span>;
     fn optional(&self, field: &Self::Field) -> Option<Span>;
     fn value(&self, field: &Self::Field, target: Target) -> Result<TokenStream>;
-    fn krate(&self) -> Result<Cow<syn::Path>>;
+    fn krate(&self) -> Result<Cow<'_, syn::Path>>;
 }

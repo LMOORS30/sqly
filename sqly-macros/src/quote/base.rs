@@ -264,6 +264,7 @@ impl Construct<'_> {
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::Check for #obj {
+                const AUTOMATICALLY_DERIVED: () = ();
                 #[allow(unused)]
                 fn check(&self) -> ! {
                     struct #obj { #(#fields,)* }
@@ -361,6 +362,7 @@ impl $table {
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::[<$upper Impl>] for #obj {
+                const AUTOMATICALLY_DERIVED: () = ();
                 type Table = #typle;
                 type Query<'q, 'a> = #query;
                 type From<'q, 'a> = #from;
@@ -380,6 +382,7 @@ impl $table {
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::$upper for #obj {
+                const AUTOMATICALLY_DERIVED: () = ();
                 type Table = <Self as #krate::[<$upper Impl>]>::Table;
                 type Query<'a> = <Self as #krate::[<$upper Impl>]>::Query<'static, 'a>
                     where Self: 'a;
@@ -466,6 +469,7 @@ impl $table {
         Ok(quote::quote! {
             #[automatically_derived]
             impl #krate::[<$upper Check>] for #obj {
+                const AUTOMATICALLY_DERIVED: () = ();
                 #[allow(unused)]
                 fn [<$lower _check>](&self) -> ! {
                     #rip
@@ -561,7 +565,7 @@ macro_rules! both {
 
 impl $table {
 
-    pub fn krate(&self) -> Result<Cow<syn::Path>> {
+    pub fn krate(&self) -> Result<Cow<'_, syn::Path>> {
         let krate = match &self.attr.krate {
             Some(krate) => Cow::Borrowed(&krate.data.data),
             None => Cow::Owned(syn::parse_quote! { ::sqly }),

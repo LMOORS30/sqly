@@ -233,10 +233,7 @@ impl<K, V: Placer<T>, T> Default for Params<K, V, T> {
 impl<K: Hash + Eq, V: Placer<T>, T> Params<K, V, T> {
 
     pub fn get<Q: ?Sized>(&mut self, key: &Q) -> Option<&V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
+    where K: Borrow<Q>, Q: Hash + Eq {
         self.map.get(key)
     }
 
@@ -269,10 +266,7 @@ impl<K, V: Placer<T>, T> Params<K, V, T> {
     }
 
     pub fn drain<'c, I, J: 'c>(&mut self, i: I) -> Result<()>
-    where
-        V: 'c,
-        I: IntoIterator<Item = &'c mut (J, V)>,
-    {
+    where V: 'c, I: IntoIterator<Item = &'c mut (J, V)> {
         let drain = &mut Drain;
         for (_, val) in i.into_iter() {
             val.place(&mut self.state, drain)?;

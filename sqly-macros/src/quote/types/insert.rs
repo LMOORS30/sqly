@@ -16,7 +16,7 @@ impl Cache for InsertTable {
         Id::try_from(&self.ident)
     }
 
-    fn dep(&self) -> Result<Dep> {
+    fn dep(&self) -> Result<Dep<'_>> {
         let mut dep = Dep::new();
         let table = &self.attr.table.data.data;
         if let Paved::Path(path) = table {
@@ -64,7 +64,7 @@ impl InsertTable {
 
 impl InsertTable {
 
-    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<InsertTable>> {
+    pub fn query(&self, returns: &Returns<Self>) -> Result<Done<'_, InsertTable>> {
         let mut params = Params::default();
         let mut build = Build::new(self)?;
         let table = self.table()?;
