@@ -1,5 +1,6 @@
 [workspace]
-members = ["sqly-macros"]
+members = ["examples/c0_intro"]
+default-members = [".", "sqly-macros"]
 
 [workspace.package]
 version = "0.4.0"
@@ -35,6 +36,35 @@ sqly-macros = { version = "=0.4.0", path = "sqly-macros", default-features = fal
 serde = { version = "1.0", default-features = false, optional = true }
 sqlx = { version = "0.8.0", default-features = false }
 sqly-macros = { workspace = true }
+
+[dev-dependencies]
+anyhow = { version = "1.0" }
+sqlx = { version = "0.8.6" }
+
+[[example]]
+name = "c1_derive"
+crate-type = ["lib"]
+required-features = ["postgres"]
+
+[[example]]
+name = "c2_select"
+crate-type = ["lib"]
+required-features = ["postgres"]
+
+[[example]]
+name = "c3_sequel"
+crate-type = ["lib"]
+required-features = ["postgres"]
+
+# [[example]]
+# name = "c4_foreign"
+# crate-type = ["lib"]
+# required-features = ["postgres"]
+# 
+# [[example]]
+# name = "use_cases"
+# crate-type = ["lib"]
+# required-features = ["postgres"]
 
 [package.metadata.docs.rs]
 features = ["postgres", "serde"]
