@@ -1,0 +1,21 @@
+error: incomplete query: missing delete key
+       help: use #[sqly(keyless)] if intended
+ --> tests/error/types/delete.rs:5:10
+  |
+5 | #[derive(Delete)]
+  |          ^^^^^^
+  |
+  = note: this error originates in the derive macro `Delete` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: conflicting attribute: #[sqly(keyless)] with keys
+       help: remove #[sqly(keyless)]
+  --> tests/error/types/delete.rs:10:20
+   |
+10 | #[sqly(table = "", keyless)]
+   |                    ^^^^^^^
+
+error: conflicting attributes: #[sqly(skip, filter)]
+  --> tests/error/types/delete.rs:18:12
+   |
+18 |     #[sqly(skip, filter = "")]
+   |            ^^^^

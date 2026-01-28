@@ -1,0 +1,47 @@
+error: incomplete query: missing update value
+ --> tests/error/types/update.rs:5:10
+  |
+5 | #[derive(Update)]
+  |          ^^^^^^
+  |
+  = note: this error originates in the derive macro `Update` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: incomplete query: missing update key
+       help: use #[sqly(keyless)] if intended
+  --> tests/error/types/update.rs:12:10
+   |
+12 | #[derive(Update)]
+   |          ^^^^^^
+   |
+   = note: this error originates in the derive macro `Update` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: conflicting attributes: #[sqly(keyless)] with #[sqly(key)]
+       help: remove #[sqly(keyless)]
+  --> tests/error/types/update.rs:19:20
+   |
+19 | #[sqly(table = "", keyless)]
+   |                    ^^^^^^^
+
+error: conflicting attributes: #[sqly(skip, key)]
+  --> tests/error/types/update.rs:32:12
+   |
+32 |     #[sqly(skip, key)]
+   |            ^^^^
+
+error: conflicting attributes: #[sqly(skip, update)]
+  --> tests/error/types/update.rs:42:12
+   |
+42 |     #[sqly(skip, update = "")]
+   |            ^^^^
+
+error: conflicting attributes: #[sqly(key, update)]
+  --> tests/error/types/update.rs:52:12
+   |
+52 |     #[sqly(key, update = "")]
+   |            ^^^
+
+error: unused attribute: requires #[sqly(key)]
+  --> tests/error/types/update.rs:62:12
+   |
+62 |     #[sqly(filter = "")]
+   |            ^^^^^^

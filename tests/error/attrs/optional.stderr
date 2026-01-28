@@ -1,0 +1,31 @@
+error: unused attribute: query does not need to be generated at runtime
+       note: no fields end up parsed as #[sqly(optional)] in generated query,
+             remove #[sqly(dynamic)] to indicate a static query is generated
+ --> tests/error/attrs/optional.rs:7:8
+  |
+7 | #[sqly(update_dynamic)]
+  |        ^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(dynamic)] on struct
+       note: queries with #[sqly(optional)] must be generated at runtime,
+             use #[sqly(dynamic)] to explicitly opt-in for this behavior
+  --> tests/error/attrs/optional.rs:16:8
+   |
+16 | #[sqly(insert_optional)]
+   |        ^^^^^^^^^^^^^^^
+
+error: unused attribute: query does not need to be generated at runtime
+       note: no fields end up parsed as #[sqly(optional)] in generated query,
+             remove #[sqly(dynamic)] to indicate a static query is generated
+  --> tests/error/attrs/optional.rs:23:18
+   |
+23 | #[sqly(optional, dynamic)]
+   |                  ^^^^^^^
+
+error: unused attribute: requires #[sqly(dynamic)] on struct
+       note: queries with #[sqly(optional)] must be generated at runtime,
+             use #[sqly(dynamic)] to explicitly opt-in for this behavior
+  --> tests/error/attrs/optional.rs:30:8
+   |
+30 | #[sqly(optional)]
+   |        ^^^^^^^^

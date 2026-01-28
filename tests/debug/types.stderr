@@ -1,0 +1,249 @@
+error: #[automatically_derived]
+       impl<'r> ::sqly::sqlx::FromRow<'r, ::sqly::sqlx::postgres::PgRow> for T3 {
+           fn from_row(row: &'r ::sqly::sqlx::postgres::PgRow) -> ::sqly::sqlx::Result<Self> {
+               #![allow(non_snake_case)]
+               use ::sqly::sqlx::Row as _;
+               ::sqly::sqlx::Result::Ok(T3 {
+                   t3: row.try_get::<i32, _>("t3")?,
+               })
+           }
+       }
+       #[automatically_derived]
+       impl ::sqly::Table for T3 {
+           const AUTOMATICALLY_DERIVED: () = ();
+       }
+  --> tests/debug/types.rs:18:21
+   |
+18 | #[sqly(table = "t", debug, from_row)]
+   |                     ^^^^^
+
+error: #[automatically_derived]
+       impl ::sqly::DeleteImpl for T1 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = T3;
+           type Query<'q, 'a> = ::sqly::sqlx::query::Query<
+               'q,
+               ::sqly::sqlx::Postgres,
+               <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+           >;
+           type From<'q, 'a> = (
+               &'q str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           type Sql<'a> = (
+               &'static str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           fn delete_sql(&self) -> Self::Sql<'_> {
+               let arg = (&(self.t1),);
+               use ::sqly::sqlx::Arguments as _;
+               let mut args = <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments::default();
+               args.reserve(
+                   1usize,
+                   0 + ::sqly::sqlx::Encode::<::sqly::sqlx::Postgres>::size_hint(arg.0),
+               );
+               let args = ::core::result::Result::Ok(args)
+                   .and_then(move |mut args| args.add(arg.0).map(move |()| args));
+               ("DELETE FROM t AS \"self\"\nWHERE\n\t\"t1\" = $1", args)
+           }
+           fn delete_from<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
+               ::sqly::sqlx::__query_with_result(query.0, query.1)
+           }
+       }
+       #[automatically_derived]
+       impl ::sqly::Delete for T1 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = <Self as ::sqly::DeleteImpl>::Table;
+           type Query<'a> = <Self as ::sqly::DeleteImpl>::Query<'static, 'a> where Self: 'a;
+           fn delete(&self) -> Self::Query<'_> {
+               <Self as ::sqly::DeleteImpl>::delete_from(
+                   <Self as ::sqly::DeleteImpl>::delete_sql(self),
+               )
+           }
+       }
+  --> tests/debug/types.rs:17:10
+   |
+17 | #[derive(Table)]
+   |          ^^^^^
+   |
+   = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: #[automatically_derived]
+       impl ::sqly::InsertImpl for T2 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = T3;
+           type Query<'q, 'a> = ::sqly::sqlx::query::Query<
+               'q,
+               ::sqly::sqlx::Postgres,
+               <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+           >;
+           type From<'q, 'a> = (
+               &'q str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           type Sql<'a> = (
+               &'static str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           fn insert_sql(&self) -> Self::Sql<'_> {
+               let arg = (&(self.t2),);
+               use ::sqly::sqlx::Arguments as _;
+               let mut args = <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments::default();
+               args.reserve(
+                   1usize,
+                   0 + ::sqly::sqlx::Encode::<::sqly::sqlx::Postgres>::size_hint(arg.0),
+               );
+               let args = ::core::result::Result::Ok(args)
+                   .and_then(move |mut args| args.add(arg.0).map(move |()| args));
+               ("INSERT INTO t AS \"self\" (\n\t\"t2\"\n) VALUES (\n\t$1\n)", args)
+           }
+           fn insert_from<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
+               ::sqly::sqlx::__query_with_result(query.0, query.1)
+           }
+       }
+       #[automatically_derived]
+       impl ::sqly::Insert for T2 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = <Self as ::sqly::InsertImpl>::Table;
+           type Query<'a> = <Self as ::sqly::InsertImpl>::Query<'static, 'a> where Self: 'a;
+           fn insert(&self) -> Self::Query<'_> {
+               <Self as ::sqly::InsertImpl>::insert_from(
+                   <Self as ::sqly::InsertImpl>::insert_sql(self),
+               )
+           }
+       }
+  --> tests/debug/types.rs:17:10
+   |
+17 | #[derive(Table)]
+   |          ^^^^^
+   |
+   = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: #[automatically_derived]
+       impl ::sqly::SelectImpl for T4 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = T3;
+           type Query<'q, 'a> = ::sqly::sqlx::query::Map<
+               'q,
+               ::sqly::sqlx::Postgres,
+               fn(::sqly::sqlx::postgres::PgRow) -> ::sqly::sqlx::Result<T3>,
+               <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+           >;
+           type From<'q, 'a> = (
+               &'q str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           type Sql<'a> = (
+               &'static str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           fn select_sql(&self) -> Self::Sql<'_> {
+               let arg = (&(self.t4),);
+               use ::sqly::sqlx::Arguments as _;
+               let mut args = <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments::default();
+               args.reserve(
+                   1usize,
+                   0 + ::sqly::sqlx::Encode::<::sqly::sqlx::Postgres>::size_hint(arg.0),
+               );
+               let args = ::core::result::Result::Ok(args)
+                   .and_then(move |mut args| args.add(arg.0).map(move |()| args));
+               (
+                   "SELECT\n\t\"self\".\"t3\"\nFROM t AS \"self\"\nWHERE\n\t\"self\".\"t4\" = $1",
+                   args,
+               )
+           }
+           fn select_from<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
+               ::sqly::sqlx::__query_with_result(query.0, query.1)
+                   .try_map(|row| { ::sqly::sqlx::FromRow::from_row(&row) })
+           }
+       }
+       #[automatically_derived]
+       impl ::sqly::Select for T4 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = <Self as ::sqly::SelectImpl>::Table;
+           type Query<'a> = <Self as ::sqly::SelectImpl>::Query<'static, 'a> where Self: 'a;
+           fn select(&self) -> Self::Query<'_> {
+               <Self as ::sqly::SelectImpl>::select_from(
+                   <Self as ::sqly::SelectImpl>::select_sql(self),
+               )
+           }
+       }
+  --> tests/debug/types.rs:24:20
+   |
+24 | #[sqly(table = T3, debug)]
+   |                    ^^^^^
+
+error: #[automatically_derived]
+       impl ::sqly::UpdateImpl for T5 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = T3;
+           type Query<'q, 'a> = ::sqly::sqlx::query::Query<
+               'q,
+               ::sqly::sqlx::Postgres,
+               <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+           >;
+           type From<'q, 'a> = (
+               &'q str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           type Sql<'a> = (
+               &'static str,
+               ::core::result::Result<
+                   <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments<'a>,
+                   ::sqly::sqlx::error::BoxDynError,
+               >,
+           );
+           fn update_sql(&self) -> Self::Sql<'_> {
+               let arg = (&(self.v5), &(self.k5));
+               use ::sqly::sqlx::Arguments as _;
+               let mut args = <::sqly::sqlx::Postgres as ::sqly::sqlx::Database>::Arguments::default();
+               args.reserve(
+                   2usize,
+                   0 + ::sqly::sqlx::Encode::<::sqly::sqlx::Postgres>::size_hint(arg.0)
+                       + ::sqly::sqlx::Encode::<::sqly::sqlx::Postgres>::size_hint(arg.1),
+               );
+               let args = ::core::result::Result::Ok(args)
+                   .and_then(move |mut args| args.add(arg.0).map(move |()| args))
+                   .and_then(move |mut args| args.add(arg.1).map(move |()| args));
+               ("UPDATE t AS \"self\"\nSET\n\t\"v5\" = $1\nWHERE\n\t\"k5\" = $2", args)
+           }
+           fn update_from<'q, 'a>(query: Self::From<'q, 'a>) -> Self::Query<'q, 'a> {
+               ::sqly::sqlx::__query_with_result(query.0, query.1)
+           }
+       }
+       #[automatically_derived]
+       impl ::sqly::Update for T5 {
+           const AUTOMATICALLY_DERIVED: () = ();
+           type Table = <Self as ::sqly::UpdateImpl>::Table;
+           type Query<'a> = <Self as ::sqly::UpdateImpl>::Query<'static, 'a> where Self: 'a;
+           fn update(&self) -> Self::Query<'_> {
+               <Self as ::sqly::UpdateImpl>::update_from(
+                   <Self as ::sqly::UpdateImpl>::update_sql(self),
+               )
+           }
+       }
+  --> tests/debug/types.rs:30:20
+   |
+30 | #[sqly(table = T3, debug)]
+   |                    ^^^^^

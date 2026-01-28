@@ -1,0 +1,39 @@
+error: invalid table identifier: expected path
+       note: #[sqly(returning)] requires a struct with #[derive(Table)]
+  --> tests/error/attrs/returning.rs:19:16
+   |
+19 | #[sqly(table = "")]
+   |                ^^
+
+error: missing attribute: the referenced table must have #[sqly(from_row)]
+       note: #[sqly(returning)] uses the sqlx::FromRow definition for its query
+  --> tests/error/attrs/returning.rs:26:16
+   |
+26 | #[sqly(table = T1)]
+   |                ^^
+
+error: invalid table: cannot return foreign table
+       note: #[sqly(returning)] requires a table without #[sqly(foreign)]
+  --> tests/error/attrs/returning.rs:34:20
+   |
+34 | #[sqly(returning = T2)]
+   |                    ^^
+
+error: invalid field: cannot return foreign field
+       note: #[sqly(returning)] requires a field without #[sqly(foreign)]
+  --> tests/error/attrs/returning.rs:43:32
+   |
+43 | #[sqly(insert_returning = T2 { t })]
+   |                                ^
+
+error: unknown field: identifier not present in T1
+  --> tests/error/attrs/returning.rs:50:32
+   |
+50 | #[sqly(delete_returning = T1 { t1 })]
+   |                                ^^
+
+error: unknown field: identifier not present in UpdateT8 or T8
+  --> tests/error/attrs/returning.rs:58:29
+   |
+58 | #[sqly(update_returning = { t })]
+   |                             ^

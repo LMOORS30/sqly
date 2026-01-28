@@ -1,0 +1,19 @@
+error: invalid table identifier: expected path
+       note: #[derive(Select)] requires a struct with #[derive(Table)]
+  --> tests/error/types/select.rs:10:16
+   |
+10 | #[sqly(table = "")]
+   |                ^^
+
+error: missing attribute: the referenced table must have #[sqly(from_row)]
+       note: #[derive(Select)] uses the sqlx::FromRow definition for its query
+  --> tests/error/types/select.rs:14:16
+   |
+14 | #[sqly(table = T1)]
+   |                ^^
+
+error: conflicting attributes: #[sqly(skip, filter)]
+  --> tests/error/types/select.rs:20:12
+   |
+20 |     #[sqly(skip, filter = "")]
+   |            ^^^^

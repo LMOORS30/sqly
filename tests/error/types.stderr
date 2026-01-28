@@ -1,0 +1,180 @@
+error: unused attribute: requires #[sqly(delete)]
+ --> tests/error/types.rs:7:8
+  |
+7 | #[sqly(delete_derive = Clone)]
+  |        ^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(insert)]
+  --> tests/error/types.rs:12:8
+   |
+12 | #[sqly(insert_visibility = ,)]
+   |        ^^^^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(select)]
+  --> tests/error/types.rs:17:8
+   |
+17 | #[sqly(select_filter = "")]
+   |        ^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(delete)]
+  --> tests/error/types.rs:22:8
+   |
+22 | #[sqly(delete_keyless)]
+   |        ^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(insert)]
+  --> tests/error/types.rs:27:8
+   |
+27 | #[sqly(insert_dynamic)]
+   |        ^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(update)]
+  --> tests/error/types.rs:32:8
+   |
+32 | #[sqly(update_optional)]
+   |        ^^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(delete)]
+  --> tests/error/types.rs:37:8
+   |
+37 | #[sqly(delete_returning)]
+   |        ^^^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(flat)]
+  --> tests/error/types.rs:42:8
+   |
+42 | #[sqly(from_flat)]
+   |        ^^^^^^^^^
+
+error: unused attribute: requires #[sqly(flat)]
+  --> tests/error/types.rs:47:8
+   |
+47 | #[sqly(try_from_flat)]
+   |        ^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(flat)]
+  --> tests/error/types.rs:52:8
+   |
+52 | #[sqly(flat_row)]
+   |        ^^^^^^^^
+
+error: unused value: requires #[sqly(update)] on struct
+  --> tests/error/types.rs:58:18
+   |
+58 |     #[sqly(key = update)]
+   |                  ^^^^^^
+
+error: duplicate value: from_row
+  --> tests/error/types.rs:65:29
+   |
+65 |     #[sqly(skip = from_row, from_row)]
+   |                             ^^^^^^^^
+
+error: conflicting attributes: #[sqly(skip, key)]
+  --> tests/error/types.rs:72:12
+   |
+72 |     #[sqly(skip, key)]
+   |            ^^^^
+
+error: ambiguous attributes: #[sqly(skip, key = ...)]
+  --> tests/error/types.rs:79:12
+   |
+79 |     #[sqly(skip, key = delete)]
+   |            ^^^^
+
+error: conflicting attributes: #[sqly(skip = select, key = select)]
+  --> tests/error/types.rs:86:19
+   |
+86 |     #[sqly(skip = select, key = select)]
+   |                   ^^^^^^
+
+error: unused attribute: requires #[sqly(insert)] on struct
+  --> tests/error/types.rs:93:12
+   |
+93 |     #[sqly(insert = "")]
+   |            ^^^^^^
+
+error: unused attribute: requires #[sqly(select)] on struct
+   --> tests/error/types.rs:100:12
+    |
+100 |     #[sqly(select_filter = "")]
+    |            ^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(update)] on struct
+   --> tests/error/types.rs:107:12
+    |
+107 |     #[sqly(update_optional = false)]
+    |            ^^^^^^^^^^^^^^^
+
+error: unused attribute: field not included in #[sqly(update)]
+   --> tests/error/types.rs:114:18
+    |
+114 |     #[sqly(skip, update = "")]
+    |                  ^^^^^^
+
+error: unused attribute: field not included in #[sqly(delete)]
+   --> tests/error/types.rs:121:12
+    |
+121 |     #[sqly(delete_filter = "")]
+    |            ^^^^^^^^^^^^^
+
+error: unused attribute: field not included in #[sqly(insert)]
+   --> tests/error/types.rs:128:12
+    |
+128 |     #[sqly(insert_optional, skip = insert)]
+    |            ^^^^^^^^^^^^^^^
+
+error: unused attribute: requires #[sqly(key)]
+   --> tests/error/types.rs:136:12
+    |
+136 |     #[sqly(filter = "")]
+    |            ^^^^^^
+
+error: unused attribute: requires #[sqly(key)]
+   --> tests/error/types.rs:143:12
+    |
+143 |     #[sqly(update_filter = "")]
+    |            ^^^^^^^^^^^^^
+
+error: conflicting attributes: #[sqly(skip, foreign)]
+   --> tests/error/types.rs:150:12
+    |
+150 |     #[sqly(skip, foreign)]
+    |            ^^^^
+
+error: conflicting attributes: #[sqly(skip, foreign)]
+   --> tests/error/types.rs:157:28
+    |
+157 |     #[sqly(foreign, skip = from_row)]
+    |                            ^^^^^^^^
+
+error: conflicting attributes: #[sqly(foreign, select)]
+   --> tests/error/types.rs:164:21
+    |
+164 |     #[sqly(foreign, select = "")]
+    |                     ^^^^^^
+
+error: unused attribute: requires #[sqly(foreign)]
+   --> tests/error/types.rs:171:12
+    |
+171 |     #[sqly(target = "")]
+    |            ^^^^^^
+
+error: conflicting attributes: #[sqly(from_flat, try_from_flat)]
+   --> tests/error/types.rs:176:26
+    |
+176 | #[sqly(table = "", flat, from_flat, try_from_flat)]
+    |                          ^^^^^^^^^
+
+error: conflicting attributes: #[sqly(from, try_from)]
+   --> tests/error/types.rs:185:12
+    |
+185 |     #[sqly(from = (), try_from = ())]
+    |            ^^^^
+
+error: conflicting attributes: #[sqly(from_flat)] with #[sqly(try_from)]
+       help: use #[sqly(try_from_flat)] instead
+   --> tests/error/types.rs:190:26
+    |
+190 | #[sqly(table = "", flat, from_flat)]
+    |                          ^^^^^^^^^

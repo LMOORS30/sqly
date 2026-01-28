@@ -40,31 +40,37 @@ sqly-macros = { workspace = true }
 [dev-dependencies]
 anyhow = { version = "1.0" }
 sqlx = { version = "0.8.6" }
+trybuild = "1.0"
 
 [[example]]
 name = "c1_derive"
 crate-type = ["lib"]
 required-features = ["postgres"]
+test = true
 
 [[example]]
 name = "c2_select"
 crate-type = ["lib"]
 required-features = ["postgres"]
+test = true
 
 [[example]]
 name = "c3_sequel"
 crate-type = ["lib"]
 required-features = ["postgres"]
+test = true
 
 # [[example]]
 # name = "c4_foreign"
 # crate-type = ["lib"]
 # required-features = ["postgres"]
+# test = true
 # 
 # [[example]]
 # name = "use_cases"
 # crate-type = ["lib"]
 # required-features = ["postgres"]
+# test = true
 
 [package.metadata.docs.rs]
 features = ["postgres", "serde"]

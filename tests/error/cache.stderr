@@ -1,0 +1,59 @@
+error: invalid path: generics not supported
+       note: required by sqly internals
+ --> tests/error/cache.rs:6:16
+  |
+6 | #[sqly(table = Option<()>)]
+  |                ^^^^^^^^^^
+
+error: invalid path: Self
+       note: enforced by sqly internals
+  --> tests/error/cache.rs:10:16
+   |
+10 | #[sqly(table = Self)]
+   |                ^^^^
+
+error: duplicate definition: #[derive(Table)] T1
+       note: cannot #[derive(Table)] on multiple structs with the same identifier
+  --> tests/error/cache.rs:29:14
+   |
+29 |     #[derive(Table)]
+   |              ^^^^^
+   |
+   = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: duplicate definition: #[derive(Select)] T2
+       note: cannot #[derive(Select)] on multiple structs with the same identifier
+  --> tests/error/cache.rs:32:14
+   |
+32 |     #[derive(Select)]
+   |              ^^^^^^
+   |
+   = note: this error originates in the derive macro `Select` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing identifier: "$" is expected to precede an identifier
+       help: use "$$" to escape and resolve to the literal "$"
+  --> tests/error/cache.rs:45:29
+   |
+45 | #[sqly(table = "", filter = "$t$")]
+   |                             ^^^^^
+
+error: invalid identifier: "$_" is expected to specify an identifier
+       help: use "$$_" to escape and resolve to the literal "$_"
+  --> tests/error/cache.rs:51:29
+   |
+51 | #[sqly(table = "", filter = "$$$_$")]
+   |                             ^^^^^^^
+
+error: unknown parameter: it
+          must be one of: i, t
+       help: use "$${ it }" to escape and resolve to the literal "${ it }"
+  --> tests/error/cache.rs:59:21
+   |
+59 |     #[sqly(insert = "{${ it }}")]
+   |                     ^^^^^^^^^^^
+
+error[E0412]: cannot find type `Missing` in this scope
+  --> tests/error/cache.rs:39:16
+   |
+39 | #[sqly(table = Missing)]
+   |                ^^^^^^^ not found in this scope

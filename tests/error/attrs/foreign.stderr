@@ -1,0 +1,40 @@
+error: invalid type: expected path
+       note: expected due to #[sqly(foreign)] attribute
+  --> tests/error/attrs/foreign.rs:15:15
+   |
+15 |     t: Option<&'static str>,
+   |               ^^^^^^^^^^^^
+
+error: missing target: no keys in T1
+       help: use #[sqly(target)] to disambiguate
+  --> tests/error/attrs/foreign.rs:21:12
+   |
+21 |     #[sqly(foreign, key, column = "t")]
+   |            ^^^^^^^
+
+error: ambiguous target: multiple keys in T3
+       help: use #[sqly(target)] to disambiguate
+  --> tests/error/attrs/foreign.rs:30:12
+   |
+30 |     #[sqly(foreign)]
+   |            ^^^^^^^
+
+error: unknown target: t has no matches in T3
+       help: use #[sqly(target = "column_name")] to join arbitrary columns
+  --> tests/error/attrs/foreign.rs:37:30
+   |
+37 |     #[sqly(foreign, target = t)]
+   |                              ^
+
+error: missing attribute: #[sqly(typed)]
+       note: type unknown since "t" does not identify a column in T3
+  --> tests/error/attrs/foreign.rs:44:21
+   |
+44 |     #[sqly(foreign, target = "t")]
+   |                     ^^^^^^
+
+error: ambiguous left join on T7: all fetched fields are nullable
+  --> tests/error/attrs/foreign.rs:59:12
+   |
+59 |     #[sqly(foreign, target = t1)]
+   |            ^^^^^^^

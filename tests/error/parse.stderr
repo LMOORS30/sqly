@@ -1,0 +1,196 @@
+error: expected struct
+ --> tests/error/parse.rs:5:10
+  |
+5 | #[derive(Table, Delete, Insert, Select, Update)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct
+ --> tests/error/parse.rs:5:17
+  |
+5 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                 ^^^^^^
+  |
+  = note: this error originates in the derive macro `Delete` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct
+ --> tests/error/parse.rs:5:25
+  |
+5 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                         ^^^^^^
+  |
+  = note: this error originates in the derive macro `Insert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct
+ --> tests/error/parse.rs:5:33
+  |
+5 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                                 ^^^^^^
+  |
+  = note: this error originates in the derive macro `Select` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct
+ --> tests/error/parse.rs:5:41
+  |
+5 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                                         ^^^^^^
+  |
+  = note: this error originates in the derive macro `Update` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct with named fields
+ --> tests/error/parse.rs:9:10
+  |
+9 | #[derive(Table, Delete, Insert, Select, Update)]
+  |          ^^^^^
+  |
+  = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct with named fields
+ --> tests/error/parse.rs:9:17
+  |
+9 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                 ^^^^^^
+  |
+  = note: this error originates in the derive macro `Delete` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct with named fields
+ --> tests/error/parse.rs:9:25
+  |
+9 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                         ^^^^^^
+  |
+  = note: this error originates in the derive macro `Insert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct with named fields
+ --> tests/error/parse.rs:9:33
+  |
+9 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                                 ^^^^^^
+  |
+  = note: this error originates in the derive macro `Select` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected struct with named fields
+ --> tests/error/parse.rs:9:41
+  |
+9 | #[derive(Table, Delete, Insert, Select, Update)]
+  |                                         ^^^^^^
+  |
+  = note: this error originates in the derive macro `Update` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing attribute: #[sqly(table)]
+  --> tests/error/parse.rs:13:10
+   |
+13 | #[derive(Table, Delete, Insert, Select, Update)]
+   |          ^^^^^
+   |
+   = note: this error originates in the derive macro `Table` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing attribute: #[sqly(table)]
+  --> tests/error/parse.rs:13:17
+   |
+13 | #[derive(Table, Delete, Insert, Select, Update)]
+   |                 ^^^^^^
+   |
+   = note: this error originates in the derive macro `Delete` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing attribute: #[sqly(table)]
+  --> tests/error/parse.rs:13:25
+   |
+13 | #[derive(Table, Delete, Insert, Select, Update)]
+   |                         ^^^^^^
+   |
+   = note: this error originates in the derive macro `Insert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing attribute: #[sqly(table)]
+  --> tests/error/parse.rs:13:33
+   |
+13 | #[derive(Table, Delete, Insert, Select, Update)]
+   |                                 ^^^^^^
+   |
+   = note: this error originates in the derive macro `Select` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: missing attribute: #[sqly(table)]
+  --> tests/error/parse.rs:13:41
+   |
+13 | #[derive(Table, Delete, Insert, Select, Update)]
+   |                                         ^^^^^^
+   |
+   = note: this error originates in the derive macro `Update` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: duplicate attribute: #[sqly(table)]
+  --> tests/error/parse.rs:17:20
+   |
+17 | #[sqly(table = "", table = "")]
+   |                    ^^^^^
+
+error: duplicate attribute: #[sqly(key)]
+  --> tests/error/parse.rs:24:12
+   |
+24 |     #[sqly(key)]
+   |            ^^^
+
+error: duplicate attribute: #[sqly(foreign)]
+  --> tests/error/parse.rs:32:12
+   |
+32 |     #[sqly(foreign)]
+   |            ^^^^^^^
+
+error: duplicate attribute: #[sqly(foreign)]
+  --> tests/error/parse.rs:40:12
+   |
+40 |     #[sqly(foreign = "")]
+   |            ^^^^^^^
+
+error: duplicate attribute: #[sqly(foreign)]
+  --> tests/error/parse.rs:47:21
+   |
+47 |     #[sqly(foreign, foreign)]
+   |                     ^^^^^^^
+
+error: unknown attribute: #[sqly(unknown)]
+  --> tests/error/parse.rs:52:8
+   |
+52 | #[sqly(unknown)]
+   |        ^^^^^^^
+
+error: unknown attribute: #[sqly(unknown)]
+  --> tests/error/parse.rs:58:12
+   |
+58 |     #[sqly(unknown = ())]
+   |            ^^^^^^^
+
+error: unknown variant: "unknown"
+        must be one of: "none", "lowercase", "UPPERCASE", "camelCase", "PascalCase", "snake_case", "kebab-case", "SCREAMING_SNAKE_CASE", "SCREAMING-KEBAB-CASE"
+  --> tests/error/parse.rs:63:21
+   |
+63 | #[sqly(rename_all = "unknown")]
+   |                     ^^^^^^^^^
+
+error: unknown variant: unknown
+        must be one of: query, types
+  --> tests/error/parse.rs:67:20
+   |
+67 | #[sqly(unchecked = unknown)]
+   |                    ^^^^^^^
+
+error: unknown variant: unknown
+        must be one of: warn, panic, stdout, stderr
+  --> tests/error/parse.rs:71:16
+   |
+71 | #[sqly(print = unknown)]
+   |                ^^^^^^^
+
+error: unknown variant: unknown
+        must be one of: delete, select, update
+  --> tests/error/parse.rs:77:18
+   |
+77 |     #[sqly(key = unknown)]
+   |                  ^^^^^^^
+
+error: unknown variant: unknown
+        must be one of: delete, insert, select, update, from_row
+  --> tests/error/parse.rs:84:19
+   |
+84 |     #[sqly(skip = unknown)]
+   |                   ^^^^^^^
