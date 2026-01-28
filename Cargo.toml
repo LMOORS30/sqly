@@ -11,6 +11,9 @@ authors = ["Lander Moors <lander.moors@decathlon.com>"]
 keywords = ["database", "async", "postgres"]
 categories = ["database", "asynchronous"]
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
 [package]
 name = "sqly"
 description = "A lightweight macro system on top of sqlx"
@@ -19,6 +22,9 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+
+[lints]
+workspace = true
 
 [features]
 postgres = ["sqlx/postgres", "sqly-macros/postgres"]
@@ -34,7 +40,7 @@ sqly-macros = { version = "=0.4.0", path = "sqly-macros", default-features = fal
 
 [dependencies]
 serde = { version = "1.0", default-features = false, optional = true }
-sqlx = { version = "0.8.0", default-features = false }
+sqlx = { version = "0.8.6", default-features = false }
 sqly-macros = { workspace = true }
 
 [dev-dependencies]
@@ -75,4 +81,3 @@ test = true
 [package.metadata.docs.rs]
 features = ["postgres", "serde"]
 targets = ["x86_64-unknown-linux-gnu"]
-rustdoc-args = ["--generate-link-to-definition"]

@@ -5,9 +5,6 @@ mod traits;
 pub use macros::*;
 pub use traits::*;
 
-#[doc(hidden)]
-#[cfg(feature = "serde")]
-pub use serde;
 pub use sqlx;
 
 /// Imports.
@@ -148,6 +145,7 @@ pub mod double_option {
 
 
 /// Utility module for [`#[sqly(dynamic)]`](docs::attr#dynamic).
+#[doc(hidden)]
 pub mod dynamic {
     /// Used in code generated for dynamic SQL functions.
     /// 
@@ -168,10 +166,7 @@ pub mod dynamic {
     impl<T> Bind<T> {
         /// Constructs a new bind with the given value and the index set to `None`.
         pub fn new(value: T) -> Self {
-            Self {
-                index: None,
-                value,
-            }
+            Self { value, index: None }
         }
 
         /// Binds the value to the arguments if not yet bound, returns the index of the bound argument.

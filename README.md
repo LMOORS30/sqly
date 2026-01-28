@@ -8,11 +8,8 @@ sqly is a lightweight macro system on top of [sqlx](https://github.com/launchbad
 
 It works by generating common SQL queries and associated structs at compile time, letting the generated queries be checked and executed by sqlx.
 
-This crate differs from ormx mainly by the added functionality of generating SQL `SELECT` queries with support for nested objects through SQL `JOIN` clauses. Additionally, `sqly::query!` macros can be used to further expand generated queries while still providing compile-time verification.
+This crate differs from ormx by the added functionality of generating SQL `SELECT` queries with support for nested objects through SQL `JOIN` clauses. Additionally, many more attributes are available to further customize the query generation and row decoding.
 
-This functionality is still under development (see [Roadmap](#roadmap)).
-<br>
-<br>
 ##### Cargo.toml
 ```toml
 [dependencies.sqly]
@@ -20,7 +17,7 @@ version = "0.4.0"
 features = ["postgres"]
 
 [dependencies.sqlx]
-version = "0.8.0"
+version = "0.8.6"
 default-features = false
 
 [profile.dev.package.sqlx-macros]
@@ -73,11 +70,13 @@ Currently only postgres is supported.
 - [X] `#[sqly(returning)]` for SQL `RETURNING` clause
 
 **Draft**
+- [ ] `#[sqly(flatten)]` for nested structs
 - [ ] `#[sqly(group)]` for SQL `GROUP BY` clause
 - [ ] `#[sqly(distinct, order, limit, offset)]` clauses
 - [ ] Decoding database rows unchecked or by index
 - [ ] Custom attributes in generated structs
 - [ ] Support for generic structs
+- [ ] Output dummy code on error
 - [ ] ... ?
 
 <br>
