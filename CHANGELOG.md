@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-27
+
+### Added
+- Print as panic, warn, stdout or stderr
+- Add type override escape hatch to `#[sqly(column)]`
+- `#[sqly(unchecked = types)]` for sqlx `_unchecked!` variants
+- `#[sqly(default)]` with rust expressions
+- `#[sqly(try_from)]` for fallible decoding conversion
+- Error reporting for invalid paths
+- Parentheses for attribute values
+- Example chapters
+- Trybuild testing
+- Cargo check build test
+
+### Changed
+- Serde feature for double_option
+- Add manual assignment to `#[sqly(update)]`
+- Remove surrounding quotes from `#[sqly(table)]`
+- Rename to `#[sqly(rename_all)]`
+- Add `"$table"` to `#[sqly(filter)]`
+- Rework `#[sqly(dynamic)]` for consistency
+- `#[sqly(keyless)]` for consistency
+- `automatically_derived` constant
+
+### Fixed
+- Consistent error reporting
+- Consistent field resolution for `#[sqly(returning)]`
+- Correct output for queries with static filter
+- Less verbose queries for simple cases
+- Correct output for tables with unchecked types
+- Prevent `non_snake_case` warnings
+
 ## [0.4.0] - 2025-04-10
 
 ### Added

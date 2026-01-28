@@ -3,7 +3,7 @@ members = ["examples/c0_intro"]
 default-members = [".", "sqly-macros"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/LMOORS30/sqly"
@@ -36,7 +36,7 @@ checked = ["sqlx/macros", "sqly-macros/checked"]
 default = ["checked"]
 
 [workspace.dependencies]
-sqly-macros = { version = "=0.4.0", path = "sqly-macros", default-features = false }
+sqly-macros = { version = "=0.5.0", path = "sqly-macros", default-features = false }
 
 [dependencies]
 serde = { version = "1.0", default-features = false, optional = true }

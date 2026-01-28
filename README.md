@@ -13,7 +13,7 @@ This crate differs from ormx by the added functionality of generating SQL `SELEC
 ##### Cargo.toml
 ```toml
 [dependencies.sqly]
-version = "0.4.0"
+version = "0.5.0"
 features = ["postgres"]
 
 [dependencies.sqlx]

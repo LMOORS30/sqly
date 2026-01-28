@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 dotenvy = "0.15"
 sqlx = { version = "0.8.6", features = ["runtime-tokio"], default-features = false }
-sqly = { version = "0.4.0", features = ["postgres"], default-features = false }
+sqly = { version = "0.5.0", features = ["postgres"], default-features = false }
 tokio = { version = "1.44", features = ["macros", "rt-multi-thread"] }
 
 # # optimize derive macros for improved compile times
